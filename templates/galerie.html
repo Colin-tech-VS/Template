@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Galerie - JB Artiste Peintre{% endblock %}
+
+{% block content %}
+
+<style>
+/* ===== GALERIE SPECIFIQUE ===== */
+.seo-intro {
+    text-align: center;
+    padding: 40px 20px;
+}
+.seo-intro h1 {
+    font-size: 32px;
+    color: #1E3A8A;
+    margin-bottom: 20px;
+}
+.seo-intro p {
+    font-size: 16px;
+    color: #555;
+    line-height: 1.6;
+}
+
+/* GRID CARDS */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.gallery-card {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    height: 0;
+    padding-bottom: 100%; /* carré */
+}
+
+.gallery-image-wrapper {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.gallery-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.gallery-card:hover img {
+    transform: scale(1.05);
+}
+
+.gallery-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s;
+}
+
+.gallery-card:hover .gallery-overlay {
+    opacity: 1;
+}
+
+.gallery-title {
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+    font-size: 18px;
+    padding: 0 10px;
+}
+
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.favorite-btn:hover { background: rgba(255,255,255,1); }
+
+@media (max-width: 768px) {
+    .gallery-card {height: auto; padding-bottom: 0;}
+    .gallery-image-wrapper {height: 200px;}
+}
+</style>
+
+<!-- INTRODUCTION SEO -->
+<section class="section seo-intro">
+    <h1>Galerie des œuvres de Jean-Baptiste</h1>
+    <p>Découvrez la collection complète des peintures originales de Jean-Baptiste, artiste peintre moderne et abstrait. Explorez chaque œuvre et laissez-vous inspirer par ses créations uniques, disponibles en ligne et en boutique.</p>
+</section>
+
+<!-- GALERIE -->
+<section class="section" aria-labelledby="gallery-section">
+    <h2 id="gallery-section" style="text-align:center;">Galerie</h2>
+
+    {% if paintings %}
+    <div class="gallery-grid">
+        {% for p in paintings %}
+        <article class="gallery-card">
+            <div class="gallery-image-wrapper">
+                <img src="{{ url_for('static', filename=p[2]) }}" alt="Peinture '{{ p[1] }}' par Jean-Baptiste">
+                <div class="gallery-overlay">
+                    <span class="gallery-title">{{ p[1] }}</span>
+                </div>
+                {% if p[0] in favorite_ids %}
+                    <a href="{{ url_for('remove_favorite', painting_id=p[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+                {% else %}
+                    <a href="{{ url_for('add_favorite', painting_id=p[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+        <p style="text-align:center;">Aucune peinture disponible pour le moment.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

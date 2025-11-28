@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Toutes les commandes{% endblock %}
+
+{% block content %}
+<style>
+.orders-section {padding: 60px 20px; max-width: 1200px; margin: 0 auto;}
+.orders-section h2 {font-size: 28px; color: #1E3A8A; text-align: center; margin-bottom: 40px;}
+.orders-list {display: grid; grid-template-columns: 1fr; gap: 20px;}
+.order-card {background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}
+.order-header {display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f0f0f0;}
+.order-header h3 {color: #1E3A8A; margin: 0;}
+.header-right {display: flex; align-items: center; gap: 15px;}
+.order-status {display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: 600;}
+.order-status.en-cours {background: #FFF3CD; color: #856404;}
+.order-status.confirmée {background: #CCE5FF; color: #004085;}
+.order-status.expédiée {background: #D1ECF1; color: #0C5460;}
+.order-status.livrée {background: #D4EDDA; color: #155724;}
+.btn-primary {display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border-radius: 8px; text-decoration: none; transition: background 0.3s; font-size: 14px;}
+.btn-primary:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+.order-info-card {background: #f9f9f9; border-radius: 10px; padding: 15px; margin-bottom: 20px;}
+.info-item {padding: 8px 0; display: flex; justify-content: space-between;}
+.info-item strong {color: #333;}
+.total-price {color: #1E3A8A; font-weight: 700;}
+.order-items {display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;}
+.order-item {display: flex; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 8px;}
+.order-item img {width: 60px; height: 60px; object-fit: cover; border-radius: 5px;}
+.order-item-info {flex: 1;}
+.order-item-info .name {font-weight: 600; color: #1E3A8A; margin: 0;}
+.order-item-info .details {font-size: 12px; color: #666; margin: 0;}
+</style>
+<section class="section orders-section">
+    <h2>Historique des commandes</h2>
+
+    {% if orders %}
+    <div class="orders-list">
+
+        {% for order in orders %}
+        <div class="order-card">
+            
+            <!-- EN-TETE : titre + statut + bouton facture -->
+            <div class="order-header">
+                <h3>Commande #{{ order[0] }}</h3>
+                <div class="header-right">
+                    <span class="order-status {{ order[6]|lower }}">
+                        {{ order[6] }}
+                    </span>
+                    <a href="{{ url_for('download_invoice', order_id=order[0]) }}" class="btn-primary">Télécharger la facture</a>
+                </div>
+            </div>
+
+            <!-- Infos client -->
+            <div class="order-info-card">
+                <div class="info-item"><strong>Client :</strong> {{ order[1] }}</div>
+                <div class="info-item"><strong>Email :</strong> {{ order[2] }}</div>
+                <div class="info-item"><strong>Adresse :</strong> {{ order[3] }}</div>
+                <div class="info-item"><strong>Date :</strong> {{ order[5] }}</div>
+                <div class="info-item"><strong>Total :</strong> <span class="total-price">{{ order[4] }} €</span></div>
+            </div>
+
+            <!-- Articles -->
+            <div class="order-items">
+                {% for item in all_items[order[0]] %}
+                <div class="order-item">
+                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                    <div class="order-item-info">
+                        <p class="name">{{ item[1] }}</p>
+                        <p class="details">{{ item[4] }} × {{ item[3] }} €</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+    {% else %}
+        <p style="text-align:center; font-size:18px;">Aucune commande pour le moment.</p>
+    {% endif %}
+</section>
+{% endblock %}

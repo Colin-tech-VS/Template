@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Commande réussie{% endblock %}
+
+{% block content %}
+<style>
+.success-container {max-width: 600px; margin: 60px auto; background: white; border-radius: 15px; padding: 40px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); text-align: center;}
+.success-container p {color: #666; line-height: 1.6; margin-bottom: 20px;}
+.btn-back {display: inline-block; padding: 12px 25px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border-radius: 8px; text-decoration: none; transition: background 0.3s;}
+.btn-back:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+</style>
+<section class="section">
+    <h2>Merci pour votre commande !</h2>
+
+    <div class="success-container">
+        <p>Votre commande <strong>#{{ order_id }}</strong> a été enregistrée avec succès.</p>
+        <p>Total payé : <strong>{{ total_price }} €</strong></p>
+        <p>Vous recevrez un email de confirmation sous peu.</p>
+        <a href="/" class="btn-back">Retour à l'accueil</a>
+    </div>
+</section>
+{% endblock %}

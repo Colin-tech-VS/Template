@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Panier{% endblock %}
+
+{% block content %}
+<style>
+/* Section panier */
+.cart-new {
+    padding: 50px 20px;
+    max-width: 1200px;
+    margin: auto;
+    font-family: 'Arial', sans-serif;
+}
+
+.cart-new h2 {
+    text-align: center;
+    color: var(--content-text-color, #1E3A8A);
+    font-size: 30px;
+    margin-bottom: 40px;
+}
+
+/* Conteneur principal */
+.cart-new__grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 25px;
+}
+
+/* Liste des cartes produits */
+.cart-new__list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Carte produit moderne */
+.cart-new__card {
+    display: flex;             
+    background: #fff;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    height: 180px; /* définit la hauteur du bloc */
+}
+
+.cart-new__card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+/* Image produit */
+.cart-new__image-container {
+    width: 180px;             
+    height: 100%;             /* prend toute la hauteur du bloc */
+    flex-shrink: 0;           
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border-radius: 15px 0 0 15px; /* arrondi à gauche uniquement */
+    overflow: hidden;
+    position: relative;
+}
+
+.cart-new__image-container img {
+    width: 100%;               /* prend toute la largeur du container */
+    height: 100%;              /* prend toute la hauteur du container */
+    object-fit: cover;         /* couvre le container sans déformation */
+    border-radius: 0;          /* plus d'arrondi interne pour remplir le bloc */
+    transition: transform 0.3s;
+}
+
+.cart-new__card:hover .cart-new__image-container img {
+    transform: scale(1.05);
+}
+
+/* Bouton supprimer */
+.cart-new__remove {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #FF6347;
+    font-size: 20px;
+    text-decoration: none;
+    transition: background 0.3s, color 0.2s;
+}
+.cart-new__remove:hover {
+    background: rgba(255,255,255,1);
+    color: #FF0000;
+}
+
+/* Infos produit */
+.cart-new__details {
+    flex: 1;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.cart-new__title-price {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.cart-new__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--content-text-color, #1E3A8A);
+    margin: 0;
+}
+.cart-new__price {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-color, #1E3A8A);
+}
+.cart-new__description {
+    color: #555;
+    font-size: 14px;
+    margin: 10px 0;
+}
+
+/* Contrôles quantité */
+.cart-new__quantity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cart-new__qty-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-color, #1E3A8A);
+    color: var(--button-text-color, #fff);
+    text-align: center;
+    line-height: 32px;
+    font-weight: bold;
+    text-decoration: none;
+    transition: transform 0.2s, background 0.3s;
+}
+.cart-new__qty-btn:hover {
+    background: var(--button-hover-color, #3B65C4);
+    transform: scale(1.1);
+}
+.cart-new__qty {
+    min-width: 25px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Sous-total */
+.cart-new__subtotal {
+    text-align: right;
+    color: #555;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+/* Récapitulatif */
+.cart-new__summary {
+    background: #fff;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+}
+.cart-new__summary h3 {
+    font-size: 22px;
+    color: var(--content-text-color, #1E3A8A);
+    margin-bottom: 20px;
+}
+.cart-new__summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.cart-new__summary-product {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.cart-new__summary-product img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.cart-new__summary-price {
+    font-weight: 700;
+    color: var(--primary-color, #1E3A8A);
+}
+.cart-new__summary-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-color, #1E3A8A);
+    margin-top: 15px;
+    border-top: 2px solid var(--primary-color, #1E3A8A);
+    padding-top: 15px;
+}
+.cart-new__checkout {
+    display: inline-block;
+    padding: 12px 25px;
+    background: linear-gradient(90deg, var(--primary-color, #1E3A8A), var(--secondary-color, #3B65C4)) !important;
+    color: var(--button-text-color, #fff) !important;
+    border-radius: 10px;
+    text-decoration: none !important;
+    margin-top: 20px;
+    transition: transform 0.2s, background 0.3s;
+}
+.cart-new__checkout:hover {
+    transform: scale(1.05);
+    background: var(--button-hover-color, #9C27B0) !important;
+    color: var(--button-text-color, #fff) !important;
+    text-decoration: none !important;
+}
+
+/* Panier vide */
+.cart-new__empty {
+    text-align: center;
+    font-size: 18px;
+    color: #555;
+    padding: 60px 20px;
+}
+
+@media (max-width: 768px) {
+    .cart-new__grid {
+        grid-template-columns: 1fr;
+    }
+    .cart-new__card {
+        flex-direction: column;
+    }
+    .cart-new__image-container {
+        width: 100%;
+        height: 220px;
+        border-radius: 15px 15px 0 0;
+    }
+    .cart-new__subtotal {
+        text-align: left;
+    }
+}
+</style>
+
+<section class="cart-new">
+    <h2>Votre Panier</h2>
+
+    {% if items %}
+    <div class="cart-new__grid">
+        <div class="cart-new__list">
+            {% for item in items %}
+            <div class="cart-new__card">
+                <div class="cart-new__image-container">
+                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                    <a href="/remove_from_cart/{{ item[0] }}" class="cart-new__remove">×</a>
+                </div>
+                <div class="cart-new__details">
+                    <div class="cart-new__title-price">
+                        <h3 class="cart-new__title">{{ item[1] }}</h3>
+                        <span class="cart-new__price">{{ item[3] }} €</span>
+                    </div>
+                    <p class="cart-new__description">{{ item[5] or 'Aucune description disponible.' }}</p>
+                    <div class="cart-new__quantity">
+                        <a href="/decrease_from_cart/{{ item[0] }}" class="cart-new__qty-btn">-</a>
+                        <span class="cart-new__qty">{{ item[4] }}</span>
+                        <a href="/add_to_cart/{{ item[0] }}" class="cart-new__qty-btn">+</a>
+                    </div>
+                    <p class="cart-new__subtotal">Sous-total : <strong>{{ (item[3] * item[4])|round(2) }} €</strong></p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="cart-new__summary">
+            <h3>Récapitulatif</h3>
+            {% for item in items %}
+            <div class="cart-new__summary-row">
+                <div class="cart-new__summary-product">
+                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                    <span>{{ item[1] }} (x{{ item[4] }})</span>
+                </div>
+                <span class="cart-new__summary-price">{{ (item[3] * item[4])|round(2) }} €</span>
+            </div>
+            {% endfor %}
+            <div class="cart-new__summary-total">
+                <span>Total :</span>
+                <strong>{{ total_price }} €</strong>
+            </div>
+            <a href="/checkout" class="cart-new__checkout">Passer à la commande</a>
+        </div>
+    </div>
+
+    {% else %}
+    <p class="cart-new__empty">Votre panier est vide.</p>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Jean-Baptiste — Artiste Peintre{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('dynamic_colors') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* USER MENU / MEGA MENU */
+        .user-menu {position: relative; cursor: pointer;}
+        .user-menu > a {cursor: pointer; user-select: none;}
+        
+        .user-menu-content {
+            display: none;
+            position: absolute;
+            top: calc(100% + 5px);
+            right: -20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 0;
+            min-width: 700px;
+            z-index: 999;
+            overflow: hidden;
+        }
+        
+        .user-menu-content.show {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0;
+            animation: slideDown 0.2s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {opacity: 0; transform: translateY(-10px);}
+            to {opacity: 1; transform: translateY(0);}
+        }
+        
+        .user-menu-links {
+            display: flex;
+            flex-direction: column;
+            padding: 20px 15px;
+            border-right: 1px solid #f0f0f0;
+        }
+        
+        .user-menu-links:last-child {
+            border-right: none;
+        }
+        
+        .user-menu-links a {
+            color: #1E3A8A;
+            text-decoration: none;
+            padding: 10px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            display: block;
+        }
+        
+        .user-menu-links a:hover {
+            background: #e8f0ff;
+            transform: translateX(4px);
+            padding: 10px 12px;
+        }
+        
+        .user-menu-section-title {
+            font-weight: 700;
+            color: #1E3A8A;
+            margin-top: 8px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .user-menu-links hr {
+            margin: 8px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .cart-preview {
+            padding: 20px 15px;
+            background: linear-gradient(135deg, #f9fafb 0%, #f0f4f8 100%);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .cart-preview .user-menu-section-title {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .cart-item {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: all 0.2s ease;
+        }
+        
+        .cart-item:hover {
+            border-color: #1E3A8A;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1);
+        }
+        
+        .cart-item:last-of-type {
+            margin-bottom: 0;
+        }
+        
+        .cart-item img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        
+        .cart-item-details {
+            flex: 1;
+            font-size: 13px;
+        }
+        
+        .cart-item-details p {
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+        
+        .cart-item-details p:first-child {
+            font-weight: 600;
+            color: #1E3A8A;
+            margin-bottom: 4px;
+        }
+        
+        .cart-item-details p:last-child {
+            color: #666;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .mega-menu-cart-btn {
+            display: block;
+            width: calc(100% - 24px);
+            padding: 10px;
+            background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            text-align: center;
+            margin-top: 12px;
+            margin-left: 12px;
+            margin-right: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        
+        .mega-menu-cart-btn:hover {
+            background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+            box-shadow: 0 8px 20px rgba(30, 58, 138, 0.3);
+            padding: 10px;
+        }
+        
+        /* FLASH MESSAGES */
+        .flash-container {position: fixed; top: 70px; right: 20px; z-index: 2000; max-width: 400px;}
+        .flash-message {background: #4CAF50; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out;}
+        .flash-message.hide {animation: slideOut 0.3s ease-out forwards;}
+        @keyframes slideIn {from {transform: translateX(400px); opacity: 0;} to {transform: translateX(0); opacity: 1;}}
+        @keyframes slideOut {to {transform: translateX(400px); opacity: 0;}}
+    </style>
+</head>
+<body>
+
+    <!-- NAVIGATION -->
+    <nav>
+        <div class="logo">JB Art</div>
+        <div class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <ul id="nav-menu">
+            <li><a href="/">Accueil</a></li>
+            <li><a href="/galerie">Galerie</a></li>
+            <li><a href="/boutique">Boutique</a></li>
+            <li><a href="/expositions">Expositions</a></li>
+            <li><a href="/about">À propos</a></li>
+            <li><a href="/contact">Contact</a></li>
+
+            <!-- MEGA MENU UTILISATEUR -->
+            <li class="user-menu">
+                <a onclick="toggleUserMenu()">Mon Compte</a>
+                <div class="user-menu-content">
+
+                    <!-- COLONNE 1: COMPTE UTILISATEUR -->
+                    <div class="user-menu-links">
+                        {% if session.get('user_id') %}
+                            <div class="user-menu-section-title">👤 Mon Compte</div>
+                            <a href="/profile">Profil</a>
+                            <a href="/orders">Mes Commandes</a>
+                            <a href="/logout">Déconnexion</a>
+                        {% else %}
+                            <div class="user-menu-section-title">🔐 Authentification</div>
+                            <a href="/login">Connexion</a>
+                            <a href="/register">Inscription</a>
+                        {% endif %}
+                    </div>
+
+                    <!-- COLONNE 2: ADMINISTRATION (si admin) -->
+                    <div class="user-menu-links">
+                    {% if session.get('user_id') and is_admin %}
+                        <div class="user-menu-section-title" style="color: #FF6347;">⚙️ Administration</div>
+                        <a href="/admin" style="color: #FF6347; font-weight: 700;">Tableau de bord</a>
+                        <a href="/admin/paintings" style="color: #FF6347;">Peintures</a>
+                        <a href="/admin/exhibitions" style="color: #FF6347;">Expositions</a>
+                        <a href="/admin/orders" style="color: #FF6347;">Commandes</a>
+                        <a href="/admin/users" style="color: #FF6347;">Utilisateurs</a>
+                        <a href="/admin/settings" style="color: #FF6347;">Paramètres</a>
+                        <a href="/admin/add" style="color: #FF6347;">➕ Ajouter</a>
+                    {% else %}
+                        <div class="user-menu-section-title">🏪 Navigation</div>
+                        <a href="/">Accueil</a>
+                        <a href="/galerie">Galerie</a>
+                        <a href="/boutique">Boutique</a>
+                    {% endif %}
+                </div>
+
+                    <!-- COLONNE 3: PANIER -->
+                    <div class="cart-preview">
+                        <div class="user-menu-section-title">🛒 Panier</div>
+                        {% if cart_items %}
+                            {% for item in cart_items %}
+                                <div class="cart-item">
+                                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                                    <div class="cart-item-details">
+                                        <p>{{ item[1] }}</p>
+                                        <p>{{ item[4] }} × {{ item[3] }} €</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            <a href="{{ url_for('panier') }}" class="mega-menu-cart-btn">Voir mon panier</a>
+                        {% else %}
+                            <p style="color:#666; font-size:13px;">Votre panier est vide</p>
+                        {% endif %}
+                    </div>
+
+                </div>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div class="flash-container">
+            {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- CONTENU -->
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include 'footer.html' %}
+
+    <!-- SCRIPTS -->
+    <script>
+        function toggleMenu() {
+            document.getElementById("nav-menu").classList.toggle("show");
+        }
+
+        function toggleUserMenu() {
+            const menu = document.querySelector('.user-menu-content');
+            menu.classList.toggle('show');
+        }
+
+        window.addEventListener('click', function(e) {
+            const userMenu = document.querySelector('.user-menu');
+            const menuContent = document.querySelector('.user-menu-content');
+            if (!userMenu.contains(e.target)) {
+                menuContent.classList.remove('show');
+            }
+        });
+
+        window.addEventListener("DOMContentLoaded", () => {
+            const flashMessages = document.querySelectorAll(".flash-message");
+            flashMessages.forEach(msg => {
+                setTimeout(() => {
+                    msg.classList.add('hide');
+                    setTimeout(() => msg.remove(), 500);
+                }, 3000);
+            });
+        });
+    </script>
+</body>
+</html>

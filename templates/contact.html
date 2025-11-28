@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Contact{% endblock %}
+
+{% block content %}
+<style>
+.auth-section {display: flex; justify-content: center; padding: 60px 20px;}
+.auth-container {background: white; border-radius: 15px; padding: 40px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); max-width: 500px; width: 100%;}
+.auth-container h2 {color: #1E3A8A; text-align: center; margin-bottom: 30px; font-size: 28px;}
+.auth-form {display: flex; flex-direction: column; gap: 15px;}
+.auth-form label {font-weight: 600; color: #333;}
+.auth-form input,.auth-form textarea {padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-family: Poppins, sans-serif;}
+.auth-form textarea {resize: vertical; min-height: 150px;}
+.auth-form button {padding: 12px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.3s;}
+.auth-form button:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+.flash-messages {list-style: none; padding: 0; margin-bottom: 20px;}
+.flash-messages li {background: #f44336; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;}
+</style>
+<section class="section auth-section">
+    <div class="auth-container">
+        <h2>Contactez-moi</h2>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul class="flash-messages">
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+            <label for="name">Nom</label>
+            <input type="text" id="name" name="name" placeholder="Votre nom" required>
+
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="Votre email" required>
+
+            <label for="message">Message</label>
+            <textarea id="message" name="message" rows="5" placeholder="Votre message..." required></textarea>
+
+            <button type="submit" class="btn-primary">Envoyer</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

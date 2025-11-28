@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Expositions — Jean-Baptiste{% endblock %}
+
+{% block content %}
+
+<style>
+/* ===== INTRO ===== */
+.seo-intro {
+    text-align: center;
+    padding: 40px 20px;
+}
+.seo-intro h1 {
+    font-size: 32px;
+    color: #1E3A8A;
+    margin-bottom: 20px;
+}
+.seo-intro p {
+    font-size: 16px;
+    color: #555;
+    line-height: 1.6;
+}
+
+/* ===== HERO PROCHAINE EXPOSITION ===== */
+.hero-expo-card {
+    position: relative;
+    width: 90%;
+    max-width: 1000px;
+    margin: 0 auto 50px;
+    border-radius: 16px;
+    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    min-height: 350px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+.hero-expo-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.65));
+}
+.hero-expo-content {
+    position: relative;
+    z-index: 2;
+    padding: 30px;
+    color: #fff;
+}
+.hero-expo-content h2 {
+    font-size: 2.2rem;
+    margin-bottom: 12px;
+    font-weight: 700;
+}
+.hero-expo-content .hero-meta {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+}
+.hero-expo-content p {
+    font-size: 1rem;
+    margin-bottom: 12px;
+}
+.hero-expo-content .btn-primary {
+    display: block;
+    width: fit-content;
+    margin: 12px auto 0;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    text-align: center;
+    transition: background 0.3s;
+}
+.hero-expo-content .btn-primary:hover {
+    background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+}
+
+/* ===== GRID DES AUTRES EXPOSITIONS ===== */
+.expo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding: 0 20px 50px;
+}
+
+.expo-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+.expo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+.expo-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+}
+.expo-card-content {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.expo-card-content h3 {
+    margin: 0;
+    color: #1E3A8A;
+    font-size: 18px;
+    font-weight: 600;
+}
+.expo-card-content .expo-meta {
+    display: flex;
+    flex-direction: column; /* empile les spans verticalement */
+    align-items: left;    /* centre horizontalement */
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 6px;
+    gap: 4px; /* espace entre lieu et date */
+}
+
+.expo-card-content p {
+    font-size: 14px;
+    color: #444;
+    line-height: 1.4;
+}
+.expo-card-content .btn-primary {
+    display: block;
+    width: fit-content;
+    margin: 8px auto 0;
+    font-size: 0.9rem;
+    padding: 6px 12px;
+    text-align: center;
+}
+
+/* RESPONSIVE */
+@media (max-width:768px){
+    .hero-expo-card {min-height: 220px; padding: 20px;}
+    .expo-card img {height: 150px;}
+}
+</style>
+
+<!-- INTRO -->
+<section class="seo-intro">
+    <h1>Expositions de Jean-Baptiste</h1>
+    <p>Découvrez les expositions passées et à venir. La prochaine exposition est mise en valeur ci-dessous.</p>
+</section>
+
+<!-- HERO PROCHAINE EXPOSITION -->
+{% if latest_expo %}
+<section class="hero-expo-card" style="background-image: url({{ latest_expo[5] and url_for('static', filename='expo_images/' ~ latest_expo[5]) or '' }});">
+    <div class="hero-expo-overlay"></div>
+    <div class="hero-expo-content">
+        <h2>{{ latest_expo[1] }}</h2>
+        <div class="hero-meta">
+            <span>📍 {{ latest_expo[2] }}</span>
+            <span>📅 {{ latest_expo[3] }}</span>
+        </div>
+        {% if latest_expo[4] %}
+            <p>{{ latest_expo[4]|truncate(200) }}</p>
+        {% endif %}
+        <a href="{{ url_for('expo_detail_page', expo_id=latest_expo[0]) }}" class="btn-primary">En savoir plus</a>
+    </div>
+</section>
+{% endif %}
+
+<!-- GRID DES AUTRES EXPOSITIONS -->
+<section aria-labelledby="expos-grid">
+    <h2 id="expos-grid" style="text-align:center; margin-bottom:24px;">Toutes les expositions</h2>
+    {% if other_expos %}
+    <div class="expo-grid">
+        {% for expo in other_expos %}
+        <article class="expo-card">
+            {% if expo[5] %}
+            <img src="{{ url_for('static', filename='expo_images/' ~ expo[5]) }}" alt="{{ expo[1] }}">
+            {% endif %}
+            <div class="expo-card-content">
+                <h3>{{ expo[1] }}</h3>
+                <div class="expo-meta">
+                    <span>📍 {{ expo[2] }}</span>
+                    <span>📅 {{ expo[3] }}</span>
+                </div>
+                {% if expo[4] %}
+                <p>{{ expo[4]|truncate(120) }}</p>
+                {% endif %}
+                <a href="{{ url_for('expo_detail_page', expo_id=expo[0]) }}" class="btn-primary">En savoir plus</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align:center;">Aucune exposition disponible pour le moment.</p>
+    {% endif %}
+</section>
+
+{% endblock %}

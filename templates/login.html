@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<section class="section auth-section">
+    <div class="add-painting-form auth-container" style="max-width: 400px; margin: 0 auto; padding: 30px;">
+        <h2 style="text-align:center; color:#1E3A8A; margin-bottom:20px;">Se connecter</h2>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-container">
+            {% for message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form" style="display:flex; flex-direction:column; gap:15px;">
+            <label for="email" style="font-weight:600;">Email</label>
+            <input type="email" id="email" name="email" placeholder="Votre email" required>
+
+            <label for="password" style="font-weight:600;">Mot de passe</label>
+            <input type="password" id="password" name="password" placeholder="Votre mot de passe" required>
+
+            <button type="submit" class="latest-artwork button" style="width:100%; padding:12px; background:linear-gradient(90deg, #1E3A8A, #3B65C4); color:white; font-size:16px; border-radius:8px; cursor:pointer;">Se connecter</button>
+        </form>
+
+        <p class="auth-footer" style="text-align:center; margin-top:15px;">Pas encore inscrit ? <a href="{{ url_for('register') }}" style="color:#1E3A8A; font-weight:600;">Créer un compte</a></p>
+    </div>
+</section>
+{% endblock %}

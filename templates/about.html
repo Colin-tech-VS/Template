@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}À propos - JB Artiste Peintre{% endblock %}
+
+{% block content %}
+
+<style>
+/* INTRO */
+.seo-intro {text-align: center; padding: 40px 20px;}
+.seo-intro h1 {font-size: 32px; color: #1E3A8A; margin-bottom: 20px;}
+.seo-intro p {font-size: 16px; color: #555; line-height: 1.6;}
+
+/* BIO */
+.center-container {max-width: 900px; margin: 0 auto;}
+.content-box {background: white; border-radius: 15px; padding: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}
+.about-text p {font-size: 16px; line-height: 1.6; color: #333; margin-bottom: 15px;}
+.about-buttons {display: flex; gap: 15px; margin-top: 20px;}
+.btn-primary {display: inline-block; padding: 12px 25px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border-radius: 8px; text-decoration: none; text-align: center; transition: background 0.3s;}
+.btn-primary:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+
+/* GALERIE */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.artwork-card {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    height: 0;
+    padding-bottom: 100%; /* carré */
+}
+
+.artwork-image-wrapper {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.artwork-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.artwork-card:hover img {
+    transform: scale(1.05);
+}
+
+.artwork-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s;
+}
+
+.artwork-card:hover .artwork-overlay {
+    opacity: 1;
+}
+
+.artwork-name {
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+    font-size: 18px;
+    padding: 0 10px;
+}
+
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+.favorite-btn:hover {background: rgba(255,255,255,1);}
+
+/* CONTACT CTA */
+.contact-cta {
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border-radius: 15px;
+    padding: 60px 20px;
+    text-align: center;
+}
+.contact-cta h2 {color: white;}
+.contact-cta p {font-size: 16px; margin-bottom: 20px;}
+.btn-contact {background: white; color: white;}
+.btn-contact:hover {background: #f0f0f0;}
+
+@media (max-width: 768px) {
+    .about-buttons {flex-direction: column;}
+    .artwork-card {height: auto; padding-bottom: 0;} /* adaptatif mobile */
+    .artwork-image-wrapper {height: 200px;}
+}
+</style>
+
+<!-- INTRODUCTION SEO -->
+<section class="section seo-intro">
+    <h1>Jean-Baptiste — Artiste Peintre Moderne et Abstrait</h1>
+    <p>Bienvenue dans l’univers artistique de Jean-Baptiste. Découvrez sa biographie, ses inspirations et ses techniques uniques de peinture moderne et abstraite. Explorez ses œuvres originales disponibles en galerie et en boutique en ligne.</p>
+</section>
+
+<!-- BIOGRAPHIE -->
+<section class="section about-section" aria-labelledby="biography">
+    <h2 id="biography">Biographie</h2>
+    <div class="about-container center-container content-box">
+        <img src="{{ url_for('static', filename='Images/artiste.jpeg') }}" alt="Portrait de Jean-Baptiste, artiste peintre">
+        <div class="about-text">
+            <p><strong>Jean-Baptiste</strong> est un artiste passionné par la peinture moderne et abstraite. Depuis plusieurs années, il explore les émotions et les formes à travers ses créations originales.</p>
+            <p>Son parcours artistique se nourrit de voyages, de rencontres et de recherches sur les techniques de peinture contemporaine. Chaque œuvre raconte une histoire unique et reflète son univers créatif.</p>
+            <div class="about-buttons">
+                <a href="{{ url_for('boutique') }}" class="btn-primary">Voir la boutique</a>
+                <a href="{{ url_for('galerie') }}" class="btn-primary">Voir la galerie</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- INSPIRATION -->
+<section class="section" aria-labelledby="inspiration">
+    <h2 id="inspiration">Inspiration</h2>
+    <div class="about-container center-container content-box">
+        <div class="about-text">
+            <p>Jean-Baptiste puise son inspiration dans la nature, les voyages et les émotions humaines. Ses œuvres explorent la lumière, le mouvement et les couleurs pour créer un dialogue avec le spectateur.</p>
+            <p>Chaque peinture est une invitation à ressentir et à interpréter librement, faisant de chaque création un moment unique.</p>
+        </div>
+    </div>
+</section>
+
+<!-- TECHNIQUE ARTISTIQUE -->
+<section class="section" aria-labelledby="technique">
+    <h2 id="technique">Technique Artistique</h2>
+    <div class="about-container center-container content-box">
+        <div class="about-text">
+            <p>Jean-Baptiste utilise principalement la peinture acrylique et l’huile sur toile. Ses créations combinent des couches de textures, des formes abstraites et des touches de couleurs vives pour transmettre énergie et émotion.</p>
+            <p>Il expérimente également différentes techniques mixtes, permettant à chaque œuvre de révéler sa singularité et son originalité.</p>
+        </div>
+    </div>
+</section>
+
+<!-- GALERIE DES ŒUVRES -->
+<section class="section artist-gallery" aria-labelledby="artist-gallery">
+    <h2 id="artist-gallery">Quelques œuvres</h2>
+    <div class="gallery-grid">
+        {% for painting in paintings[:6] %}
+        <article class="artwork-card">
+            <div class="artwork-image-wrapper">
+                <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}' par Jean-Baptiste">
+                <div class="artwork-overlay">
+                    <span class="artwork-name">{{ painting[1] }}</span>
+                </div>
+                {% if painting[0] in favorite_ids %}
+                    <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+                {% else %}
+                    <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- CTA CONTACT -->
+<section class="section contact-cta" aria-labelledby="contact">
+    <div class="contact-cta-container">
+        <div class="contact-cta-text">
+            <h2 id="contact">Envie de me contacter ?</h2>
+            <p>Pour toute commande, question ou échange sur l’art, n’hésitez pas à me contacter directement. Je réponds personnellement à chaque message.</p>
+            <a href="{{ url_for('contact') }}" class="btn-primary btn-contact">Contactez-moi</a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

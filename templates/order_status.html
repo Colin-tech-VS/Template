@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Suivi de commande{% endblock %}
+
+{% block content %}
+<style>
+.order-status {padding: 60px 20px; max-width: 900px; margin: 0 auto;}
+.order-status h2 {color: #1E3A8A; text-align: center; margin-bottom: 30px;}
+.btn-primary {display: inline-block; padding: 10px 20px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border-radius: 8px; text-decoration: none; transition: background 0.3s; float: right; margin-bottom: 20px;}
+.btn-primary:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+.order-info-card {background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 30px; clear: both;}
+.info-item {padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between;}
+.info-item strong {color: #333;}
+.status {display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: 600; font-size: 12px;}
+.status.en-cours {background: #FFF3CD; color: #856404;}
+.status.confirmée {background: #CCE5FF; color: #004085;}
+.status.expédiée {background: #D1ECF1; color: #0C5460;}
+.status.livrée {background: #D4EDDA; color: #155724;}
+.order-items {background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 30px;}
+.order-items h3 {color: #1E3A8A; margin-top: 0;}
+.order-items table {width: 100%; border-collapse: collapse;}
+.order-items thead {background: #f9f9f9;}
+.order-items th {padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #1E3A8A;}
+.order-items td {padding: 12px; border-bottom: 1px solid #f0f0f0;}
+.order-items img {width: 50px; height: 50px; object-fit: cover; border-radius: 5px;}
+.order-total {text-align: right; font-size: 18px; font-weight: 700; color: #1E3A8A;}
+</style>
+<section class="section order-status">
+    <h2>Suivi de votre commande #{{ order[0] }}</h2>
+
+    <!-- Bouton facture -->
+    <div style="text-align:right; margin-bottom: 20px;">
+        <a href="{{ url_for('download_invoice', order_id=order[0]) }}" class="btn-primary">Télécharger la facture</a>
+    </div>
+
+    <!-- Infos client -->
+    <div class="order-info-card">
+        <div class="info-item"><strong>Nom :</strong> {{ order[1] }}</div>
+        <div class="info-item"><strong>Email :</strong> {{ order[2] }}</div>
+        <div class="info-item"><strong>Adresse :</strong> {{ order[3] }}</div>
+        <div class="info-item"><strong>Date :</strong> {{ order[5] }}</div>
+        <div class="info-item"><strong>Statut :</strong> 
+            <span class="status {{ order[6]|lower }}">{{ order[6] }}</span>
+        </div>
+    </div>
+
+    <!-- Articles -->
+    <h3>Articles commandés :</h3>
+    <div class="order-items">
+        <table>
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Nom</th>
+                    <th>Prix</th>
+                    <th>Quantité</th>
+                    <th>Sous-total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}"></td>
+                    <td>{{ item[1] }}</td>
+                    <td>{{ item[3] }} €</td>
+                    <td>{{ item[4] }}</td>
+                    <td>{{ (item[3] * item[4])|round(2) }} €</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="order-total">Total : {{ total_price }} €</p>
+</section>
+{% endblock %}

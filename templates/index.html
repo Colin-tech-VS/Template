@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - JB Artiste Peintre{% endblock %}
+
+{% block content %}
+
+<style>
+body {
+    background: linear-gradient(to bottom, #e0f2ff, #c0d9ff);
+    margin:0;
+    padding:0;
+}
+
+/* HERO */
+.hero {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    overflow: hidden;
+}
+.hero-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.hero-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.35);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 20px;
+    box-sizing: border-box;
+}
+.hero-text h1, .hero-text p { color: #fff; margin: 0 0 10px 0; }
+.hero-text h1 { font-size: 2.5rem; line-height: 1.2; }
+.hero-text p { font-size: 1.2rem; }
+
+/* Galerie & cartes */
+.latest-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+}
+.latest-artwork {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.latest-artwork:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.12);
+}
+.badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+/* Image */
+.artwork-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+}
+.artwork-image-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Favoris */
+.favorite-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    font-size: 22px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 38px; height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+.favorite-btn:hover { background: rgba(255,255,255,1); }
+
+/* Info */
+.info {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.info h3 { margin: 0; font-size: 18px; color: #1E3A8A; }
+.info span { font-weight: 700; color: #1E3A8A; }
+.info p.stock { font-size: 14px; color: #555; margin: 2px 0; }
+.info small.description {
+    font-size: 0.85rem;
+    color: #444;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3; 
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Bouton ajouter au panier */
+.buy-btn {
+    margin-top: 10px;
+    padding: 10px 15px;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+}
+.buy-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
+.buy-btn[disabled] { background:#ccc; cursor:not-allowed; }
+</style>
+
+<!-- HERO -->
+<header class="hero">
+    <img src="{{ url_for('static', filename='Images/Test.jpg') }}" 
+         alt="Œuvre d'art visuelle de Jean-Baptiste" 
+         class="hero-media">
+    <div class="hero-overlay">
+        <div class="hero-text">
+            <h1>Bienvenue dans l’univers artistique de Jean-Baptiste</h1>
+            <p>Découvrez mes œuvres originales de paysages poétiques, inspirées de Ville-d’Avray et du Parc de Saint-Cloud, créées pour apporter calme, harmonie et émotion dans votre intérieur.</p>
+        </div>
+    </div>
+</header>
+
+<!-- DERNIÈRES CRÉATIONS -->
+<section class="section gallery" aria-labelledby="latest-creations">
+    <h2 id="latest-creations">Dernières créations</h2>
+    <div class="latest-gallery">
+        {% for painting in latest_paintings %}
+            {% if painting[4] > 0 %}
+            <article class="latest-artwork">
+                <span class="badge" aria-label="Nouvelle œuvre">Nouveau</span>
+                <div class="artwork-image-wrapper">
+                    <img src="{{ url_for('static', filename=painting[2]) }}" 
+                         alt="Peinture '{{ painting[1] }}' par Jean-Baptiste">
+                    {% if painting[0] in favorite_ids %}
+                        <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
+                    {% else %}
+                        <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn">🤍</a>
+                    {% endif %}
+                </div>
+                <div class="info">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>{{ painting[1] }}</h3>
+                        <span>{{ painting[3] }} €</span>
+                    </div>
+                    <small class="description">{{ painting[5] or 'Aucune description disponible.' }}</small>
+                    <button class="buy-btn" 
+                            onclick="location.href='/add_to_cart/{{ painting[0] }}'" 
+                            aria-label="Ajouter {{ painting[1] }} au panier">
+                        Ajouter au panier
+                    </button>
+                </div>
+            </article>
+            {% endif %}
+        {% endfor %}
+    </div>
+</section>
+
+<!-- BOUTIQUE -->
+<section class="section gallery" aria-labelledby="shop">
+    <h2 id="shop">Boutique en ligne</h2>
+    <div class="latest-gallery">
+        {% for painting in paintings[:4] %}
+        <article class="latest-artwork">
+            {% if painting[4] == 0 %}
+                <span class="badge" style="background:#FF6347;">Rupture</span>
+            {% endif %}
+            <div class="artwork-image-wrapper">
+                <img src="{{ url_for('static', filename=painting[2]) }}" 
+                     alt="Peinture '{{ painting[1] }}' disponible en boutique">
+                {% if painting[0] in favorite_ids %}
+                    <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
+                {% else %}
+                    <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn">🤍</a>
+                {% endif %}
+            </div>
+            <div class="info">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>{{ painting[1] }}</h3>
+                    <span>{{ painting[3] }} €</span>
+                </div>
+                <p class="stock">Stock : {{ painting[4] }}</p>
+                <small class="description">{{ painting[5] or 'Aucune description disponible.' }}</small>
+                {% if painting[4] > 0 %}
+                    <button class="buy-btn" 
+                            onclick="location.href='/add_to_cart/{{ painting[0] }}'" 
+                            aria-label="Ajouter {{ painting[1] }} au panier">
+                        Ajouter au panier
+                    </button>
+                {% else %}
+                    <button class="buy-btn" disabled>Indisponible</button>
+                {% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+
+    <div style="text-align:center; margin-top:20px;">
+        <a href="{{ url_for('boutique') }}" class="btn-primary">Voir la boutique complète</a>
+    </div>
+</section>
+
+{% endblock %}

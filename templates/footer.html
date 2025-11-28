@@ -1,0 +1,48 @@
+<!-- templates/footer.html -->
+<style>
+.site-footer {background-color: #1E3A8A; color: white; padding: 40px 20px 20px 20px; font-family: 'Arial', sans-serif;}
+.footer-container {display: flex; flex-wrap: wrap; justify-content: space-between; gap: 30px; max-width: 1200px; margin: 0 auto;}
+.footer-about,.footer-links,.footer-contact {flex: 1 1 200px; min-width: 200px;}
+.footer-about h3,.footer-links h4,.footer-contact h4 {margin-bottom: 10px; font-size: 18px;}
+.footer-links ul {list-style: none; padding: 0;}
+.footer-links ul li {margin-bottom: 8px;}
+.footer-links ul li a {color: white; text-decoration: none; transition: color 0.3s;}
+.footer-links ul li a:hover {color: #FFC107;}
+.footer-contact p {margin: 5px 0;}
+.footer-contact a {color: white; text-decoration: none;}
+.footer-contact a:hover {color: #FFC107;}
+.footer-bottom {text-align: center; margin-top: 20px; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 10px;}
+@media (max-width: 768px) {.footer-container {flex-direction: column; text-align: center;} .footer-about,.footer-links,.footer-contact {flex: 1 1 100%;}}
+</style>
+<footer class="site-footer">
+    <div class="footer-container">
+        <!-- À propos -->
+        <div class="footer-about">
+            <h3>JB Art</h3>
+            <p>Artiste passionné par la peinture moderne et abstraite. Découvrez mes œuvres, inspirations et créations uniques.</p>
+        </div>
+
+        <!-- Liens rapides -->
+        <div class="footer-links">
+            <h4>Liens rapides</h4>
+            <ul>
+                <li><a href="{{ url_for('home') }}">Accueil</a></li>
+                <li><a href="{{ url_for('boutique') }}">Boutique</a></li>
+                <li><a href="{{ url_for('galerie') }}">Galerie</a></li>
+                <li><a href="{{ url_for('about') }}">À propos</a></li>
+                <li><a href="{{ url_for('contact') }}">Contact</a></li>
+            </ul>
+        </div>
+
+        <!-- Contact -->
+        <div class="footer-contact">
+            <h4>Contact</h4>
+            <p>Email : <a href="mailto:coco.cayre@gmail.com">coco.cayre@gmail.com</a></p>
+            <p>Téléphone : 06 00 00 00 00</p>
+        </div>
+    </div>
+
+    <div class="footer-bottom">
+        &copy; {{ current_year }} JB Art. Tous droits réservés.
+    </div>
+</footer>

@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Profil - JB Artiste Peintre{% endblock %}
+
+{% block content %}
+
+<style>
+/* HEADER PROFIL */
+.profile-header {
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    padding: 60px 20px;
+    text-align: center;
+}
+.profile-header h1 { font-size: 36px; margin-bottom: 10px; }
+.profile-email { font-size: 18px; opacity: 0.9; }
+.profile-meta { font-size: 14px; opacity: 0.8; }
+
+/* SECTIONS & GRID */
+.section { padding: 60px 20px; max-width: 1200px; margin: 0 auto; }
+.profile-details { background: #f9f9f9; }
+.profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-bottom: 40px; }
+.profile-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.profile-card h3 { color: #1E3A8A; margin-bottom: 20px; font-size: 20px; }
+.info-group { display: flex; flex-direction: column; gap: 15px; }
+.info-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.info-label { font-weight: 600; color: #333; }
+.info-value { color: #666; }
+
+/* ACTIONS RAPIDES */
+.quick-actions { display: flex; flex-direction: column; gap: 10px; }
+.action-btn {
+    display: block;
+    padding: 12px;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.3s;
+}
+.action-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
+
+/* FAVORIS */
+.section-header { text-align: center; margin-bottom: 30px; }
+.section-header h2 { font-size: 28px; color: #1E3A8A; margin: 0; }
+
+.favorites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    justify-content: start; /* empêche les cartes seules de s'étirer */
+    max-width: 1000px;     /* limite la largeur totale de la grille */
+    margin: 0 auto;        /* centre la grille si peu de cartes */
+}
+
+
+.favorite-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    min-height: 350px;
+}
+
+.favorite-image {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+.favorite-image img { width: 100%; height: 100%; object-fit: cover; }
+
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 24px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.8);
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    text-decoration: none; transition: background 0.3s;
+}
+.favorite-btn:hover { background: rgba(255,255,255,1); }
+
+.favorite-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px;
+    flex-grow: 1;
+}
+.favorite-info div { display: flex; justify-content: space-between; align-items: center; }
+.favorite-info span.price { font-weight: 700; color: #1E3A8A; }
+.favorite-info p.stock { font-size: 14px; color: #555; margin: 2px 0; }
+.favorite-info small.description {
+    font-size: 12px;
+    color: #444;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* BOUTON AJOUTER AU PANIER */
+.buy-btn {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s;
+    width: 100%;
+}
+.buy-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
+.buy-btn[disabled] { background:#ccc; cursor:not-allowed; }
+
+/* HISTORIQUE DES COMMANDES */
+.orders-table-wrapper { overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+.orders-table { width: 100%; border-collapse: collapse; }
+.orders-table thead { background: #1E3A8A; color: white; }
+.orders-table th { padding: 15px; text-align: left; font-weight: 600; }
+.orders-table td { padding: 15px; border-bottom: 1px solid #f0f0f0; }
+.status-badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.status-en-cours { background: #FFF3CD; color: #856404; }
+.status-confirmée { background: #CCE5FF; color: #004085; }
+.status-expédiée { background: #D1ECF1; color: #0C5460; }
+.status-livrée { background: #D4EDDA; color: #155724; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: #666; }
+
+@media (max-width: 768px) {
+    .profile-grid { grid-template-columns: 1fr; }
+    .favorites-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+</style>
+
+<!-- HEADER PROFIL -->
+<section class="profile-header">
+    <div class="profile-header-content">
+        <div class="profile-header-info">
+            <h1>{{ user.name }}</h1>
+            <p class="profile-email">{{ user.email }}</p>
+            <p class="profile-meta">Inscrit depuis {{ user.create_date }}</p>
+        </div>
+    </div>
+</section>
+
+<!-- SECTION PROFIL -->
+<section class="section profile-details">
+    <div class="container">
+        <div class="profile-grid">
+            <div class="profile-card">
+                <h3>Informations</h3>
+                <div class="info-group">
+                    <div class="info-item">
+                        <span class="info-label">Nom</span>
+                        <span class="info-value">{{ user.name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Email</span>
+                        <span class="info-value">{{ user.email }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Membre depuis</span>
+                        <span class="info-value">{{ user.create_date }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-card">
+                <h3>Actions rapides</h3>
+                <div class="quick-actions">
+                    <a href="{{ url_for('boutique') }}" class="action-btn">🛍️ Boutique</a>
+                    <a href="{{ url_for('galerie') }}" class="action-btn">🎨 Galerie</a>
+                    <a href="{{ url_for('contact') }}" class="action-btn">💬 Contact</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAVORIS -->
+<section class="section favorites-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Mes œuvres favorites</h2>
+        </div>
+
+        <div class="favorites-grid">
+            {% for painting in favorite_paintings %}
+            <article class="favorite-card">
+                <div class="favorite-image">
+                    <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}'">
+                    <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+                </div>
+                <div class="favorite-info">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>{{ painting[1] }}</span>
+                        <span class="price">{{ painting[3] }} €</span>
+                    </div>
+                    <p class="stock">Stock : {{ painting[4] }}</p>
+                    <small class="description">{{ painting[5] or 'Aucune description disponible.' }}</small>
+                    {% if painting[4] > 0 %}
+                        <button class="buy-btn" onclick="location.href='/add_to_cart/{{ painting[0] }}'">Ajouter au panier</button>
+                    {% else %}
+                        <button class="buy-btn" disabled>Indisponible</button>
+                    {% endif %}
+                </div>
+            </article>
+            {% else %}
+            <div class="empty-state">
+                <p>Vous n'avez pas encore d'œuvres favorites.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- HISTORIQUE DES COMMANDES -->
+<section class="section orders-section">
+    <div class="container">
+        <div class="section-header">
+            <h2>Historique des commandes</h2>
+        </div>
+
+        {% if orders %}
+        <div class="orders-table-wrapper">
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Commande</th>
+                        <th>Date</th>
+                        <th>Montant</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.date }}</td>
+                        <td>{{ order.total }} €</td>
+                        <td><span class="status-badge status-{{ order.status|lower }}">{{ order.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>Aucune commande pour le moment.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<style>
+.checkout-section {padding: 60px 20px; max-width: 1200px; margin: 0 auto;}
+.checkout-section h2 {color: var(--content-text-color, #333);}
+.checkout-grid {display: grid; grid-template-columns: 2fr 1fr; gap: 20px;}
+.checkout-cart,.checkout-form {background: #ffffff; border-radius: 15px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}
+.checkout-cart h3,.checkout-form h3 {color: var(--content-text-color, #333);}
+.checkout-item {display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;}
+.checkout-item img {width: 80px; height: 80px; object-fit: cover; border-radius: 10px; margin-right: 10px;}
+.checkout-info {display: flex; flex-direction: column; flex: 1;}
+.checkout-info .name {font-weight: 700; color: var(--content-text-color, #1E3A8A);}
+.checkout-info .price {font-weight: 600; color: var(--content-text-color, #333);}
+.checkout-info .quantity {font-size: 14px; color: var(--content-text-color, #555);}
+.checkout-item-details {color: var(--content-text-color, #555);}
+.checkout-total {margin-top: 20px; font-size: 18px; font-weight: 700; text-align: right; color: var(--primary-color, #1E3A8A);}
+.checkout-form label {display: block; margin: 10px 0 5px; font-weight: 600; color: var(--content-text-color, #333);}
+.checkout-form input,.checkout-form textarea {width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 10px; box-sizing: border-box; color: var(--content-text-color, #333); background: white;}
+.checkout-form button {width: 100%; padding: 12px; background: linear-gradient(90deg, var(--primary-color, #1E3A8A), var(--secondary-color, #3B65C4)); color: var(--button-text-color, white); border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.3s;}
+.checkout-form button:hover {background: var(--button-hover-color, #9C27B0);}
+@media (max-width: 768px) {.checkout-grid {grid-template-columns: 1fr;} .checkout-item {flex-direction: column; align-items: flex-start;} .checkout-info {margin-top: 10px;}}
+</style>
+
+<section class="checkout-section">
+    <h2>Validation de la commande</h2>
+
+    <div class="checkout-grid">
+
+        <!-- Panier -->
+        <div class="checkout-cart">
+            <h3>Votre panier</h3>
+            {% for item in items %}
+            <div class="checkout-item">
+                <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                <div class="checkout-info">
+                    <p class="item-name">{{ item[1] }}</p>
+                    <p class="item-details">{{ item[4] }} × {{ item[3] }} €</p>
+                </div>
+            </div>
+            {% endfor %}
+            <p class="checkout-total">
+                Total : <strong>{{ total_price }} €</strong>
+            </p>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="checkout-form">
+            <h3>Informations</h3>
+            <form method="POST" id="checkout-form">
+                <label for="name">Nom complet</label>
+                <input type="text" id="name" name="name" placeholder="Votre nom complet" required>
+
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Votre email" required>
+
+                <label for="address">Adresse</label>
+                <input type="text" id="address" name="address" placeholder="Votre adresse" required>
+
+                <button type="submit">Confirmer la commande</button>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_places_key }}&libraries=places"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addressInput = document.getElementById('address');
+    if (addressInput) {
+        new google.maps.places.Autocomplete(addressInput, {
+            types: ['address'],
+            componentRestrictions: { country: "fr" }
+        });
+    }
+});
+</script>
+{% endblock %}
