@@ -22,6 +22,8 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from flask_mail import Mail
 from openpyxl import Workbook
+from io import BytesIO
+
 
 # --------------------------------
 # CONFIGURATION
@@ -86,10 +88,11 @@ TABLES = {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "customer_name": "TEXT NOT NULL",
         "email": "TEXT NOT NULL",
-        "address": "TEXT NOT NULL",
-        "total_price": "REAL NOT NULL",
+        "address": "TEXT NOT NULL DEFAULT ''",
+        "total_price": "REAL NOT NULL DEFAULT 0",
         "order_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "status": "TEXT NOT NULL DEFAULT 'En cours'"
+        "status": "TEXT NOT NULL DEFAULT 'En cours'",
+        "user_id": "INTEGER"
     },
     "order_items": {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
@@ -931,7 +934,7 @@ def checkout_success():
 
     customer_name = order["customer_name"]
     email = order["email"]
-    address = order.get("address", "")  # Sécurisé
+    address = order.get("address") or ""  # Sécurisé
     total_price = order["total_price"]
     items = order["items"]
 
