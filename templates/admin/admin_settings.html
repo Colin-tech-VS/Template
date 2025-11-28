@@ -14,6 +14,7 @@
             <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
             <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
             <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">Demandes sur Mesure</a>
             <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
                 🔔 Notifications
                 {% if new_notifications_count > 0 %}
@@ -331,6 +332,16 @@
                         <span class="seo-hint">Mot de passe pour le serveur d'envoi d'emails</span>
                     </div>
                     <input type="password" name="smtp_password" id="smtp_password" value="{{ settings['smtp_password'] }}" placeholder="••••••••" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="enable_custom_orders">
+                            <input type="checkbox" name="enable_custom_orders" id="enable_custom_orders" value="1" {% if settings.get('enable_custom_orders') == '1' %}checked{% endif %} style="width: auto; margin-right: 10px;">
+                            Activer les Créations sur Mesure
+                        </label>
+                        <span class="seo-hint">Affiche un lien dans la navigation permettant aux clients de faire des demandes de créations personnalisées</span>
+                    </div>
                 </div>
             </div>
 

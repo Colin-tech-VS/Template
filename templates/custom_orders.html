@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+
+{% block title %}Créations sur Mesure — {{ site_settings.site_name }}{% endblock %}
+
+{% block content %}
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.custom-orders-page {
+    min-height: 100vh;
+    padding: 40px 20px;
+}
+
+.custom-container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+/* === HERO === */
+.custom-hero {
+    text-align: center;
+    margin-bottom: 60px;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+}
+
+.custom-hero h1 {
+    font-size: 48px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.custom-hero-subtitle {
+    font-size: 20px;
+    color: #bbb;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.7;
+}
+
+/* === INFO CARDS === */
+.info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin-bottom: 60px;
+}
+
+.info-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    padding: 35px 25px;
+    border-radius: 20px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.3s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.info-card-icon {
+    font-size: 52px;
+    margin-bottom: 18px;
+    display: block;
+}
+
+.info-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #fff;
+}
+
+.info-card p {
+    font-size: 15px;
+    color: #aaa;
+    line-height: 1.6;
+}
+
+/* === FORMULAIRE === */
+.form-wrapper {
+    background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04));
+    padding: 50px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+}
+
+.form-title {
+    text-align: center;
+    margin-bottom: 45px;
+}
+
+.form-title h2 {
+    font-size: 34px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.form-title p {
+    font-size: 16px;
+    color: #999;
+}
+
+.custom-form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.form-section {
+    background: rgba(0,0,0,0.2);
+    padding: 30px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.form-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.form-section-icon {
+    font-size: 26px;
+}
+
+.form-section-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-field label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ddd;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.required-star {
+    color: #ff5555;
+    font-size: 16px;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+    width: 100%;
+    padding: 13px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder {
+    color: rgba(255,255,255,0.35);
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+    outline: none;
+    background: rgba(255,255,255,0.09);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.form-field textarea {
+    min-height: 140px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.form-field select {
+    cursor: pointer;
+}
+
+.form-field select option {
+    background: #222;
+    color: #fff;
+}
+
+.field-hint {
+    font-size: 13px;
+    color: #888;
+    margin-top: -5px;
+}
+
+/* === FILE UPLOAD === */
+.file-upload-wrapper {
+    position: relative;
+}
+
+.file-upload-zone {
+    border: 3px dashed rgba(255,255,255,0.25);
+    border-radius: 16px;
+    padding: 50px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(255,255,255,0.04);
+}
+
+.file-upload-zone:hover {
+    border-color: var(--color-primary);
+    background: rgba(255,255,255,0.07);
+}
+
+.file-upload-zone input {
+    display: none;
+}
+
+.upload-icon {
+    font-size: 55px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.upload-text {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.upload-subtext {
+    font-size: 14px;
+    color: #aaa;
+}
+
+/* === SUBMIT BUTTON === */
+.submit-wrapper {
+    margin-top: 35px;
+    text-align: center;
+}
+
+.submit-button {
+    padding: 18px 70px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 50px;
+    background: var(--gradient-primary);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.submit-button:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 50px rgba(var(--color-primary-rgb), 0.5);
+}
+
+.submit-button:active {
+    transform: translateY(-2px);
+}
+
+.submit-note {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #888;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    .custom-hero h1 {
+        font-size: 36px;
+    }
+    
+    .custom-hero-subtitle {
+        font-size: 17px;
+    }
+    
+    .form-wrapper {
+        padding: 30px 20px;
+    }
+    
+    .form-section {
+        padding: 20px;
+    }
+    
+    .form-title h2 {
+        font-size: 28px;
+    }
+    
+    .submit-button {
+        width: 100%;
+        padding: 16px 40px;
+    }
+}
+</style>
+
+<div class="custom-orders-page">
+    <div class="custom-container">
+        
+        <!-- HERO -->
+        <div class="custom-hero">
+            <h1>✨ Créations sur Mesure</h1>
+            <p class="custom-hero-subtitle">Donnez vie à vos idées avec une œuvre unique conçue spécialement pour vous</p>
+        </div>
+
+        <!-- INFO CARDS -->
+        <div class="info-cards">
+            <div class="info-card">
+                <span class="info-card-icon">🎨</span>
+                <h3>100% Personnalisé</h3>
+                <p>Couleurs, dimensions, style : tout est possible</p>
+            </div>
+            <div class="info-card">
+                <span class="info-card-icon">💬</span>
+                <h3>Collaboration</h3>
+                <p>Échanges réguliers pour créer l'œuvre parfaite</p>
+            </div>
+            <div class="info-card">
+                <span class="info-card-icon">⏱️</span>
+                <h3>Délais respectés</h3>
+                <p>Livraison dans les temps convenus</p>
+            </div>
+            <div class="info-card">
+                <span class="info-card-icon">🏆</span>
+                <h3>Qualité pro</h3>
+                <p>Matériaux et techniques professionnels</p>
+            </div>
+        </div>
+
+        <!-- FORMULAIRE -->
+        <div class="form-wrapper">
+            <div class="form-title">
+                <h2>Démarrez votre projet</h2>
+                <p>Remplissez ce formulaire et recevez une réponse sous 24h</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('submit_custom_request') }}" enctype="multipart/form-data" class="custom-form">
+                
+                <!-- SECTION: Contact -->
+                <div class="form-section">
+                    <div class="form-section-header">
+                        <span class="form-section-icon">👤</span>
+                        <h3>Vos coordonnées</h3>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>
+                                Nom complet
+                                <span class="required-star">*</span>
+                            </label>
+                            <input type="text" name="client_name" placeholder="Jean Dupont" required>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label>
+                                Email
+                                <span class="required-star">*</span>
+                            </label>
+                            <input type="email" name="client_email" placeholder="jean.dupont@email.com" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-field" style="margin-top: 22px;">
+                        <label>Téléphone</label>
+                        <input type="tel" name="client_phone" placeholder="+33 6 12 34 56 78">
+                        <span class="field-hint">Facultatif - Pour discuter de votre projet par téléphone</span>
+                    </div>
+                </div>
+
+                <!-- SECTION: Projet -->
+                <div class="form-section">
+                    <div class="form-section-header">
+                        <span class="form-section-icon">🎯</span>
+                        <h3>Décrivez votre projet</h3>
+                    </div>
+                    
+                    <div class="form-field">
+                        <label>
+                            Type de création
+                            <span class="required-star">*</span>
+                        </label>
+                        <select name="project_type" required>
+                            <option value="">-- Choisissez une catégorie --</option>
+                            <option value="Peinture abstraite">🌀 Peinture abstraite</option>
+                            <option value="Portrait">👤 Portrait</option>
+                            <option value="Paysage">🏞️ Paysage</option>
+                            <option value="Nature morte">🍎 Nature morte</option>
+                            <option value="Art moderne">✨ Art moderne</option>
+                            <option value="Autre">🎨 Autre style</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-field" style="margin-top: 22px;">
+                        <label>
+                            Description de votre vision
+                            <span class="required-star">*</span>
+                        </label>
+                        <textarea name="description" placeholder="Décrivez en détail ce que vous imaginez : couleurs, ambiance, thème, inspiration, où sera placée l'œuvre..." required></textarea>
+                        <span class="field-hint">Plus vous êtes précis, meilleur sera le résultat</span>
+                    </div>
+                </div>
+
+                <!-- SECTION: Détails -->
+                <div class="form-section">
+                    <div class="form-section-header">
+                        <span class="form-section-icon">📐</span>
+                        <h3>Détails pratiques</h3>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>Dimensions souhaitées</label>
+                            <input type="text" name="dimensions" placeholder="Ex: 80x60 cm, 100x80 cm...">
+                            <span class="field-hint">Laissez vide si vous êtes flexible</span>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label>Budget approximatif</label>
+                            <input type="text" name="budget" placeholder="Ex: 500-800€">
+                            <span class="field-hint">Pour adapter la proposition à vos moyens</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-field" style="margin-top: 22px;">
+                        <label>Échéance souhaitée</label>
+                        <input type="date" name="deadline">
+                        <span class="field-hint">Quand aimeriez-vous recevoir votre création ?</span>
+                    </div>
+                </div>
+
+                <!-- SECTION: Images -->
+                <div class="form-section">
+                    <div class="form-section-header">
+                        <span class="form-section-icon">🖼️</span>
+                        <h3>Images de référence</h3>
+                    </div>
+                    
+                    <div class="file-upload-wrapper">
+                        <div class="file-upload-zone" onclick="document.getElementById('file-input').click()">
+                            <input type="file" id="file-input" name="reference_images" multiple accept="image/*">
+                            <span class="upload-icon">📸</span>
+                            <div class="upload-text">Ajoutez des images d'inspiration</div>
+                            <div class="upload-subtext">Cliquez ou glissez vos fichiers ici (facultatif)</div>
+                        </div>
+                        <span class="field-hint" style="margin-top: 12px; display: block;">Photos, croquis, exemples de couleurs ou d'ambiances que vous aimez</span>
+                    </div>
+                </div>
+
+                <!-- BOUTON SUBMIT -->
+                <div class="submit-wrapper">
+                    <button type="submit" class="submit-button">
+                        🚀 Envoyer ma demande
+                    </button>
+                    <p class="submit-note">✅ Vous recevrez une confirmation par email</p>
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// Gestion de l'upload de fichiers
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.querySelector('.file-upload-zone');
+
+fileInput.addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (files.length > 0) {
+        uploadZone.innerHTML = `
+            <span class="upload-icon">✅</span>
+            <div class="upload-text">${files.length} fichier(s) sélectionné(s)</div>
+            <div class="upload-subtext">Cliquez pour modifier</div>
+        `;
+    }
+});
+
+// Date minimum
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('input[type="date"]');
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.setAttribute('min', today);
+});
+</script>
+
+{% endblock %}

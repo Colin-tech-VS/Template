@@ -13,6 +13,7 @@ import uuid
 import secrets
 import tempfile
 import stripe
+import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -135,6 +136,21 @@ TABLES = {
         "contact_info": "TEXT",
         "image": "TEXT",
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    },
+    "custom_requests": {
+        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "client_name": "TEXT NOT NULL",
+        "client_email": "TEXT NOT NULL",
+        "client_phone": "TEXT",
+        "project_type": "TEXT NOT NULL",
+        "description": "TEXT NOT NULL",
+        "budget": "TEXT",
+        "dimensions": "TEXT",
+        "deadline": "TEXT",
+        "reference_images": "TEXT",
+        "status": "TEXT NOT NULL DEFAULT 'En attente'",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "admin_notes": "TEXT"
     },
     # Nouvelle table settings pour stocker toutes les clés API et configs
     "settings": {
@@ -607,6 +623,112 @@ def expositions_page():
                            latest_expo=next_expo,
                            other_expos=other_expos)
 
+# --------------------------------
+# CRÉATIONS SUR MESURE
+# --------------------------------
+@app.route("/creations-sur-mesure")
+def custom_orders_page():
+    today = date.today().isoformat()
+    return render_template("custom_orders.html", today=today)
+
+@app.route("/creations-sur-mesure/submit", methods=["POST"])
+def submit_custom_request():
+    client_name = request.form.get("client_name")
+    client_email = request.form.get("client_email")
+    client_phone = request.form.get("client_phone")
+    project_type = request.form.get("project_type")
+    description = request.form.get("description")
+    dimensions = request.form.get("dimensions")
+    budget = request.form.get("budget")
+    deadline = request.form.get("deadline")
+    
+    # Gestion des images de référence
+    reference_images = []
+    if 'reference_images' in request.files:
+        files = request.files.getlist('reference_images')
+        for file in files:
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                name, ext = os.path.splitext(filename)
+                unique_filename = f"custom_{timestamp}_{name}{ext}"
+                
+                # Créer le dossier si nécessaire
+                custom_folder = os.path.join('static', 'custom_requests')
+                os.makedirs(custom_folder, exist_ok=True)
+                
+                filepath = os.path.join(custom_folder, unique_filename)
+                file.save(filepath)
+                reference_images.append(f"custom_requests/{unique_filename}")
+    
+    # Convertir la liste en string JSON pour stockage
+    import json
+    reference_images_json = json.dumps(reference_images) if reference_images else None
+    
+    # Sauvegarder en base de données
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, 
+                                      description, budget, dimensions, deadline, reference_images, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente')
+    """, (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
+    request_id = c.lastrowid
+    
+    # Créer une notification pour l'admin
+    c.execute(
+        "INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)",
+        (None,  # user_id=None pour notifications admin
+         f"Nouvelle demande de création sur mesure de {client_name}",
+         "custom_request",
+         0,
+         f"/admin/custom-requests")
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    # Envoyer un email de confirmation au client
+    try:
+        email_sender = get_setting("email_sender") or "contact@example.com"
+        smtp_password = get_setting("smtp_password")
+        
+        if smtp_password:
+            msg = MIMEMultipart()
+            msg['From'] = email_sender
+            msg['To'] = client_email
+            msg['Subject'] = "Confirmation de votre demande de création sur mesure"
+            
+            body = f"""
+            Bonjour {client_name},
+            
+            Nous avons bien reçu votre demande de création sur mesure !
+            
+            Détails de votre projet :
+            - Type : {project_type}
+            - Dimensions : {dimensions or 'À définir'}
+            - Budget : {budget or 'À définir'}
+            - Délai souhaité : {deadline or 'À définir'}
+            
+            Je reviendrai vers vous sous 48h pour discuter de votre projet en détail.
+            
+            À très bientôt,
+            L'équipe {get_setting('site_name') or 'JB Art'}
+            """
+            
+            msg.attach(MIMEText(body, 'plain'))
+            
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(email_sender, smtp_password)
+            server.send_message(msg)
+            server.quit()
+    except Exception as e:
+        print(f"Erreur envoi email: {e}")
+    
+    flash("Votre demande a été envoyée avec succès ! Nous vous contacterons rapidement.", "success")
+    return redirect(url_for("custom_orders_page"))
+
 # Page de détail
 @app.route("/expo_detail/<int:expo_id>")
 def expo_detail_page(expo_id):
@@ -628,6 +750,89 @@ def expo_detail_page(expo_id):
             image_url = url_for('static', filename='expo_images/' + expo[5])
 
     return render_template("expo_detail.html", expo=expo, image_url=image_url)
+
+# --------------------------------
+# ROUTES ADMIN DEMANDES SUR MESURE
+# --------------------------------
+@app.route("/admin/custom-requests")
+@require_admin
+def admin_custom_requests():
+    status_filter = request.args.get('status')
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    if status_filter:
+        c.execute("SELECT * FROM custom_requests WHERE status=? ORDER BY created_at DESC", (status_filter,))
+    else:
+        c.execute("SELECT * FROM custom_requests ORDER BY created_at DESC")
+    
+    requests_list = c.fetchall()
+    
+    # Compter par statut
+    c.execute("SELECT COUNT(*) FROM custom_requests")
+    total_count = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='En attente'")
+    pending_count = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='En cours'")
+    in_progress_count = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='Acceptée'")
+    accepted_count = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='Refusée'")
+    refused_count = c.fetchone()[0]
+    
+    conn.close()
+    
+    return render_template("admin/admin_custom_requests.html", 
+                         requests=requests_list,
+                         total_count=total_count,
+                         pending_count=pending_count,
+                         in_progress_count=in_progress_count,
+                         accepted_count=accepted_count,
+                         refused_count=refused_count,
+                         active="custom_requests")
+
+@app.route("/admin/custom-requests/<int:request_id>/status", methods=["POST"])
+@require_admin
+def update_custom_request_status(request_id):
+    new_status = request.form.get("status")
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("UPDATE custom_requests SET status=? WHERE id=?", (new_status, request_id))
+    conn.commit()
+    conn.close()
+    
+    flash(f"Statut mis à jour : {new_status}", "success")
+    return redirect(url_for("admin_custom_requests"))
+
+@app.route("/admin/custom-requests/<int:request_id>/delete", methods=["POST"])
+@require_admin
+def delete_custom_request(request_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Récupérer les images avant suppression
+    c.execute("SELECT reference_images FROM custom_requests WHERE id=?", (request_id,))
+    row = c.fetchone()
+    if row and row[0]:
+        import json
+        images = json.loads(row[0])
+        for image_path in images:
+            full_path = os.path.join('static', image_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+    
+    c.execute("DELETE FROM custom_requests WHERE id=?", (request_id,))
+    conn.commit()
+    conn.close()
+    
+    flash("Demande supprimée avec succès", "success")
+    return redirect(url_for("admin_custom_requests"))
 
 # --------------------------------
 # ROUTES EXPOSITIONS (ADMIN)
@@ -1078,6 +1283,7 @@ def admin_settings_page():
         "google_places_key",
         "smtp_password",
         "email_sender",
+        "enable_custom_orders",
         "site_logo",
         "site_name",
         "site_slogan",
@@ -1126,9 +1332,15 @@ def admin_settings_page():
                 set_setting("about_biography_image", f"Images/{unique_filename}")
                 image_uploaded = True
         
+        # Gestion de la checkbox enable_custom_orders
+        enable_custom_orders = "1" if request.form.get("enable_custom_orders") else "0"
+        set_setting("enable_custom_orders", enable_custom_orders)
+        
         # Sauvegarder tous les autres paramètres
         for key in settings_keys:
-            if key == "about_biography_image" and not image_uploaded:
+            if key == "enable_custom_orders":
+                continue  # Déjà traité ci-dessus
+            elif key == "about_biography_image" and not image_uploaded:
                 # Garder l'ancienne valeur si pas de nouveau fichier
                 value = request.form.get(key, "")
                 if value:
@@ -1312,6 +1524,7 @@ def inject_cart():
         "site_slogan": get_setting("site_slogan") or "Bienvenue dans l'univers artistique de Jean-Baptiste",
         "site_description": get_setting("site_description") or "",
         "site_keywords": get_setting("site_keywords") or "",
+        "enable_custom_orders": get_setting("enable_custom_orders") or "0",
         "home_title": get_setting("home_title") or "Découvrez mes créations",
         "home_subtitle": get_setting("home_subtitle") or "",
         "about_page_title": get_setting("about_page_title") or "À propos de l'artiste",
@@ -1337,6 +1550,20 @@ def inject_cart():
         new_notifications_count=new_notifications_count,
         site_settings=site_settings
     )
+
+
+# --------------------------------
+# FILTRE JINJA PERSONNALISÉ
+# --------------------------------
+@app.template_filter('from_json')
+def from_json_filter(value):
+    """Parse une chaîne JSON en objet Python"""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 @app.route("/admin/notifications")

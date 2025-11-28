@@ -253,6 +253,9 @@
             <li><a href="/">Accueil</a></li>
             <li><a href="/galerie">Galerie</a></li>
             <li><a href="/boutique">Boutique</a></li>
+            {% if site_settings.enable_custom_orders == '1' %}
+            <li><a href="/creations-sur-mesure">Créations sur Mesure</a></li>
+            {% endif %}
             <li><a href="/expositions">Expositions</a></li>
             <li><a href="/about">À propos</a></li>
             <li><a href="/contact">Contact</a></li>
