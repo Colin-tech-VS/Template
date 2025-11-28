@@ -75,6 +75,129 @@ def get_order_items(order_id):
     items = cursor.fetchall()
     conn.close()
     return items
+
+# --------------------------------
+# FONCTION GÉNÉRATION EMAIL HTML
+# --------------------------------
+def generate_email_html(title, content, button_text=None, button_url=None):
+    """Génère un template d'email HTML avec les couleurs du site"""
+    # Récupérer les couleurs du site
+    color_primary = get_setting("color_primary") or "#6366f1"
+    color_secondary = get_setting("color_secondary") or "#8b5cf6"
+    site_name = get_setting("site_name") or "JB Art"
+    site_logo = get_setting("site_logo") or "🎨 JB Art"
+    
+    button_html = ""
+    if button_text and button_url:
+        button_html = f"""
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 30px 0;">
+            <tr>
+                <td style="border-radius: 50px; background: linear-gradient(135deg, {color_primary} 0%, {color_secondary} 100%);">
+                    <a href="{button_url}" target="_blank" style="
+                        display: inline-block;
+                        padding: 16px 40px;
+                        font-size: 16px;
+                        color: #ffffff;
+                        text-decoration: none;
+                        font-weight: 700;
+                        letter-spacing: 0.5px;
+                        border-radius: 50px;
+                    ">{button_text}</a>
+                </td>
+            </tr>
+        </table>
+        """
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        </style>
+    </head>
+    <body style="
+        margin: 0;
+        padding: 0;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: linear-gradient(135deg, {color_primary} 0%, {color_secondary} 100%);
+        padding: 40px 20px;
+    ">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        ">
+            <!-- HEADER -->
+            <tr>
+                <td style="
+                    background: linear-gradient(135deg, {color_primary} 0%, {color_secondary} 100%);
+                    padding: 40px 30px;
+                    text-align: center;
+                ">
+                    <h1 style="
+                        margin: 0;
+                        color: #ffffff;
+                        font-size: 32px;
+                        font-weight: 800;
+                        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    ">{site_logo}</h1>
+                </td>
+            </tr>
+            
+            <!-- CONTENT -->
+            <tr>
+                <td style="padding: 40px 30px;">
+                    <h2 style="
+                        margin: 0 0 20px 0;
+                        color: #1a1a1a;
+                        font-size: 24px;
+                        font-weight: 700;
+                    ">{title}</h2>
+                    
+                    <div style="
+                        color: #444;
+                        font-size: 15px;
+                        line-height: 1.8;
+                    ">
+                        {content}
+                    </div>
+                    
+                    {button_html}
+                </td>
+            </tr>
+            
+            <!-- FOOTER -->
+            <tr>
+                <td style="
+                    background: #f8f9fa;
+                    padding: 30px;
+                    text-align: center;
+                    border-top: 1px solid #e0e0e0;
+                ">
+                    <p style="
+                        margin: 0 0 10px 0;
+                        color: #666;
+                        font-size: 14px;
+                    ">Cordialement,<br><strong>{site_name}</strong></p>
+                    
+                    <p style="
+                        margin: 0;
+                        color: #999;
+                        font-size: 12px;
+                    ">Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
 TABLES = {
     "paintings": {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
@@ -692,33 +815,80 @@ def submit_custom_request():
     try:
         email_sender = get_setting("email_sender") or "contact@example.com"
         smtp_password = get_setting("smtp_password")
+        smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
+        smtp_port = int(get_setting("smtp_port") or 587)
         
         if smtp_password:
             msg = MIMEMultipart()
             msg['From'] = email_sender
             msg['To'] = client_email
-            msg['Subject'] = "Confirmation de votre demande de création sur mesure"
+            msg['Subject'] = "✨ Confirmation de votre demande de création sur mesure"
             
-            body = f"""
-            Bonjour {client_name},
+            # Contenu HTML de l'email
+            content = f"""
+            <p style="font-size: 16px; margin-bottom: 20px;">Bonjour <strong>{client_name}</strong>,</p>
             
-            Nous avons bien reçu votre demande de création sur mesure !
+            <p>Merci d'avoir choisi notre atelier pour créer une œuvre unique ! 🎨</p>
             
-            Détails de votre projet :
-            - Type : {project_type}
-            - Dimensions : {dimensions or 'À définir'}
-            - Budget : {budget or 'À définir'}
-            - Délai souhaité : {deadline or 'À définir'}
+            <div style="
+                background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+                border-left: 4px solid {get_setting('color_primary') or '#6366f1'};
+                padding: 20px;
+                margin: 25px 0;
+                border-radius: 8px;
+            ">
+                <h3 style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 18px;">📋 Récapitulatif de votre projet</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Type de projet :</td>
+                        <td style="padding: 8px 0; color: #1a1a1a;">{project_type}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Dimensions :</td>
+                        <td style="padding: 8px 0; color: #1a1a1a;">{dimensions or 'À définir ensemble'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Budget :</td>
+                        <td style="padding: 8px 0; color: #1a1a1a;">{budget or 'À discuter'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #666; font-weight: 600;">Délai souhaité :</td>
+                        <td style="padding: 8px 0; color: #1a1a1a;">{deadline or 'Flexible'}</td>
+                    </tr>
+                </table>
+            </div>
             
-            Je reviendrai vers vous sous 48h pour discuter de votre projet en détail.
+            <p style="margin: 25px 0;">
+                <strong>Et maintenant ?</strong><br>
+                Je vais étudier votre demande avec attention et reviendrai vers vous <strong>sous 24-48h</strong> 
+                pour échanger sur les détails et vous proposer un devis personnalisé.
+            </p>
             
-            À très bientôt,
-            L'équipe {get_setting('site_name') or 'JB Art'}
+            <p style="
+                background: #fff3cd;
+                border: 1px solid #ffc107;
+                padding: 15px;
+                border-radius: 8px;
+                color: #856404;
+                font-size: 14px;
+            ">
+                💡 <strong>Conseil :</strong> Préparez vos idées, inspirations ou croquis pour notre échange. 
+                Plus nous avons de détails, plus l'œuvre finale sera proche de vos attentes !
+            </p>
+            
+            <p style="margin-top: 30px;">À très bientôt pour donner vie à votre projet ! ✨</p>
             """
             
-            msg.attach(MIMEText(body, 'plain'))
+            html_body = generate_email_html(
+                title="Votre demande a bien été reçue !",
+                content=content,
+                button_text=None,
+                button_url=None
+            )
             
-            server = smtplib.SMTP('smtp.gmail.com', 587)
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            server = smtplib.SMTP(smtp_server, smtp_port)
             server.starttls()
             server.login(email_sender, smtp_password)
             server.send_message(msg)
@@ -2456,37 +2626,43 @@ def send_email_role():
 
 def send_order_email(customer_email, customer_name, order_id, total_price, items):
     """
-    Envoie un email de confirmation de commande au client avec design type site et images intégrées en pièce jointe (CID).
-    Le bouton permet d'accéder à la page de suivi de la commande.
+    Envoie un email de confirmation de commande au client avec design moderne du site.
     """
     # --- CONFIGURATION SMTP DYNAMIQUE ---
     SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
     SMTP_PORT = int(get_setting("smtp_port") or 587)
     SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
     SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
-
+    color_primary = get_setting("color_primary") or "#6366f1"
+    
     # --- CONSTRUCTION DU MESSAGE ---
     msg = MIMEMultipart()
     msg['From'] = SMTP_USER
     msg['To'] = customer_email
-    msg['Subject'] = f"Confirmation de votre commande #{order_id}"
+    msg['Subject'] = f"✅ Confirmation de votre commande #{order_id}"
 
-    # Corps du mail en HTML avec CID
+    # Génération de la liste des articles
     items_html = ""
     for i, item in enumerate(items):
-        cid = f"item{i}"  # identifiant unique pour l'image
-        image_path = os.path.join("static", item[2])  # chemin local vers l'image
+        cid = f"item{i}"
+        image_path = os.path.join("static", item[2])
         items_html += f"""
-        <tr>
-            <td style="padding:10px; border-bottom:1px solid #ddd;">
-                <img src="cid:{cid}" alt="{item[1]}" style="width:60px; height:60px; object-fit:cover; border-radius:8px;">
+        <tr style="border-bottom: 1px solid #e0e0e0;">
+            <td style="padding: 15px 10px;">
+                <img src="cid:{cid}" alt="{item[1]}" style="
+                    width: 80px;
+                    height: 80px;
+                    object-fit: cover;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                ">
             </td>
-            <td style="padding:10px; border-bottom:1px solid #ddd;">
-                {item[1]}<br>
-                Quantité: {item[4]}
+            <td style="padding: 15px 10px;">
+                <strong style="color: #1a1a1a; font-size: 15px;">{item[1]}</strong><br>
+                <span style="color: #666; font-size: 14px;">Quantité : {item[4]}</span>
             </td>
-            <td style="padding:10px; border-bottom:1px solid #ddd; text-align:right;">
-                {item[3]} €
+            <td style="padding: 15px 10px; text-align: right;">
+                <strong style="color: {color_primary}; font-size: 16px;">{item[3]} €</strong>
             </td>
         </tr>
         """
@@ -2498,46 +2674,60 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
                 img.add_header('Content-Disposition', 'inline', filename=os.path.basename(image_path))
                 msg.attach(img)
 
-    # Lien complet vers la page de suivi (mettre ton domaine réel en prod)
     track_url = f"http://127.0.0.1:5000/order/{order_id}"
 
-
-    body = f"""
-    <html>
-    <body style="font-family:Poppins, sans-serif; background:#e0f2ff; padding:20px;">
-        <div style="max-width:600px; margin:auto; background:white; border-radius:15px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.1);">
-            <h2 style="color:#1E3A8A;">Bonjour {customer_name},</h2>
-            <p>Merci pour votre commande <strong>#{order_id}</strong>.</p>
-            
-            <table style="width:100%; border-collapse:collapse; margin-top:20px;">
-                {items_html}
-            </table>
-
-            <p style="text-align:right; font-weight:bold; font-size:16px; margin-top:20px;">
-                Total : {total_price} €
-            </p>
-
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;">
-                <tr>
-                    <td align="center" bgcolor="#1E3A8A" style="border-radius:8px;">
-                        <a href="{track_url}" target="_blank" style="
-                            display:inline-block;
-                            padding:12px 20px;
-                            font-size:16px;
-                            color:#ffffff;
-                            text-decoration:none;
-                            font-weight:600;
-                        ">Voir votre commande</a>
-                    </td>
-                </tr>
-            </table>
-
-            <p style="margin-top:30px;">Votre commande sera traitée rapidement.<br>Cordialement,<br>JB Art</p>
+    # Contenu de l'email
+    content = f"""
+    <p style="font-size: 16px; margin-bottom: 20px;">Bonjour <strong>{customer_name}</strong>,</p>
+    
+    <p>Merci pour votre confiance ! Votre commande <strong>#{order_id}</strong> a bien été enregistrée. 🎉</p>
+    
+    <div style="
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 25px 0;
+    ">
+        <h3 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 18px;">📦 Détail de votre commande</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            {items_html}
+        </table>
+        
+        <div style="
+            text-align: right;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid {color_primary};
+        ">
+            <span style="font-size: 14px; color: #666;">Total</span><br>
+            <strong style="font-size: 24px; color: {color_primary};">{total_price} €</strong>
         </div>
-    </body>
-    </html>
+    </div>
+    
+    <div style="
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+        border-left: 4px solid {color_primary};
+        padding: 20px;
+        border-radius: 8px;
+        margin: 25px 0;
+    ">
+        <p style="margin: 0; font-size: 14px; color: #444;">
+            <strong>📍 Prochaines étapes :</strong><br>
+            • Votre commande est en cours de traitement<br>
+            • Vous recevrez un email dès l'expédition<br>
+            • Suivez l'état de votre commande en temps réel
+        </p>
+    </div>
     """
-    msg.attach(MIMEText(body, 'html'))
+    
+    html_body = generate_email_html(
+        title=f"Commande #{order_id} confirmée",
+        content=content,
+        button_text="🔍 Suivre ma commande",
+        button_url=track_url
+    )
+    
+    msg.attach(MIMEText(html_body, 'html'))
 
     # --- ENVOI ---
     try:

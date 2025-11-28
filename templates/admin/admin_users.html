@@ -60,10 +60,10 @@
                 </form>
 
                 <!-- BOUTONS MAIL + EXPORT -->
-                <div class="btn-mail-group">
-                    <button class="btn-action btn-success btn-mail" onclick="openEmailModal('user')">📧 Mail utilisateurs</button>
-                    <button class="btn-action btn-warning btn-mail" onclick="openEmailModal('partenaire')">📧 Mail partenaires</button>
-                    <a href="{{ url_for('export_users') }}" class="btn-action btn-primary btn-mail">📥 Export All</a>
+                <div class="btn-mail-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-link" onclick="openEmailModal('user')" style="background: #28a745; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s ease;">📧 Mail utilisateurs</button>
+                    <button class="btn-link" onclick="openEmailModal('partenaire')" style="background: #ff8c00; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s ease;">📧 Mail partenaires</button>
+                    <a href="{{ url_for('export_users') }}" class="btn-link" style="background: #1E3A8A; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s ease; display: inline-block;">📥 Export All</a>
                 </div>
             </div>
 
@@ -169,7 +169,11 @@
     align-items: center;
     margin-top: 10px;
 }
-.btn-mail-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-mail-group { 
+    display: flex; 
+    gap: 10px; 
+    flex-wrap: wrap;
+}
 
 /* Barre de recherche */
 .search-form {
@@ -205,12 +209,13 @@
 }
 .role-filter-select:hover { box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
 
-/* Boutons mail */
-.btn-mail { padding:6px 12px; font-size:14px; border-radius:6px; border:none; cursor:pointer; color:#fff; transition: transform 0.2s, background 0.3s; }
-.btn-mail.btn-success { background-color: #28a745; }
-.btn-mail.btn-success:hover { background-color: #218838; transform: scale(1.05); }
-.btn-mail.btn-warning { background-color: #ff8c00; }
-.btn-mail.btn-warning:hover { background-color: #e07b00; transform: scale(1.05); }
+/* Boutons mail - effets hover individuels uniquement sur les boutons */
+.btn-mail-group button:hover,
+.btn-mail-group a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    filter: brightness(1.1);
+}
 
 /* Table design */
 .users-table-wrapper { margin-top: 10px; overflow-x: auto; }
@@ -250,13 +255,6 @@
 .modal-content input, .modal-content textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
 .modal-content button { background-color:#1E3A8A; color:#fff; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
 .modal-content button:hover { background-color:#3B65C4; }
-.btn-mail.btn-primary {
-    background-color: #1E3A8A;
-}
-.btn-mail.btn-primary:hover {
-    background-color: #3B65C4;
-    transform: scale(1.05);
-}
 
 </style>
 
