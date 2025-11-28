@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des commandes - Admin{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+
+<!-- LISTE DES COMMANDES -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-panel">
+            <div class="panel-header">
+                <h2>Toutes les commandes</h2>
+                <p class="subtitle">{{ orders|length }} commande{{ 's' if orders|length > 1 else '' }}</p>
+
+                <!-- BARRE DE RECHERCHE -->
+                <form method="get" action="{{ url_for('admin_orders') }}" class="search-form">
+                    <input type="text" name="q" placeholder="Rechercher par ID, titre ou client..." value="{{ request.args.get('q', '') }}" class="search-input">
+                    <button type="submit" class="search-btn">🔍</button>
+                </form>
+            </div>
+
+            {% if orders %}
+            <div class="orders-list">
+                {% for order in orders %}
+                <div class="order-item">
+                    <div class="order-header">
+                        <div class="order-info">
+                            <h3>Commande #{{ order[0] }}</h3>
+                            <p class="order-date">{{ order[5] }}</p>
+                        </div>
+                        <div class="order-amount">
+                            <span class="amount">{{ "%.2f"|format(order[4]) }} €</span>
+                            <span class="status status-{{ order[6]|lower|replace(' ', '-') }}">{{ order[6] }}</span>
+                        </div>
+                    </div>
+
+                    <div class="order-details">
+                        <div class="detail-row">
+                            <span class="label">Client:</span>
+                            <span class="value">{{ order[1] }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Email:</span>
+                            <span class="value">{{ order[2] }}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Adresse:</span>
+                            <span class="value">{{ order[3] }}</span>
+                        </div>
+                    </div>
+
+                    {% if all_items[order[0]] %}
+                    <div class="order-items">
+                        <div class="items-header">Articles de la commande :</div>
+                        <ul class="items-list">
+                            {% for item in all_items[order[0]] %}
+                            <li>
+                                <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}" class="item-thumb">
+                                <div class="item-info">
+                                    <span class="item-name">{{ item[1] }}</span>
+                                    <span class="item-qty">x{{ item[4] }} @ {{ item[3] }} €</span>
+                                </div>
+                                <span class="item-total">{{ "%.2f"|format(item[3] * item[4]) }} €</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- ACTIONS SUR LA COMMANDE -->
+                    <div class="order-actions">
+                        <div class="status-dropdown">
+                            <strong>Changer le statut :</strong>
+                            {% set statuses = ['En cours', 'Confirmée', 'Expédiée', 'Livrée', 'Annulée'] %}
+                            {% for status in statuses %}
+                                {% if status != order[6] %}
+                                    <a href="{{ url_for('update_order_status', order_id=order[0], status=status) }}" class="status-link">{{ status }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <a href="{{ url_for('admin_order_detail', order_id=order[0]) }}" class="btn-link" style="margin-left:10px;">Voir détails</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">Aucune commande pour le moment.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- STYLE DE LA BARRE DE RECHERCHE -->
+<style>
+/* Formulaire recherche */
+.search-form {
+    display: flex;
+    margin-top: 15px;
+    max-width: 400px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    font-size: 14px;
+}
+
+.search-input:focus {
+    outline: none;
+}
+
+.search-btn {
+    padding: 0 20px;
+    background-color: #1E3A8A;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s, transform 0.2s;
+}
+
+.search-btn:hover {
+    background-color: #3B65C4;
+    transform: scale(1.05);
+}
+
+/* Table design */
+.users-table-wrapper {
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.users-table thead {
+    background: #f3f4f6;
+}
+
+.users-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #1E3A8A;
+    text-transform: uppercase;
+}
+
+.users-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #333;
+}
+
+.users-table tbody tr:hover {
+    background: #f0f4ff;
+}
+
+/* Badges rôle */
+.role-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.role-user {
+    background: #e8f0ff;
+    color: #1E3A8A;
+}
+
+.role-admin {
+    background: #ffe8e8;
+    color: #FF6347;
+}
+
+/* Boutons actions */
+.users-table .btn-action {
+    display: inline-block;
+    padding: 5px 10px;
+    margin: 2px;
+    font-size: 13px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #fff;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.btn-success { background-color: #28a745; }
+.btn-success:hover { background-color: #218838; }
+
+.btn-danger { background-color: #dc3545; }
+.btn-danger:hover { background-color: #c82333; }
+
+.btn-contact {
+    background-color: #1E3A8A;
+}
+.btn-contact:hover {
+    background-color: #3B65C4;
+    transform: scale(1.05);
+}
+
+/* Badge admin verrouillé */
+.badge-locked {
+    display: inline-block;
+    background: #ccc;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+</style>
+
+{% endblock %}

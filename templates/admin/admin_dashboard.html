@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord Admin - JB Art{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+
+            <!-- NOUVEL ONGLET NOTIFICATIONS -->
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+
+            <!-- NOUVEL ONGLET PARAMÈTRES -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">
+                ⚙️ Paramètres
+            </a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+
+<!-- CONTENU ADMIN -->
+<section class="admin-section">
+    <div class="admin-container">
+        <!-- STATISTIQUES -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🖼️</div>
+                <div class="stat-info">
+                    <h3>Peintures</h3>
+                    <p class="stat-number">{{ total_paintings }}</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <h3>Commandes</h3>
+                    <p class="stat-number">{{ total_orders }}</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3>Revenu total</h3>
+                    <p class="stat-number">{{ "%.2f"|format(total_revenue) }} €</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3>Utilisateurs</h3>
+                    <p class="stat-number">{{ total_users }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALERTES -->
+        {% if out_of_stock %}
+        <div class="alert alert-warning">
+            <h3>⚠️ Ruptures de stock</h3>
+            <ul>
+                {% for painting in out_of_stock %}
+                <li>
+                    <strong>{{ painting[1] }}</strong> ({{ painting[3] }} unités)
+                    <a href="{{ url_for('edit_painting', painting_id=painting[0]) }}" class="btn-link">Éditer</a>
+
+                    <!-- Bouton Supprimer -->
+                    <form action="{{ url_for('remove_painting', painting_id=painting[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette peinture ?');">
+                        <button type="submit" class="btn-link btn-danger">Supprimer</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- COMMANDES RÉCENTES -->
+        <div class="admin-panel">
+            <h2>Commandes récentes</h2>
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Client</th>
+                        <th>Email</th>
+                        <th>Montant</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in recent_orders %}
+                    <tr>
+                        <td>#{{ order[0] }}</td>
+                        <td>{{ order[1] }}</td>
+                        <td>{{ order[2] }}</td>
+                        <td>{{ "%.2f"|format(order[3]) }} €</td>
+                        <td>{{ order[4] }}</td>
+                        <td>
+                            <span class="status status-{{ order[5]|lower|replace(' ', '-') }}">
+                                {{ order[5] }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin_orders') }}" class="btn-link">Voir</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<style>
+/* Boutons Supprimer dans ruptures de stock */
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+</style>
+
+{% endblock %}

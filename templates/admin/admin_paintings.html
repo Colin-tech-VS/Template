@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des peintures - Admin{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+
+<!-- LISTE DES PEINTURES -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-panel">
+            <div class="panel-header">
+                <h2>Toutes les peintures</h2>
+                <p class="subtitle">{{ paintings|length }} peinture{{ 's' if paintings|length > 1 else '' }}</p>
+            </div>
+
+            {% if paintings %}
+            <div class="paintings-grid">
+                {% for painting in paintings %}
+                <div class="painting-card">
+                    <div class="painting-image">
+                        <img src="{{ url_for('static', filename=painting[2]) }}" alt="{{ painting[1] }}">
+                        <div class="painting-overlay">
+                            <a href="{{ url_for('edit_painting', painting_id=painting[0]) }}" class="btn-overlay">✏️ Éditer</a>
+                            <a href="{{ url_for('delete_painting', painting_id=painting[0]) }}" class="btn-overlay btn-danger" onclick="return confirm('Êtes-vous sûr ?')">🗑️ Supprimer</a>
+                        </div>
+                    </div>
+                    <div class="painting-info">
+                        <h3>{{ painting[1] }}</h3>
+                        <div class="painting-details">
+                            <span class="detail">
+                                💰 {{ painting[3] }} €
+                            </span>
+                            <span class="detail {% if painting[4] == 0 %}out-of-stock{% endif %}">
+                                📦 {{ painting[4] }} unité{{ 's' if painting[4] > 1 else '' }}
+                            </span>
+                        </div>
+                        <p class="painting-id">ID: {{ painting[0] }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">Aucune peinture pour le moment.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

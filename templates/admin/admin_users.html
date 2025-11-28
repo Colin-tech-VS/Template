@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des utilisateurs - Admin{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+<!-- LISTE DES UTILISATEURS -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="admin-panel">
+
+            <!-- PREMIÈRE LIGNE : TITRE ET NOMBRE -->
+            <div class="panel-header-line">
+                <h2>Tous les utilisateurs</h2>
+                <p class="subtitle">{{ users|length }} utilisateur{{ 's' if users|length > 1 else '' }}</p>
+            </div>
+
+            <!-- DEUXIÈME LIGNE : RECHERCHE, FILTRE, BOUTONS MAIL + EXPORT -->
+            <div class="panel-header-line actions-line">
+                <!-- BARRE DE RECHERCHE -->
+                <form method="get" action="{{ url_for('admin_users') }}" class="search-form">
+                    <input type="text" name="q" placeholder="Rechercher par n'importe quelle info..." value="{{ request.args.get('q', '') }}" class="search-input">
+                    <button type="submit" class="search-btn">🔍</button>
+                </form>
+
+                <!-- FILTRE PAR RÔLE -->
+                <form method="get" action="{{ url_for('admin_users') }}" class="role-filter-form">
+                    <label for="role-filter-select" class="role-filter-label">Filtrer par rôle :</label>
+                    <select name="role" id="role-filter-select" class="role-filter-select" onchange="this.form.submit()">
+                        <option value="" {% if not request.args.get('role') %}selected{% endif %}>Tous</option>
+                        <option value="user" {% if request.args.get('role')=='user' %}selected{% endif %}>Utilisateur</option>
+                        <option value="partenaire" {% if request.args.get('role')=='partenaire' %}selected{% endif %}>Partenaire</option>
+                        <option value="admin" {% if request.args.get('role')=='admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                </form>
+
+                <!-- BOUTONS MAIL + EXPORT -->
+                <div class="btn-mail-group">
+                    <button class="btn-action btn-success btn-mail" onclick="openEmailModal('user')">📧 Mail utilisateurs</button>
+                    <button class="btn-action btn-warning btn-mail" onclick="openEmailModal('partenaire')">📧 Mail partenaires</button>
+                    <a href="{{ url_for('export_users') }}" class="btn-action btn-primary btn-mail">📥 Export All</a>
+                </div>
+            </div>
+
+            {% if users %}
+            <div class="users-table-wrapper">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Rôle</th>
+                            <th>Date d'inscription</th>
+                            <th>Contacter</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr class="{% if user[3] == 'admin' %}admin-row{% endif %}">
+                            <td class="id">{{ user[0] }}</td>
+                            <td class="name">{{ user[1] }}</td>
+                            <td class="email">{{ user[2] }}</td>
+                            <td>
+                                <span class="role-badge role-{{ user[3] }}">
+                                    {% if user[3] == 'admin' %}👑
+                                    {% elif user[3] == 'partenaire' %}🤝
+                                    {% else %}👤
+                                    {% endif %}
+                                    {{ user[3]|capitalize }}
+                                </span>
+                            </td>
+                            <td class="date">{{ user[4] }}</td>
+                            <td class="contact">
+                                <a href="mailto:{{ user[2] }}" class="btn-action btn-contact">✉ Contacter</a>
+                            </td>
+                            <td class="actions">
+                                {% if user[3] == 'admin' %}
+                                    {% if user[2] != 'coco.cayre@gmail.com' %}
+                                        <form method="post" action="{{ url_for('update_user_role', user_id=user[0]) }}" style="display:inline;" onsubmit="return confirm('Retirer le rôle admin à cet utilisateur ?')">
+                                            <input type="hidden" name="role" value="user">
+                                            <button type="submit" class="btn-action btn-danger">Retirer admin</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="badge-locked">🔒 Admin principal</span>
+                                    {% endif %}
+                                {% else %}
+                                    <form method="post" action="{{ url_for('update_user_role', user_id=user[0]) }}" style="display:inline;">
+                                        <select name="role" onchange="this.form.submit()" class="role-select">
+                                            <option value="user" {% if user[3]=='user' %}selected{% endif %}>Utilisateur</option>
+                                            <option value="partenaire" {% if user[3]=='partenaire' %}selected{% endif %}>Partenaire</option>
+                                            <option value="admin" {% if user[3]=='admin' %}selected{% endif %}>Admin</option>
+                                        </select>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">Aucun utilisateur pour le moment.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- MODAL EMAIL DESIGN -->
+<div id="emailModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEmailModal()">&times;</span>
+        <h3 id="modalTitle">Envoyer un mail</h3>
+        <form method="post" action="{{ url_for('send_email_role') }}">
+            <input type="hidden" name="role" id="modalRole">
+            <div style="margin-bottom:10px;">
+                <label for="subject">Objet :</label>
+                <input type="text" name="subject" id="subject" required>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label for="message">Message :</label>
+                <textarea name="message" id="message" rows="6" required></textarea>
+            </div>
+            <button type="submit" class="btn-action btn-primary">Envoyer</button>
+        </form>
+    </div>
+</div>
+
+<!-- STYLE -->
+<style>
+/* PANEL HEADER */
+.panel-header-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.actions-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    margin-top: 10px;
+}
+.btn-mail-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Barre de recherche */
+.search-form {
+    display: flex;
+    max-width: 400px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.search-input { flex: 1; padding: 10px 15px; border: none; font-size: 14px; }
+.search-input:focus { outline: none; }
+.search-btn { padding: 0 20px; background-color: #1E3A8A; color: #fff; border: none; cursor: pointer; font-size: 16px; transition: background 0.3s, transform 0.2s; }
+.search-btn:hover { background-color: #3B65C4; transform: scale(1.05); }
+
+/* Filtre rôle */
+.role-filter-form {
+    display: flex;
+    align-items: center;
+}
+.role-filter-label {
+    margin-right: 8px;
+    font-weight: 600;
+    color: #1E3A8A;
+}
+.role-filter-select {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    cursor: pointer;
+    background: #fff;
+    transition: box-shadow 0.2s;
+}
+.role-filter-select:hover { box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+
+/* Boutons mail */
+.btn-mail { padding:6px 12px; font-size:14px; border-radius:6px; border:none; cursor:pointer; color:#fff; transition: transform 0.2s, background 0.3s; }
+.btn-mail.btn-success { background-color: #28a745; }
+.btn-mail.btn-success:hover { background-color: #218838; transform: scale(1.05); }
+.btn-mail.btn-warning { background-color: #ff8c00; }
+.btn-mail.btn-warning:hover { background-color: #e07b00; transform: scale(1.05); }
+
+/* Table design */
+.users-table-wrapper { margin-top: 10px; overflow-x: auto; }
+.users-table { width:100%; border-collapse:collapse; box-shadow:0 2px 5px rgba(0,0,0,0.05); border-radius:10px; overflow:hidden; }
+.users-table thead { background: #f3f4f6; }
+.users-table th { padding:12px 15px; text-align:left; font-weight:600; font-size:13px; color:#1E3A8A; text-transform:uppercase; }
+.users-table td { padding:12px 15px; border-bottom:1px solid #e5e7eb; color:#333; }
+.users-table tbody tr:hover { background:#f0f4ff; }
+
+/* Badges rôle */
+.role-badge { display:inline-block; padding:5px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+.role-user { background:#e8f0ff; color:#1E3A8A; }
+.role-admin { background:#ffe8e8; color:#FF6347; }
+.role-partenaire { background:#fff4e5; color:#ff8c00; }
+
+/* Select rôle table */
+.role-select { padding:5px 10px; font-size:13px; border-radius:6px; border:1px solid #ccc; cursor:pointer; }
+
+/* Boutons actions */
+.users-table .btn-action { display:inline-block; padding:5px 10px; margin:2px; font-size:13px; border-radius:6px; text-decoration:none; color:#fff; transition: transform 0.2s, background 0.2s; }
+.btn-danger { background-color:#dc3545; }
+.btn-danger:hover { background-color:#c82333; }
+.btn-contact { background-color:#1E3A8A; }
+.btn-contact:hover { background-color:#3B65C4; transform: scale(1.05); }
+
+/* Badge admin verrouillé */
+.badge-locked { display:inline-block; background:#ccc; color:#fff; padding:4px 10px; border-radius:12px; font-size:12px; }
+
+/* Modal */
+.modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5); }
+.modal-content { background-color:#fff; margin:10% auto; padding:20px; border-radius:12px; width:420px; max-width:90%; box-shadow:0 5px 15px rgba(0,0,0,0.3); position:relative; }
+.close { color:#aaa; position:absolute; top:10px; right:15px; font-size:24px; font-weight:bold; cursor:pointer; }
+.close:hover { color:#000; }
+.modal-content input, .modal-content textarea { width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+.modal-content button { background-color:#1E3A8A; color:#fff; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
+.modal-content button:hover { background-color:#3B65C4; }
+.btn-mail.btn-primary {
+    background-color: #1E3A8A;
+}
+.btn-mail.btn-primary:hover {
+    background-color: #3B65C4;
+    transform: scale(1.05);
+}
+
+</style>
+
+<script>
+function openEmailModal(role) {
+    document.getElementById('emailModal').style.display = 'block';
+    document.getElementById('modalRole').value = role;
+    document.getElementById('modalTitle').innerText = role === 'user' ? 'Envoyer un mail à tous les utilisateurs' : 'Envoyer un mail à tous les partenaires';
+}
+function closeEmailModal() { document.getElementById('emailModal').style.display = 'none'; }
+window.onclick = function(event) {
+    const modal = document.getElementById('emailModal');
+    if (event.target == modal) { modal.style.display = 'none'; }
+}
+</script>
+
+{% endblock %}

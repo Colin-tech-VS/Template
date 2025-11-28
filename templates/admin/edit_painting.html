@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Éditer une peinture - Admin{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+
+<!-- FORMULAIRE -->
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="form-panel">
+            <div class="form-header">
+                <h2>Peinture #{{ painting[0] }} - {{ painting[1] }}</h2>
+                <a href="{{ url_for('admin_paintings') }}" class="btn-secondary">← Retour</a>
+            </div>
+
+            <form method="POST" class="admin-form" enctype="multipart/form-data">
+                <!-- IMAGE ACTUELLE -->
+                <div class="form-group">
+                    <label>Image actuelle</label>
+                    <div class="image-preview" style="max-width:300px;">
+                        <img src="{{ url_for('static', filename=painting[2]) }}" alt="{{ painting[1] }}" class="preview-img">
+                    </div>
+                </div>
+
+                <!-- NOUVELLE IMAGE -->
+                <div class="form-group">
+                    <label for="image">Changer l'image</label>
+                    <div class="file-input-wrapper" id="file-wrapper">
+                        <input type="file" id="image" name="image" accept="image/*">
+                        <span class="file-label">Cliquez ou glissez pour télécharger une image</span>
+                    </div>
+                </div>
+
+                <!-- NOM -->
+                <div class="form-group">
+                    <label for="name">Nom de la peinture *</label>
+                    <input type="text" id="name" name="name" value="{{ painting[1] }}" required>
+                </div>
+
+                <!-- PRIX ET QUANTITÉ -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="price">Prix (€) *</label>
+                        <input type="number" id="price" name="price" value="{{ painting[3] }}" min="0" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="quantity">Quantité en stock *</label>
+                        <input type="number" id="quantity" name="quantity" value="{{ painting[4] }}" min="0" required>
+                    </div>
+                </div>
+
+                <!-- DESCRIPTION -->
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4">{{ painting[5] or '' }}</textarea>
+                </div>
+
+                <!-- ACTIONS -->
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">💾 Enregistrer les modifications</button>
+                    <a href="{{ url_for('admin_paintings') }}" class="btn-secondary">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- SCRIPT PREVIEW IMAGE -->
+<script>
+const imageInput = document.getElementById('image');
+const preview = document.querySelector('.preview-img');
+const fileWrapper = document.getElementById('file-wrapper');
+
+// Clic sur le wrapper ouvre le sélecteur
+fileWrapper.addEventListener('click', () => imageInput.click());
+
+// Prévisualisation de l'image
+imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if(file){
+        const reader = new FileReader();
+        reader.onload = e => preview.src = e.target.result;
+        reader.readAsDataURL(file);
+    }
+});
+
+// Drag & drop
+fileWrapper.addEventListener('dragover', e => {
+    e.preventDefault();
+    fileWrapper.classList.add('drag-over');
+});
+
+fileWrapper.addEventListener('dragleave', e => {
+    e.preventDefault();
+    fileWrapper.classList.remove('drag-over');
+});
+
+fileWrapper.addEventListener('drop', e => {
+    e.preventDefault();
+    fileWrapper.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if(file){
+        imageInput.files = e.dataTransfer.files;
+        const reader = new FileReader();
+        reader.onload = e => preview.src = e.target.result;
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+
+<style>
+/* STYLE FILE INPUT WRAPPER */
+.file-input-wrapper {
+    position: relative;
+    border: 2px dashed #1E3A8A;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #f9f9f9;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+}
+.file-input-wrapper:hover { background: #f0f4f8; border-color: #3B65C4; }
+.file-input-wrapper.drag-over { background: #e0f2ff; border-color: #1E3A8A; }
+.file-input-wrapper input { display: none; }
+.file-label { color: #1E3A8A; font-weight: 600; font-size: 14px; cursor: pointer; }
+
+/* IMAGE PREVIEW */
+.preview-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-top: 10px;
+}
+</style>
+
+{% endblock %}

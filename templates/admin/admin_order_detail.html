@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Détails Commande - Admin{% endblock %}
+
+{% block content %}
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+
+<section class="admin-section">
+    <div class="admin-container">
+        <h2>Informations client</h2>
+        <p><strong>Nom :</strong> {{ order[1] }}</p>
+        <p><strong>Email :</strong> {{ order[2] }}</p>
+        <p><strong>Adresse :</strong> {{ order[3] }}</p>
+        <p><strong>Total :</strong> {{ "%.2f"|format(order[4]) }} €</p>
+        <p><strong>Date :</strong> {{ order[5] }}</p>
+        <p><strong>Statut :</strong> {{ order[6] }}</p>
+
+        <!-- BOUTONS ACTIONS -->
+        <div class="order-actions">
+            <a href="{{ url_for('download_invoice', order_id=order[0]) }}" class="invoice_button_detail">Télécharger la facture</a>
+            <a href="mailto:{{ order[2] }}" class="contact_button_order_detail">Contacter le client</a>
+
+            <div class="status-dropdown">
+                <strong>Changer le statut :</strong>
+                {% set statuses = ['En cours', 'Confirmée', 'Expédiée', 'Livrée', 'Annulée'] %}
+                {% for status in statuses %}
+                    {% if status != order[6] %}
+                        <a href="{{ url_for('update_order_status', order_id=order[0], status=status) }}" class="status-link btn-tertiary">{{ status }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <h2>Articles commandés</h2>
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Produit</th>
+                    <th>Quantité</th>
+                    <th>Prix unitaire</th>
+                    <th>Sous-total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item[1] }}</td>
+                    <td>{{ item[4] }}</td>
+                    <td>{{ "%.2f"|format(item[3]) }} €</td>
+                    <td>{{ "%.2f"|format(item[3]*item[4]) }} €</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}
+
+<style>
+.admin-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.admin-table th, .admin-table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+
+.order-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-bottom: 20px; }
+
+/* Styles isolés pour les boutons factures et contact */
+.invoice_button_detail, .contact_button_order_detail {
+    display: inline-block !important;
+    padding: 10px 18px !important;
+    border-radius: 6px !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    transition: 0.2s !important;
+    text-align: center !important;
+}
+
+.invoice_button_detail {
+    background-color: #007bff !important;
+}
+.invoice_button_detail:hover {
+    background-color: #0056b3 !important;
+}
+
+.contact_button_order_detail {
+    background-color: #17a2b8 !important;
+}
+.contact_button_order_detail:hover {
+    background-color: #117a8b !important;
+}
+
+/* Boutons statut */
+.btn-tertiary {
+    background-color: #28a745;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: 0.2s;
+}
+.btn-tertiary:hover {
+    background-color: #218838;
+}
+
+.status-dropdown { display: inline-block; margin-left: 10px; }
+.status-link { text-decoration: none; margin-right: 10px; }
+.status-link:hover { text-decoration: underline; }
+</style>

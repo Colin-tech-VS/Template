@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres - Admin{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+<section class="admin-section">
+    <div class="settings-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="settings-form">
+
+            <!-- SECTION: INFORMATIONS DU SITE -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>📄 Informations du Site</h2>
+                    <p class="section-subtitle">Gérez le nom, la description et les informations essentielles</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="site_name">Nom du site</label>
+                        <span class="seo-hint">Utilisé dans les onglets navigateur et SEO</span>
+                    </div>
+                    <input type="text" name="site_name" id="site_name" value="{{ settings.get('site_name', 'Jean-Baptiste Art') }}" placeholder="Votre nom de site" class="form-input" maxlength="60">
+                    <p class="char-count"><span id="site_name_count">{{ settings.get('site_name', 'Jean-Baptiste Art')|length }}</span>/60</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="site_description">Description du site</label>
+                        <span class="seo-hint">Optimale: 150-160 caractères pour Google</span>
+                    </div>
+                    <textarea name="site_description" id="site_description" class="form-textarea" maxlength="160" placeholder="Description concise de votre site...">{{ settings.get('site_description', '') }}</textarea>
+                    <p class="char-count"><span id="site_description_count">{{ settings.get('site_description', '')|length }}</span>/160</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="site_about">À propos</label>
+                        <span class="seo-hint">Contenu long format pour votre page À propos</span>
+                    </div>
+                    <textarea name="site_about" id="site_about" class="form-textarea large" placeholder="Présentez votre histoire, votre vision, vos valeurs...">{{ settings.get('site_about', '') }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="site_keywords">Mots-clés SEO</label>
+                        <span class="seo-hint">Séparés par des virgules (ex: art, peinture, galerie)</span>
+                    </div>
+                    <input type="text" name="site_keywords" id="site_keywords" value="{{ settings.get('site_keywords', '') }}" placeholder="mot-clé1, mot-clé2, mot-clé3" class="form-input">
+                </div>
+            </div>
+
+            <!-- SECTION: INTÉGRATIONS & SERVICES -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🔧 Intégrations & Services</h2>
+                    <p class="section-subtitle">Configurez vos clés API et services externes</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <label for="stripe_secret_key">Clé secrète Stripe</label>
+                    <input type="password" name="stripe_secret_key" id="stripe_secret_key" value="{{ settings['stripe_secret_key'] }}" placeholder="sk_live_..." class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label for="google_places_key">Clé API Google Places</label>
+                    <input type="text" name="google_places_key" id="google_places_key" value="{{ settings['google_places_key'] }}" placeholder="AIzaSyD..." class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label for="smtp_password">Mot de passe SMTP</label>
+                    <input type="password" name="smtp_password" id="smtp_password" value="{{ settings['smtp_password'] }}" placeholder="••••••••" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label for="email_sender">Adresse email d'envoi</label>
+                    <input type="text" name="email_sender" id="email_sender" value="{{ settings['email_sender'] }}" placeholder="contact@example.com" class="form-input">
+                </div>
+            </div>
+
+            <!-- SECTION: THÈME DES COULEURS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🎨 Thème des couleurs</h2>
+                    <p class="section-subtitle">Personnalisez les couleurs principales de votre site</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="primary_color">Couleur primaire</label>
+                            <p class="color-hint">Navbar, footer, bordures</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="primary_color" id="primary_color" value="{{ settings['primary_color'] }}" class="color-picker">
+                            <span class="color-value" data-for="primary_color">{{ settings['primary_color'] }}</span>
+                        </div>
+                    </div>
+
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="secondary_color">Couleur secondaire</label>
+                            <p class="color-hint">Gradients, accents</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="secondary_color" id="secondary_color" value="{{ settings['secondary_color'] }}" class="color-picker">
+                            <span class="color-value" data-for="secondary_color">{{ settings['secondary_color'] }}</span>
+                        </div>
+                    </div>
+
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="accent_color">Couleur d'accentuation</label>
+                            <p class="color-hint">Badges, highlights</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="accent_color" id="accent_color" value="{{ settings['accent_color'] }}" class="color-picker">
+                            <span class="color-value" data-for="accent_color">{{ settings['accent_color'] }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: COULEURS DE TEXTE -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>📝 Couleurs de texte</h2>
+                    <p class="section-subtitle">Configurez les couleurs de texte pour tous vos éléments</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="button_text_color">Texte des boutons</label>
+                            <p class="color-hint">Boutons, navbar, footer</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="button_text_color" id="button_text_color" value="{{ settings.get('button_text_color', '#FFFFFF') }}" class="color-picker">
+                            <span class="color-value" data-for="button_text_color">{{ settings.get('button_text_color', '#FFFFFF') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="content_text_color">Texte du contenu</label>
+                            <p class="color-hint">Pages, cartes, formulaires</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="content_text_color" id="content_text_color" value="{{ settings.get('content_text_color', '#000000') }}" class="color-picker">
+                            <span class="color-value" data-for="content_text_color">{{ settings.get('content_text_color', '#000000') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION: INTERACTIONS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>✨ Interactions</h2>
+                    <p class="section-subtitle">Personnalisez les effets au survol et transitions</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="color-grid">
+                    <div class="color-item">
+                        <div class="color-label-group">
+                            <label for="button_hover_color">Couleur au survol</label>
+                            <p class="color-hint">État hover des boutons</p>
+                        </div>
+                        <div class="color-input-group">
+                            <input type="color" name="button_hover_color" id="button_hover_color" value="{{ settings.get('button_hover_color', '#9C27B0') }}" class="color-picker">
+                            <span class="color-value" data-for="button_hover_color">{{ settings.get('button_hover_color', '#9C27B0') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-actions">
+                <button type="submit" class="btn-save">💾 Sauvegarder les paramètres</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<style>
+.settings-container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.settings-section {
+    background: white;
+    border-radius: 12px;
+    padding: 35px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f0f0f0;
+}
+
+.section-header {
+    margin-bottom: 20px;
+}
+
+.section-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--content-text-color, #1E3A8A);
+}
+
+.section-subtitle {
+    font-size: 13px;
+    color: #718096;
+    margin: 0;
+    font-weight: 400;
+}
+
+.section-divider {
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color, #1E3A8A), transparent);
+    margin-bottom: 25px;
+    border-radius: 2px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.label-group label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--content-text-color, #2d3748);
+}
+
+.seo-hint {
+    font-size: 12px;
+    color: #718096;
+    font-weight: 400;
+}
+
+.form-input,
+.form-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.2s;
+    background: white;
+    color: var(--content-text-color, #1a202c);
+    font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color, #1E3A8A);
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-textarea.large {
+    min-height: 150px;
+}
+
+.char-count {
+    font-size: 12px;
+    color: #a0aec0;
+    margin-top: 6px;
+    text-align: right;
+}
+
+.color-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+}
+
+.color-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.color-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.color-label-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--content-text-color, #2d3748);
+    margin: 0;
+}
+
+.color-hint {
+    font-size: 12px;
+    color: #718096;
+    margin: 0;
+    font-weight: 400;
+}
+
+.color-input-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.color-picker {
+    width: 60px;
+    height: 50px;
+    padding: 2px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.2s;
+}
+
+.color-picker:hover {
+    border-color: var(--primary-color, #1E3A8A);
+}
+
+.color-value {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    text-align: center;
+    color: var(--content-text-color, #1a202c);
+    font-weight: 500;
+}
+
+.settings-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 40px;
+}
+
+.btn-save {
+    padding: 14px 40px;
+    background: linear-gradient(90deg, var(--primary-color, #1E3A8A), var(--secondary-color, #3B65C4));
+    color: var(--button-text-color, white);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(30, 58, 138, 0.25);
+}
+
+.btn-save:active {
+    transform: translateY(0);
+}
+
+.alert {
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid;
+    font-size: 14px;
+}
+
+.alert-success {
+    background-color: #f0fdf4;
+    color: #166534;
+    border-color: #22c55e;
+}
+
+.alert-danger {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border-color: #ef4444;
+}
+
+@media (max-width: 768px) {
+    .settings-section {
+        padding: 25px;
+    }
+
+    .color-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-actions {
+        flex-direction: column;
+    }
+
+    .btn-save {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPickers = document.querySelectorAll('.color-picker');
+
+    colorPickers.forEach(picker => {
+        const pickerId = picker.getAttribute('id');
+        const valueDisplay = document.querySelector(`.color-value[data-for="${pickerId}"]`);
+
+        if (valueDisplay) {
+            picker.addEventListener('input', function() {
+                valueDisplay.textContent = this.value.toUpperCase();
+            });
+
+            picker.addEventListener('change', function() {
+                valueDisplay.textContent = this.value.toUpperCase();
+            });
+        }
+    });
+
+    const textareas = {
+        'site_name': 60,
+        'site_description': 160
+    };
+
+    Object.keys(textareas).forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.addEventListener('input', function() {
+                const count = document.getElementById(fieldId + '_count');
+                if (count) {
+                    count.textContent = this.value.length;
+                    if (this.value.length > textareas[fieldId] * 0.9) {
+                        count.style.color = '#ed8936';
+                    } else {
+                        count.style.color = '#a0aec0';
+                    }
+                }
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}

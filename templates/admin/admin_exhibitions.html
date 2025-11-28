@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord Admin - Exhibitions{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+<section class="admin-section">
+    <div class="admin-container">
+        <!-- Bouton Ajouter -->
+        <div style="margin-bottom: 20px;">
+            <a href="{{ url_for('add_exhibition') }}" class="btn-primary">+ Ajouter une exhibition</a>
+        </div>
+
+        <!-- Liste des exhibitions -->
+        <div class="admin-panel">
+            <h2>Exhibitions existantes</h2>
+            {% if exhibitions %}
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Titre</th>
+                        <th>Lieu</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exhibition in exhibitions %}
+                    <tr>
+                        <td>#{{ exhibition[0] }}</td>
+                        <td>{{ exhibition[1] }}</td>
+                        <td>{{ exhibition[2] }}</td>
+                        <td>{{ exhibition[3] }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition[0]) }}" class="btn-link">Éditer</a>
+                            <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette exhibition ?');">
+                                <button type="submit" class="btn-link btn-danger">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>Aucune exhibition pour le moment.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<style>
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    padding: 10px 18px; /* augmente la taille */
+    border-radius: 6px;
+    font-size: 16px; /* même taille que les autres boutons */
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+}
+
+.btn-danger {
+    color: #fff;
+    background-color: #dc3545;
+    border: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Exhibition{% endblock %}
+
+{% block content %}
+
+<!-- HEADER ADMIN -->
+<header class="admin-header">
+    <div class="admin-container">
+        <h1>🎨 Tableau de bord Admin</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
+            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
+                🔔 Notifications
+                {% if new_notifications_count > 0 %}
+                <span class="badge">{{ new_notifications_count }}</span>
+                {% endif %}
+            </a>
+            <!-- Nouvel onglet Paramètres -->
+            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
+
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+        </nav>
+    </div>
+</header>
+
+<section class="admin-section">
+    <div class="admin-container">
+        <div class="form-panel">
+            <div class="form-header">
+                <h2>{{ action }} Exhibition</h2>
+                <a href="{{ url_for('admin_exhibitions') }}" class="btn-secondary">← Retour</a>
+            </div>
+
+            <form method="POST" class="admin-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="title">Titre *</label>
+                    <input type="text" id="title" name="title" placeholder="Nom de l'exhibition" value="{{ exhibition[1] if exhibition else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Lieu *</label>
+                    <input type="text" id="location" name="location" placeholder="Adresse ou ville" value="{{ exhibition[2] if exhibition else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="date">Date *</label>
+                    <input type="date" id="date" name="date" value="{{ exhibition[3] if exhibition else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" placeholder="Description de l'exhibition">{{ exhibition[4] if exhibition else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Image</label>
+                    <div class="file-input-wrapper" id="image-wrapper">
+                        <input type="file" id="image" name="image" accept="image/*" onchange="previewImage(event)">
+                        <span class="file-label">📁 Cliquez ou glissez-déposez une image</span>
+                    </div>
+                    {% if exhibition and exhibition[5] %}
+                    <div id="preview-container" style="display: block;">
+                        <img id="preview-image" src="{{ url_for('static', filename=exhibition[5]) }}" alt="Aperçu" class="preview-img">
+                    </div>
+                    {% else %}
+                    <div id="preview-container" style="display: none;">
+                        <img id="preview-image" src="" alt="Aperçu" class="preview-img">
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">{{ action }}</button>
+                    <a href="{{ url_for('admin_exhibitions') }}" class="btn-secondary">Annuler</a>
+                </div>
+            </form>
+
+
+            <div class="form-info">
+                <h3>ℹ️ Informations</h3>
+                <ul>
+                    <li>Champ titre et lieu obligatoires</li>
+                    <li>Date obligatoire</li>
+                    <li>Image facultative (preview disponible)</li>
+                    <li>Description facultative</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Google Places API -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_places_key }}&libraries=places"></script>
+<script>
+function initAutocomplete() {
+    const input = document.getElementById('location');
+    new google.maps.places.Autocomplete(input, { types: ['geocode'] });
+}
+document.addEventListener("DOMContentLoaded", initAutocomplete);
+
+function previewImage(event) {
+    const file = event.target.files[0];
+    if(file){
+        const reader = new FileReader();
+        reader.onload = function(e){
+            const preview = document.getElementById('preview-image');
+            const container = document.getElementById('preview-container');
+            preview.src = e.target.result;
+            container.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const wrapper = document.getElementById('image-wrapper');
+    const input = document.getElementById('image');
+
+    wrapper.addEventListener('click', () => input.click());
+    wrapper.addEventListener('dragover', e => { e.preventDefault(); wrapper.style.background = '#e0f2ff'; });
+    wrapper.addEventListener('dragleave', e => { e.preventDefault(); wrapper.style.background = '#f9f9f9'; });
+    wrapper.addEventListener('drop', e => {
+        e.preventDefault();
+        wrapper.style.background = '#f9f9f9';
+        input.files = e.dataTransfer.files;
+        previewImage({target: input});
+    });
+});
+</script>
+
+<style>
+/* Form panel */
+.form-panel {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 700px;
+    margin: 20px auto;
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.admin-form .form-group {
+    margin-bottom: 15px;
+}
+
+.admin-form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.admin-form input[type="text"],
+.admin-form input[type="date"],
+.admin-form textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+.admin-form textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Drag & drop input */
+.file-input-wrapper {
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.file-input-wrapper:hover {
+    background: #f0f8ff;
+}
+
+.preview-img {
+    max-width: 100%;
+    max-height: 300px;
+    margin-top: 10px;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+    margin-right: 10px;
+}
+
+.btn-primary:hover { background-color: #0069d9; }
+
+.btn-secondary {
+    color: #333;
+    background-color: #f0f0f0;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.btn-secondary:hover { background-color: #e0e0e0; }
+
+/* Form info */
+.form-info { margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 5px; }
+.form-info h3 { margin-bottom: 10px; }
+.form-info ul { margin: 0; padding-left: 20px; }
+</style>
+
+{% endblock %}
