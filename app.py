@@ -6,7 +6,6 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
 from functools import wraps
-import sqlite3
 import os
 import smtplib
 import uuid
@@ -25,6 +24,18 @@ from flask_mail import Mail
 from openpyxl import Workbook
 from io import BytesIO
 
+# Import du module de base de données
+from database import (
+    get_db, 
+    get_db_connection, 
+    execute_query, 
+    create_table_if_not_exists,
+    add_column_if_not_exists,
+    adapt_query,
+    IS_POSTGRES,
+    PARAM_PLACEHOLDER
+)
+
 
 # --------------------------------
 # CONFIGURATION
@@ -42,8 +53,6 @@ app.config.update(
 )
 mail = Mail(app)
 
-DB_PATH = 'paintings.db'
-
 # Dossiers de stockage
 app.config['UPLOAD_FOLDER'] = 'static/Images'        # pour les peintures
 app.config['EXPO_UPLOAD_FOLDER'] = 'static/expo_images'  # pour les exhibitions
@@ -56,22 +65,20 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def get_db():
-    return sqlite3.connect(DB_PATH)
-
-
 def get_order_by_id(order_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+    query = adapt_query("SELECT * FROM orders WHERE id = ?")
+    cursor.execute(query, (order_id,))
     order = cursor.fetchone()
     conn.close()
     return order
 
 def get_order_items(order_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
+    query = adapt_query("SELECT * FROM order_items WHERE order_id = ?")
+    cursor.execute(query, (order_id,))
     items = cursor.fetchall()
     conn.close()
     return items
@@ -285,13 +292,15 @@ TABLES = {
 
 # Fonction utilitaire pour récupérer une clé depuis settings
 def get_setting(key):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT value FROM settings WHERE key = ?", (key,))
+    query = adapt_query("SELECT value FROM settings WHERE key = ?")
+    cur.execute(query, (key,))
     row = cur.fetchone()
     conn.close()
-    return row["value"] if row else None
+    if row:
+        return row['value'] if IS_POSTGRES else row["value"]
+    return None
 
 stripe_key = get_setting("stripe_secret_key")
 print("Clé Stripe actuelle :", stripe_key)
@@ -312,40 +321,18 @@ print("Google Places Key utilisée :", google_places_key)
 
 # Fonction utilitaire pour mettre à jour ou créer une clé
 def set_setting(key, value):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    query = adapt_query("""
         INSERT INTO settings (key, value) VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value=excluded.value
-    """, (key, value))
+    """)
+    cur.execute(query, (key, value))
     conn.commit()
     conn.close()
 
-def create_table_if_not_exists(table_name, columns):
-    """Crée la table si elle n'existe pas"""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    col_defs = ", ".join([f"{name} {ctype}" for name, ctype in columns.items()])
-    c.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({col_defs})")
-    conn.commit()
-    conn.close()
-
-def add_column_if_not_exists(table_name, column_name, column_type):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    # Vérifier les colonnes existantes
-    c.execute(f"PRAGMA table_info({table_name})")
-    existing_cols = [col[1] for col in c.fetchall()]
-    
-    if column_name not in existing_cols:
-        # Ajouter directement la colonne telle quelle
-        sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
-        c.execute(sql)
-        print(f"Colonne '{column_name}' ajoutée à '{table_name}'")
-    
-    conn.commit()
-    conn.close()
+# Les fonctions create_table_if_not_exists et add_column_if_not_exists 
+# sont maintenant dans database.py
 
 def migrate_db():
     """Migration complète : crée tables puis ajoute colonnes manquantes"""
@@ -395,7 +382,7 @@ def generate_invoice_pdf(order, items, total_price):
 
 def migrate_orders_db():
     """Migration des colonnes manquantes pour orders"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("PRAGMA table_info(orders)")
     columns = [col[1] for col in c.fetchall()]
@@ -407,25 +394,25 @@ def migrate_orders_db():
 def get_or_create_cart(conn=None):
     close_conn = False
     if conn is None:
-        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn = get_db()
         close_conn = True
     c = conn.cursor()
 
     session_id = request.cookies.get('cart_session')
     if not session_id:
         session_id = str(uuid.uuid4())
-        c.execute("INSERT INTO carts (session_id) VALUES (?)", (session_id,))
+        c.execute(adapt_query("INSERT INTO carts (session_id) VALUES (?)"), (session_id,))
     else:
-        c.execute("SELECT id FROM carts WHERE session_id=?", (session_id,))
+        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
         if not c.fetchone():
-            c.execute("INSERT INTO carts (session_id) VALUES (?)", (session_id,))
+            c.execute(adapt_query("INSERT INTO carts (session_id) VALUES (?)"), (session_id,))
 
-    c.execute("SELECT id FROM carts WHERE session_id=?", (session_id,))
+    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
     cart_id = c.fetchone()[0]
 
     user_id = session.get("user_id")
     if user_id:
-        c.execute("UPDATE carts SET user_id=? WHERE id=?", (user_id, cart_id))
+        c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=?"), (user_id, cart_id))
 
     if close_conn:
         conn.close()
@@ -435,7 +422,7 @@ def get_or_create_cart(conn=None):
 
 def init_users_table():
     """Crée la table users si elle n'existe pas"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -451,7 +438,7 @@ def init_users_table():
     conn.close()
 
 def migrate_orders_user():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("PRAGMA table_info(orders)")
     columns = [col[1] for col in c.fetchall()]
@@ -462,7 +449,7 @@ def migrate_orders_user():
 
 def migrate_users_role():
     """Ajoute la colonne role à la table users si elle n'existe pas"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("PRAGMA table_info(users)")
     columns = [col[1] for col in c.fetchall()]
@@ -473,7 +460,7 @@ def migrate_users_role():
 
 def set_admin_user(email):
     """Définit un utilisateur comme administrateur"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     try:
         c.execute("UPDATE users SET role='admin' WHERE email=?", (email,))
@@ -486,7 +473,7 @@ def set_admin_user(email):
 
 def init_favorites_table():
     """Crée la table favorites si elle n'existe pas"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS favorites (
@@ -503,13 +490,13 @@ def init_favorites_table():
     conn.close()
 
 def merge_carts(user_id, session_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupère l'id du panier connecté
-    c.execute("SELECT id FROM carts WHERE user_id=?", (user_id,))
+    c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
     user_cart = c.fetchone()
-    c.execute("SELECT id FROM carts WHERE session_id=?", (session_id,))
+    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
     session_cart = c.fetchone()
 
     if session_cart:
@@ -518,24 +505,24 @@ def merge_carts(user_id, session_id):
         if user_cart:
             user_cart_id = user_cart[0]
             # Fusion des articles
-            c.execute("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?", (session_cart_id,))
+            c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
             items = c.fetchall()
             for painting_id, qty in items:
-                c.execute("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?",
+                c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"),
                           (user_cart_id, painting_id))
                 row = c.fetchone()
                 if row:
-                    c.execute("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?",
+                    c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"),
                               (row[0]+qty, user_cart_id, painting_id))
                 else:
-                    c.execute("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)",
+                    c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"),
                               (user_cart_id, painting_id, qty))
             # Supprime l’ancien panier de session
-            c.execute("DELETE FROM cart_items WHERE cart_id=?", (session_cart_id,))
-            c.execute("DELETE FROM carts WHERE id=?", (session_cart_id,))
+            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=?"), (session_cart_id,))
+            c.execute(adapt_query("DELETE FROM carts WHERE id=?"), (session_cart_id,))
         else:
             # Associe le panier de session à l'utilisateur
-            c.execute("UPDATE carts SET user_id=? WHERE id=?", (user_id, session_cart_id))
+            c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=?"), (user_id, session_cart_id))
 
     conn.commit()
     conn.close()
@@ -556,7 +543,7 @@ set_admin_user('coco.cayre@gmail.com')
 # UTILITAIRES
 # --------------------------------
 def get_paintings():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT id, name, image, price, quantity, description FROM paintings")
     paintings = c.fetchall()
@@ -569,9 +556,9 @@ def is_admin():
     if not user_id:
         return False
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT role FROM users WHERE id=?", (user_id,))
+    c.execute(adapt_query("SELECT role FROM users WHERE id=?"), (user_id,))
     result = c.fetchone()
     conn.close()
     
@@ -592,7 +579,7 @@ def require_admin(f):
 # --------------------------------
 @app.route('/')
 def home():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Sélection explicite pour latest_paintings
@@ -609,7 +596,7 @@ def home():
 @app.route('/about')
 def about():
     # Récupérer toutes les peintures pour affichage dans la page à propos
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT id, name, image FROM paintings ORDER BY id DESC")
     paintings = c.fetchall()
@@ -632,18 +619,22 @@ def register():
 
         hashed_password = generate_password_hash(password)  # hachage du mot de passe
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db()
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+            c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
                       (name, email, hashed_password))
             conn.commit()
             conn.close()
             flash("Inscription réussie !")
             return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
+        except Exception as e:
             conn.close()
-            flash("Cet email est déjà utilisé.")
+            # IntegrityError pour email déjà utilisé
+            if 'UNIQUE' in str(e) or 'unique' in str(e):
+                flash("Cet email est déjà utilisé.")
+            else:
+                flash("Erreur lors de l'inscription.")
             return redirect(url_for('register'))
 
     return render_template("register.html")
@@ -655,11 +646,11 @@ def login():
         email = request.form['email']
         password = request.form['password']
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db()
         c = conn.cursor()
 
         # Vérifier utilisateur
-        c.execute("SELECT id, password FROM users WHERE email=?", (email,))
+        c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
         user = c.fetchone()
 
         if not user or not check_password_hash(user[1], password):
@@ -674,7 +665,7 @@ def login():
         guest_session_id = request.cookies.get("cart_session")
 
         # Vérifier si l'utilisateur a déjà un panier
-        c.execute("SELECT id, session_id FROM carts WHERE user_id=?", (user_id,))
+        c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=?"), (user_id,))
         user_cart = c.fetchone()
 
         if user_cart:
@@ -683,7 +674,7 @@ def login():
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
-            c.execute("INSERT INTO carts (session_id, user_id) VALUES (?, ?)",
+            c.execute(adapt_query("INSERT INTO carts (session_id, user_id) VALUES (?, ?)"),
                       (user_cart_session, user_id))
             conn.commit()
 
@@ -718,7 +709,7 @@ def logout():
 
 @app.route("/expositions")
 def expositions_page():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM exhibitions ORDER BY date ASC")  # tri par date croissante
     expositions = c.fetchall()
@@ -789,7 +780,7 @@ def submit_custom_request():
     reference_images_json = json.dumps(reference_images) if reference_images else None
     
     # Sauvegarder en base de données
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("""
         INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, 
@@ -902,9 +893,9 @@ def submit_custom_request():
 # Page de détail
 @app.route("/expo_detail/<int:expo_id>")
 def expo_detail_page(expo_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM exhibitions WHERE id=?", (expo_id,))
+    c.execute(adapt_query("SELECT * FROM exhibitions WHERE id=?"), (expo_id,))
     expo = c.fetchone()
     conn.close()
     if expo is None:
@@ -929,11 +920,11 @@ def expo_detail_page(expo_id):
 def admin_custom_requests():
     status_filter = request.args.get('status')
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
     if status_filter:
-        c.execute("SELECT * FROM custom_requests WHERE status=? ORDER BY created_at DESC", (status_filter,))
+        c.execute(adapt_query("SELECT * FROM custom_requests WHERE status=? ORDER BY created_at DESC"), (status_filter,))
     else:
         c.execute("SELECT * FROM custom_requests ORDER BY created_at DESC")
     
@@ -971,9 +962,9 @@ def admin_custom_requests():
 def update_custom_request_status(request_id):
     new_status = request.form.get("status")
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE custom_requests SET status=? WHERE id=?", (new_status, request_id))
+    c.execute(adapt_query("UPDATE custom_requests SET status=? WHERE id=?"), (new_status, request_id))
     conn.commit()
     conn.close()
     
@@ -983,11 +974,11 @@ def update_custom_request_status(request_id):
 @app.route("/admin/custom-requests/<int:request_id>/delete", methods=["POST"])
 @require_admin
 def delete_custom_request(request_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
     # Récupérer les images avant suppression
-    c.execute("SELECT reference_images FROM custom_requests WHERE id=?", (request_id,))
+    c.execute(adapt_query("SELECT reference_images FROM custom_requests WHERE id=?"), (request_id,))
     row = c.fetchone()
     if row and row[0]:
         import json
@@ -997,7 +988,7 @@ def delete_custom_request(request_id):
             if os.path.exists(full_path):
                 os.remove(full_path)
     
-    c.execute("DELETE FROM custom_requests WHERE id=?", (request_id,))
+    c.execute(adapt_query("DELETE FROM custom_requests WHERE id=?"), (request_id,))
     conn.commit()
     conn.close()
     
@@ -1009,7 +1000,7 @@ def delete_custom_request(request_id):
 # --------------------------------
 @app.route("/admin/exhibitions")
 def admin_exhibitions():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM exhibitions ORDER BY create_date DESC")
     exhibitions = c.fetchall()
@@ -1044,7 +1035,7 @@ def add_exhibition():
             file.save(os.path.join(app.config['EXPO_UPLOAD_FOLDER'], filename))
             image_filename = filename
 
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db()
         c = conn.cursor()
         c.execute("""
             INSERT INTO exhibitions (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image)
@@ -1064,9 +1055,9 @@ def add_exhibition():
 
 @app.route("/admin/exhibitions/edit/<int:exhibition_id>", methods=["GET", "POST"])
 def edit_exhibition(exhibition_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM exhibitions WHERE id=?", (exhibition_id,))
+    c.execute(adapt_query("SELECT * FROM exhibitions WHERE id=?"), (exhibition_id,))
     exhibition = c.fetchone()
 
     google_places_key = get_setting("google_places_key") or ""
@@ -1111,17 +1102,17 @@ def edit_exhibition(exhibition_id):
 # Supprimer une exhibition
 @app.route("/admin/exhibitions/remove/<int:exhibition_id>", methods=["POST"])
 def remove_exhibition(exhibition_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     # Supprimer l'image du dossier si elle existe
-    c.execute("SELECT image FROM exhibitions WHERE id=?", (exhibition_id,))
+    c.execute(adapt_query("SELECT image FROM exhibitions WHERE id=?"), (exhibition_id,))
     image = c.fetchone()
     if image and image[0]:
         image_path = os.path.join(app.config['EXPO_UPLOAD_FOLDER'], image[0])
         if os.path.exists(image_path):
             os.remove(image_path)
 
-    c.execute("DELETE FROM exhibitions WHERE id=?", (exhibition_id,))
+    c.execute(adapt_query("DELETE FROM exhibitions WHERE id=?"), (exhibition_id,))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_exhibitions"))
@@ -1132,16 +1123,16 @@ def remove_exhibition(exhibition_id):
 @app.route('/add_to_cart/<int:painting_id>')
 def add_to_cart(painting_id):
     cart_id, session_id = get_or_create_cart()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Vérifie si l'article existe déjà
-    c.execute("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?", (cart_id, painting_id))
+    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
     row = c.fetchone()
     if row:
-        c.execute("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?", (row[0]+1, cart_id, painting_id))
+        c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (row[0]+1, cart_id, painting_id))
     else:
-        c.execute("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, 1)", (cart_id, painting_id))
+        c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, 1)"), (cart_id, painting_id))
 
     conn.commit()
     conn.close()
@@ -1157,17 +1148,17 @@ def add_to_cart(painting_id):
 @app.route('/decrease_from_cart/<int:painting_id>')
 def decrease_from_cart(painting_id):
     cart_id, session_id = get_or_create_cart()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
-    c.execute("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?", (cart_id, painting_id))
+    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
     row = c.fetchone()
     if row:
         new_qty = row[0] - 1
         if new_qty <= 0:
-            c.execute("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?", (cart_id, painting_id))
+            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
         else:
-            c.execute("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?", (new_qty, cart_id, painting_id))
+            c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (new_qty, cart_id, painting_id))
 
     conn.commit()
     conn.close()
@@ -1182,10 +1173,10 @@ def decrease_from_cart(painting_id):
 @app.route('/remove_from_cart/<int:painting_id>')
 def remove_from_cart(painting_id):
     cart_id, session_id = get_or_create_cart()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
-    c.execute("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?", (cart_id, painting_id))
+    c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
 
     conn.commit()
     conn.close()
@@ -1200,7 +1191,7 @@ def remove_from_cart(painting_id):
 @app.route('/panier', endpoint='panier')
 def cart():
     cart_id, session_id = get_or_create_cart()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     c.execute('''
@@ -1236,7 +1227,7 @@ def checkout():
     # Récupérer ou créer le panier
     cart_id, session_id = get_or_create_cart()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupérer les articles du panier
@@ -1331,13 +1322,13 @@ def checkout_success():
     total_price = order["total_price"]
     items = order["items"]
 
-    with sqlite3.connect(DB_PATH, timeout=10) as conn:
+    with get_db() as conn:
         c = conn.cursor()
 
         # ----------------------------------------------------------
         # 1) Vérifier si l'utilisateur existe déjà
         # ----------------------------------------------------------
-        c.execute("SELECT id FROM users WHERE email=?", (email,))
+        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
         user = c.fetchone()
 
         if user:
@@ -1391,7 +1382,7 @@ def checkout_success():
         # 4) Vider le panier persistant
         # ----------------------------------------------------------
         cart_id, session_id = get_or_create_cart(conn=conn)
-        c.execute("DELETE FROM cart_items WHERE cart_id=?", (cart_id,))
+        c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=?"), (cart_id,))
 
         # ----------------------------------------------------------
         # 5) Notifications
@@ -1568,7 +1559,7 @@ def orders():
         flash("Vous devez être connecté pour voir vos commandes.")
         return redirect(url_for("login"))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupérer uniquement les commandes de l'utilisateur connecté
@@ -1621,7 +1612,7 @@ def add_painting_web():
 
             create_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            conn = sqlite3.connect(DB_PATH)
+            conn = get_db()
             c = conn.cursor()
             c.execute(
                 "INSERT INTO paintings (name, image, price, quantity, description, create_date) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1645,17 +1636,17 @@ def inject_cart():
     session_id = request.cookies.get("cart_session")
     user_id = session.get("user_id")
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # --- PANIER ---
     if user_id:
-        c.execute("SELECT id FROM carts WHERE user_id=?", (user_id,))
+        c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
         row = c.fetchone()
         cart_id = row[0] if row else None
     else:
         if session_id:
-            c.execute("SELECT id FROM carts WHERE session_id=?", (session_id,))
+            c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
             row = c.fetchone()
             cart_id = row[0] if row else None
         else:
@@ -1676,13 +1667,13 @@ def inject_cart():
     # --- FAVORIS ---
     favorite_ids = []
     if user_id:
-        c.execute("SELECT painting_id FROM favorites WHERE user_id=?", (user_id,))
+        c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=?"), (user_id,))
         favorite_ids = [row[0] for row in c.fetchall()]
 
     # --- NOTIFICATIONS ADMIN ---
     new_notifications_count = 0
     if is_admin():
-        c.execute("SELECT COUNT(*) FROM notifications WHERE user_id IS ? AND is_read=0", (None,))
+        c.execute(adapt_query("SELECT COUNT(*) FROM notifications WHERE user_id IS ? AND is_read=0"), (None,))
         new_notifications_count = c.fetchone()[0]
 
     conn.close()
@@ -1741,7 +1732,7 @@ def admin_notifications():
     if not is_admin():
         return redirect(url_for('index'))
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         # Récupérer toutes les notifications admin (user_id=NULL)
         c.execute("""
@@ -1767,12 +1758,12 @@ def mark_notification_read(notif_id):
     if not is_admin():
         return redirect(url_for("index"))
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db() as conn:
         c = conn.cursor()
         # Mettre la notification comme lue
-        c.execute("UPDATE notifications SET is_read=1 WHERE id=?", (notif_id,))
+        c.execute(adapt_query("UPDATE notifications SET is_read=1 WHERE id=?"), (notif_id,))
         # Récupérer l'URL pour redirection
-        c.execute("SELECT url FROM notifications WHERE id=?", (notif_id,))
+        c.execute(adapt_query("SELECT url FROM notifications WHERE id=?"), (notif_id,))
         row = c.fetchone()
         redirect_url = row[0] if row and row[0] else url_for("admin_notifications")
 
@@ -1784,7 +1775,7 @@ def mark_notification_read(notif_id):
 # --------------------------------
 @app.route('/galerie')
 def galerie():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT id, name, image, price FROM paintings ORDER BY id DESC")
     paintings = c.fetchall()
@@ -1862,11 +1853,11 @@ def profile():
         flash("Vous devez être connecté pour accéder à votre profil.")
         return redirect(url_for("login"))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupérer les infos de l'utilisateur connecté
-    c.execute("SELECT id, name, email, create_date FROM users WHERE id=?", (user_id,))
+    c.execute(adapt_query("SELECT id, name, email, create_date FROM users WHERE id=?"), (user_id,))
     user = c.fetchone()
     if not user:
         conn.close()
@@ -2050,15 +2041,19 @@ def add_favorite(painting_id):
         flash("Vous devez être connecté pour ajouter aux favoris.")
         return redirect(url_for("login"))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     try:
-        c.execute("INSERT INTO favorites (user_id, painting_id) VALUES (?, ?)", (user_id, painting_id))
+        c.execute(adapt_query("INSERT INTO favorites (user_id, painting_id) VALUES (?, ?)"), (user_id, painting_id))
         conn.commit()
         flash("Ajouté aux favoris !")
-    except sqlite3.IntegrityError:
-        flash("Cette peinture est déjà dans vos favoris.")
+    except Exception as e:
+        # IntegrityError pour doublon (favoris déjà existant)
+        if 'UNIQUE' in str(e) or 'unique' in str(e):
+            flash("Cette peinture est déjà dans vos favoris.")
+        else:
+            flash("Erreur lors de l'ajout aux favoris.")
     finally:
         conn.close()
 
@@ -2071,10 +2066,10 @@ def remove_favorite(painting_id):
         flash("Vous devez être connecté.")
         return redirect(url_for("login"))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
-    c.execute("DELETE FROM favorites WHERE user_id=? AND painting_id=?", (user_id, painting_id))
+    c.execute(adapt_query("DELETE FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
     conn.commit()
     conn.close()
 
@@ -2087,10 +2082,10 @@ def is_favorite(painting_id):
     if not user_id:
         return {'is_favorite': False}
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
-    c.execute("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=?", (user_id, painting_id))
+    c.execute(adapt_query("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
     result = c.fetchone()
     conn.close()
 
@@ -2103,7 +2098,7 @@ def is_favorite(painting_id):
 @require_admin
 def admin_dashboard():
     """Tableau de bord administrateur"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
     # Statistiques
@@ -2160,9 +2155,9 @@ def remove_painting(painting_id):
     if not is_admin():
         return redirect(url_for('index'))
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with get_db() as conn:
         c = conn.cursor()
-        c.execute("DELETE FROM paintings WHERE id=?", (painting_id,))
+        c.execute(adapt_query("DELETE FROM paintings WHERE id=?"), (painting_id,))
         conn.commit()
 
     return redirect(url_for('admin_dashboard'))
@@ -2171,11 +2166,11 @@ def remove_painting(painting_id):
 @require_admin
 def edit_painting(painting_id):
     """Éditer une peinture"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
     # Récupérer la peinture
-    c.execute("SELECT id, name, image, price, quantity, description, create_date FROM paintings WHERE id=?", (painting_id,))
+    c.execute(adapt_query("SELECT id, name, image, price, quantity, description, create_date FROM paintings WHERE id=?"), (painting_id,))
     painting = c.fetchone()
     
     if not painting:
@@ -2245,10 +2240,10 @@ def edit_painting(painting_id):
 @require_admin
 def delete_painting(painting_id):
     """Supprimer une peinture"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
-    c.execute("SELECT image FROM paintings WHERE id=?", (painting_id,))
+    c.execute(adapt_query("SELECT image FROM paintings WHERE id=?"), (painting_id,))
     painting = c.fetchone()
     
     if painting:
@@ -2261,7 +2256,7 @@ def delete_painting(painting_id):
                 pass
         
         # Supprimer de la BD
-        c.execute("DELETE FROM paintings WHERE id=?", (painting_id,))
+        c.execute(adapt_query("DELETE FROM paintings WHERE id=?"), (painting_id,))
         conn.commit()
         flash("Peinture supprimée avec succès !")
     else:
@@ -2275,7 +2270,7 @@ def delete_painting(painting_id):
 def admin_orders():
     """Gestion des commandes"""
     q = request.args.get('q', '').strip().lower()  # récupération du terme de recherche
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     if q:
@@ -2318,11 +2313,11 @@ def admin_orders():
 
 @app.route("/order/<int:order_id>")
 def order_status(order_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupérer la commande
-    c.execute("SELECT id, customer_name, email, address, total_price, status FROM orders WHERE id=?", (order_id,))
+    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, status FROM orders WHERE id=?"), (order_id,))
     order = c.fetchone()
     if not order:
         conn.close()
@@ -2359,10 +2354,10 @@ def update_order_status(order_id, status):
         flash("Statut invalide.")
         return redirect(url_for('admin_orders'))
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
-    c.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+    c.execute(adapt_query("UPDATE orders SET status=? WHERE id=?"), (status, order_id))
     conn.commit()
     conn.close()
     
@@ -2375,11 +2370,11 @@ def admin_order_detail(order_id):
     if not is_admin():
         return redirect(url_for("index"))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     # Récupérer la commande
-    c.execute("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?", (order_id,))
+    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?"), (order_id,))
     order = c.fetchone()
     if not order:
         conn.close()
@@ -2405,7 +2400,7 @@ def admin_users():
     q = request.args.get('q', '').strip().lower()
     role = request.args.get('role', '').strip().lower()
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     query = "SELECT id, name, email, role, create_date FROM users"
@@ -2447,7 +2442,7 @@ def export_users():
     q = request.args.get('q', '').strip().lower()
     role_filter = request.args.get('role')
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
 
     query = "SELECT id, name, email, role, create_date FROM users WHERE 1=1"
@@ -2507,11 +2502,11 @@ def update_user_role(user_id):
         flash("Rôle invalide.")
         return redirect(url_for('admin_users'))
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     
     # Ne pas laisser supprimer l'admin principal
-    c.execute("SELECT email FROM users WHERE id=?", (user_id,))
+    c.execute(adapt_query("SELECT email FROM users WHERE id=?"), (user_id,))
     user = c.fetchone()
     
     if user and user[0] == 'coco.cayre@gmail.com' and role != 'admin':
@@ -2519,7 +2514,7 @@ def update_user_role(user_id):
         conn.close()
         return redirect(url_for('admin_users'))
     
-    c.execute("UPDATE users SET role=? WHERE id=?", (role, user_id))
+    c.execute(adapt_query("UPDATE users SET role=? WHERE id=?"), (role, user_id))
     conn.commit()
     conn.close()
     
@@ -2543,9 +2538,9 @@ def send_email_role():
         return redirect(url_for('admin_users'))
 
     # --- Récupérer tous les emails ---
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT email FROM users WHERE role=?", (role,))
+    c.execute(adapt_query("SELECT email FROM users WHERE role=?"), (role,))
     emails = [row[0] for row in c.fetchall()]
     conn.close()
 

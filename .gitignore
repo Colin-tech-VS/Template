@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Base de données locale
+*.db
+*.sqlite
+*.sqlite3
+
+# Variables d'environnement
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Fichiers temporaires
+*.tmp
+temp/
+tmp/
+
+# Scripts de migration (optionnel, décommenter si besoin)
+# replace_sqlite.py
+# adapt_queries.py
