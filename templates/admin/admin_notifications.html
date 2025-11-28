@@ -52,7 +52,7 @@
                     <td>{{ '✅' if notif[3] else '❌' }}</td>
                     <td>
                         {% if notif[3] == 0 %}
-                        <a href="{{ url_for('mark_notification_read', notif_id=notif[0]) }}" class="btn-action btn-success">Marquer lu</a>
+                        <a href="{{ url_for('mark_notification_read', notif_id=notif[0]) }}" class="btn-link btn-success">Marquer lu</a>
                         {% endif %}
                         {% if notif[2] %}
                         <a href="{{ notif[2] }}" class="btn-action btn-primary">Voir</a>

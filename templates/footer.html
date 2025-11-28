@@ -18,8 +18,8 @@
     <div class="footer-container">
         <!-- À propos -->
         <div class="footer-about">
-            <h3>JB Art</h3>
-            <p>Artiste passionné par la peinture moderne et abstraite. Découvrez mes œuvres, inspirations et créations uniques.</p>
+            <h3>{{ site_settings.site_logo }}</h3>
+            <p>{{ site_settings.footer_text or site_settings.site_description or "Artiste passionné par la peinture moderne et abstraite. Découvrez mes œuvres, inspirations et créations uniques." }}</p>
         </div>
 
         <!-- Liens rapides -->
@@ -43,6 +43,6 @@
     </div>
 
     <div class="footer-bottom">
-        &copy; {{ current_year }} JB Art. Tous droits réservés.
+        &copy; {{ current_year }} {{ site_settings.site_logo }}. Tous droits réservés.
     </div>
 </footer>

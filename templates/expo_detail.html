@@ -110,6 +110,15 @@
         <div class="expo-meta">
             <span>📍 {{ expo[2] }}</span>
             <span>📅 {{ expo[3] }}</span>
+            {% if expo[7] %}
+            <span>🕒 {{ expo[7] }}{% if expo[8] %} - {{ expo[8] }}{% endif %}</span>
+            {% endif %}
+            {% if expo[11] %}
+            <span>🎫 {{ expo[11] }}</span>
+            {% endif %}
+            {% if expo[10] %}
+            <span>🎭 {{ expo[10] }}</span>
+            {% endif %}
         </div>
     </div>
 
@@ -118,6 +127,22 @@
     <div class="expo-description">
         <h2>Description</h2>
         <p>{{ expo[4] }}</p>
+    </div>
+    {% endif %}
+
+    <!-- DÉTAILS DU LIEU -->
+    {% if expo[9] %}
+    <div class="expo-description">
+        <h2>🏛️ Détails du lieu</h2>
+        <p>{{ expo[9] }}</p>
+    </div>
+    {% endif %}
+
+    <!-- INFORMATIONS DE CONTACT -->
+    {% if expo[12] %}
+    <div class="expo-description">
+        <h2>📞 Contact</h2>
+        <p>{{ expo[12] }}</p>
     </div>
     {% endif %}
 

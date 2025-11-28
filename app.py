@@ -126,7 +126,13 @@ TABLES = {
         "title": "TEXT NOT NULL",
         "location": "TEXT NOT NULL",
         "date": "TEXT NOT NULL",
+        "start_time": "TEXT",
+        "end_time": "TEXT",
         "description": "TEXT",
+        "venue_details": "TEXT",
+        "organizer": "TEXT",
+        "entry_price": "TEXT",
+        "contact_info": "TEXT",
         "image": "TEXT",
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     },
@@ -647,7 +653,13 @@ def add_exhibition():
         title = request.form["title"]
         location = request.form["location"]
         date = request.form["date"]
+        start_time = request.form.get("start_time") or None
+        end_time = request.form.get("end_time") or None
         description = request.form.get("description")
+        venue_details = request.form.get("venue_details")
+        organizer = request.form.get("organizer")
+        entry_price = request.form.get("entry_price")
+        contact_info = request.form.get("contact_info")
         file = request.files.get("image")
 
         image_filename = None
@@ -660,9 +672,9 @@ def add_exhibition():
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("""
-            INSERT INTO exhibitions (title, location, date, description, image)
-            VALUES (?, ?, ?, ?, ?)
-        """, (title, location, date, description, image_filename))
+            INSERT INTO exhibitions (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename))
         conn.commit()
         conn.close()
         return redirect(url_for("admin_exhibitions"))
@@ -688,10 +700,16 @@ def edit_exhibition(exhibition_id):
         title = request.form["title"]
         location = request.form["location"]
         date = request.form["date"]
+        start_time = request.form.get("start_time") or None
+        end_time = request.form.get("end_time") or None
         description = request.form.get("description")
+        venue_details = request.form.get("venue_details")
+        organizer = request.form.get("organizer")
+        entry_price = request.form.get("entry_price")
+        contact_info = request.form.get("contact_info")
         file = request.files.get("image")
 
-        image_filename = exhibition[5]  # Garde l'ancienne image si pas de nouvelle upload
+        image_filename = exhibition[5]  # Index de l'image dans la table
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             os.makedirs(app.config['EXPO_UPLOAD_FOLDER'], exist_ok=True)
@@ -700,9 +718,9 @@ def edit_exhibition(exhibition_id):
 
         c.execute("""
             UPDATE exhibitions
-            SET title=?, location=?, date=?, description=?, image=?
+            SET title=?, location=?, date=?, start_time=?, end_time=?, description=?, venue_details=?, organizer=?, entry_price=?, contact_info=?, image=?
             WHERE id=?
-        """, (title, location, date, description, image_filename, exhibition_id))
+        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename, exhibition_id))
         conn.commit()
         conn.close()
         return redirect(url_for("admin_exhibitions"))
@@ -1060,10 +1078,27 @@ def admin_settings_page():
         "google_places_key",
         "smtp_password",
         "email_sender",
+        "site_logo",
         "site_name",
+        "site_slogan",
         "site_description",
         "site_about",
         "site_keywords",
+        "home_title",
+        "home_subtitle",
+        "about_page_title",
+        "about_biography_image",
+        "about_biography_text",
+        "about_inspiration_text",
+        "about_technique_text",
+        "contact_intro",
+        "footer_text",
+        "galerie_title",
+        "galerie_description",
+        "boutique_title",
+        "boutique_description",
+        "expositions_title",
+        "expositions_description",
         "primary_color",
         "secondary_color",
         "accent_color",
@@ -1073,27 +1108,66 @@ def admin_settings_page():
     ]
 
     if request.method == "POST":
+        # Gestion de l'upload de l'image de biographie
+        image_uploaded = False
+        if 'about_biography_image_file' in request.files:
+            file = request.files['about_biography_image_file']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                # Générer un nom unique avec timestamp
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                name, ext = os.path.splitext(filename)
+                unique_filename = f"biography_{timestamp}{ext}"
+                
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(filepath)
+                
+                # Mettre à jour le setting avec le nouveau chemin
+                set_setting("about_biography_image", f"Images/{unique_filename}")
+                image_uploaded = True
+        
+        # Sauvegarder tous les autres paramètres
         for key in settings_keys:
-            value = request.form.get(key, "")
-            set_setting(key, value)
+            if key == "about_biography_image" and not image_uploaded:
+                # Garder l'ancienne valeur si pas de nouveau fichier
+                value = request.form.get(key, "")
+                if value:
+                    set_setting(key, value)
+            elif key != "about_biography_image":
+                value = request.form.get(key, "")
+                set_setting(key, value)
         flash("Paramètres mis à jour avec succès !", "success")
         return redirect(url_for("admin_settings_page"))
 
     settings_values = {key: get_setting(key) or "" for key in settings_keys}
-    if not settings_values.get("site_name"):
-        settings_values["site_name"] = "Jean-Baptiste Art"
-    if not settings_values.get("primary_color"):
-        settings_values["primary_color"] = "#1E3A8A"
-    if not settings_values.get("secondary_color"):
-        settings_values["secondary_color"] = "#3B65C4"
-    if not settings_values.get("accent_color"):
-        settings_values["accent_color"] = "#FF7F50"
-    if not settings_values.get("button_text_color"):
-        settings_values["button_text_color"] = "#FFFFFF"
-    if not settings_values.get("content_text_color"):
-        settings_values["content_text_color"] = "#000000"
-    if not settings_values.get("button_hover_color"):
-        settings_values["button_hover_color"] = "#9C27B0"
+    # Valeurs par défaut
+    defaults = {
+        "site_logo": "JB Art",
+        "site_name": "Jean-Baptiste Art",
+        "site_slogan": "Bienvenue dans l'univers artistique de Jean-Baptiste",
+        "primary_color": "#1E3A8A",
+        "secondary_color": "#3B65C4",
+        "accent_color": "#FF7F50",
+        "button_text_color": "#FFFFFF",
+        "content_text_color": "#000000",
+        "button_hover_color": "#9C27B0",
+        "home_title": "Découvrez mes créations",
+        "about_page_title": "À propos de l'artiste",
+        "about_biography_image": "Images/artiste.jpeg",
+        "about_biography_text": "Présentez votre parcours artistique, vos débuts, votre évolution...",
+        "about_inspiration_text": "Décrivez vos sources d'inspiration : nature, voyages, émotions...",
+        "about_technique_text": "Décrivez vos techniques : acrylique, huile, techniques mixtes...",
+        "galerie_title": "Galerie des œuvres",
+        "galerie_description": "Découvrez la collection complète des peintures originales.",
+        "boutique_title": "Boutique en ligne",
+        "boutique_description": "Explorez la boutique et découvrez toutes les œuvres disponibles à la vente.",
+        "expositions_title": "Expositions",
+        "expositions_description": "Découvrez les expositions passées et à venir."
+    }
+    
+    for key, default_value in defaults.items():
+        if not settings_values.get(key):
+            settings_values[key] = default_value
 
     return render_template(
         "admin/admin_settings.html",
@@ -1231,12 +1305,37 @@ def inject_cart():
 
     conn.close()
 
+    # --- PARAMÈTRES DU SITE ---
+    site_settings = {
+        "site_logo": get_setting("site_logo") or "JB Art",
+        "site_name": get_setting("site_name") or "Jean-Baptiste Art",
+        "site_slogan": get_setting("site_slogan") or "Bienvenue dans l'univers artistique de Jean-Baptiste",
+        "site_description": get_setting("site_description") or "",
+        "site_keywords": get_setting("site_keywords") or "",
+        "home_title": get_setting("home_title") or "Découvrez mes créations",
+        "home_subtitle": get_setting("home_subtitle") or "",
+        "about_page_title": get_setting("about_page_title") or "À propos de l'artiste",
+        "about_biography_image": get_setting("about_biography_image") or "Images/artiste.jpeg",
+        "about_biography_text": get_setting("about_biography_text") or "",
+        "about_inspiration_text": get_setting("about_inspiration_text") or "",
+        "about_technique_text": get_setting("about_technique_text") or "",
+        "contact_intro": get_setting("contact_intro") or "",
+        "footer_text": get_setting("footer_text") or "",
+        "galerie_title": get_setting("galerie_title") or "Galerie des œuvres",
+        "galerie_description": get_setting("galerie_description") or "Découvrez la collection complète des peintures originales.",
+        "boutique_title": get_setting("boutique_title") or "Boutique en ligne",
+        "boutique_description": get_setting("boutique_description") or "Explorez la boutique et découvrez toutes les œuvres disponibles à la vente.",
+        "expositions_title": get_setting("expositions_title") or "Expositions",
+        "expositions_description": get_setting("expositions_description") or "Découvrez les expositions passées et à venir.",
+    }
+
     return dict(
         cart_items=cart_items,
         cart_count=total_qty,
         favorite_ids=favorite_ids,
         is_admin=is_admin(),
-        new_notifications_count=new_notifications_count  # ← ajouté ici
+        new_notifications_count=new_notifications_count,
+        site_settings=site_settings
     )
 
 

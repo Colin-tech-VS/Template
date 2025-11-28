@@ -15,10 +15,20 @@
 .auth-form button:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
 .flash-messages {list-style: none; padding: 0; margin-bottom: 20px;}
 .flash-messages li {background: #f44336; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;}
+@media (max-width: 768px) {
+    .auth-section {padding: 30px 15px;}
+    .auth-container {padding: 25px 20px; max-width: 100%;}
+    .auth-container h2 {font-size: 22px;}
+    .auth-form input, .auth-form textarea, .auth-form button {font-size: 14px;}
+}
 </style>
 <section class="section auth-section">
     <div class="auth-container">
         <h2>Contactez-moi</h2>
+        
+        {% if site_settings.contact_intro %}
+        <p style="text-align: center; margin-bottom: 20px; color: #555;">{{ site_settings.contact_intro }}</p>
+        {% endif %}
 
         {% with messages = get_flashed_messages() %}
         {% if messages %}

@@ -117,18 +117,22 @@
 
 <!-- INTRODUCTION SEO -->
 <section class="section seo-intro">
-    <h1>Jean-Baptiste — Artiste Peintre Moderne et Abstrait</h1>
-    <p>Bienvenue dans l’univers artistique de Jean-Baptiste. Découvrez sa biographie, ses inspirations et ses techniques uniques de peinture moderne et abstraite. Explorez ses œuvres originales disponibles en galerie et en boutique en ligne.</p>
+    <h1>{{ site_settings.about_page_title }}</h1>
+    <p>{{ site_settings.site_about or "Bienvenue dans l'univers artistique de Jean-Baptiste. Découvrez sa biographie, ses inspirations et ses techniques uniques de peinture moderne et abstraite. Explorez ses œuvres originales disponibles en galerie et en boutique en ligne." }}</p>
 </section>
 
 <!-- BIOGRAPHIE -->
 <section class="section about-section" aria-labelledby="biography">
     <h2 id="biography">Biographie</h2>
     <div class="about-container center-container content-box">
-        <img src="{{ url_for('static', filename='Images/artiste.jpeg') }}" alt="Portrait de Jean-Baptiste, artiste peintre">
+        <img src="{{ url_for('static', filename=site_settings.about_biography_image) }}" alt="Portrait de l'artiste">
         <div class="about-text">
-            <p><strong>Jean-Baptiste</strong> est un artiste passionné par la peinture moderne et abstraite. Depuis plusieurs années, il explore les émotions et les formes à travers ses créations originales.</p>
-            <p>Son parcours artistique se nourrit de voyages, de rencontres et de recherches sur les techniques de peinture contemporaine. Chaque œuvre raconte une histoire unique et reflète son univers créatif.</p>
+            {% if site_settings.about_biography_text %}
+                {{ site_settings.about_biography_text|safe }}
+            {% else %}
+                <p><strong>Jean-Baptiste</strong> est un artiste passionné par la peinture moderne et abstraite. Depuis plusieurs années, il explore les émotions et les formes à travers ses créations originales.</p>
+                <p>Son parcours artistique se nourrit de voyages, de rencontres et de recherches sur les techniques de peinture contemporaine. Chaque œuvre raconte une histoire unique et reflète son univers créatif.</p>
+            {% endif %}
             <div class="about-buttons">
                 <a href="{{ url_for('boutique') }}" class="btn-primary">Voir la boutique</a>
                 <a href="{{ url_for('galerie') }}" class="btn-primary">Voir la galerie</a>
@@ -142,8 +146,12 @@
     <h2 id="inspiration">Inspiration</h2>
     <div class="about-container center-container content-box">
         <div class="about-text">
-            <p>Jean-Baptiste puise son inspiration dans la nature, les voyages et les émotions humaines. Ses œuvres explorent la lumière, le mouvement et les couleurs pour créer un dialogue avec le spectateur.</p>
-            <p>Chaque peinture est une invitation à ressentir et à interpréter librement, faisant de chaque création un moment unique.</p>
+            {% if site_settings.about_inspiration_text %}
+                {{ site_settings.about_inspiration_text|safe }}
+            {% else %}
+                <p>Jean-Baptiste puise son inspiration dans la nature, les voyages et les émotions humaines. Ses œuvres explorent la lumière, le mouvement et les couleurs pour créer un dialogue avec le spectateur.</p>
+                <p>Chaque peinture est une invitation à ressentir et à interpréter librement, faisant de chaque création un moment unique.</p>
+            {% endif %}
         </div>
     </div>
 </section>
@@ -153,8 +161,12 @@
     <h2 id="technique">Technique Artistique</h2>
     <div class="about-container center-container content-box">
         <div class="about-text">
-            <p>Jean-Baptiste utilise principalement la peinture acrylique et l’huile sur toile. Ses créations combinent des couches de textures, des formes abstraites et des touches de couleurs vives pour transmettre énergie et émotion.</p>
-            <p>Il expérimente également différentes techniques mixtes, permettant à chaque œuvre de révéler sa singularité et son originalité.</p>
+            {% if site_settings.about_technique_text %}
+                {{ site_settings.about_technique_text|safe }}
+            {% else %}
+                <p>Jean-Baptiste utilise principalement la peinture acrylique et l'huile sur toile. Ses créations combinent des couches de textures, des formes abstraites et des touches de couleurs vives pour transmettre énergie et émotion.</p>
+                <p>Il expérimente également différentes techniques mixtes, permettant à chaque œuvre de révéler sa singularité et son originalité.</p>
+            {% endif %}
         </div>
     </div>
 </section>

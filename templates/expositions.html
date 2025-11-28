@@ -152,8 +152,8 @@
 
 <!-- INTRO -->
 <section class="seo-intro">
-    <h1>Expositions de Jean-Baptiste</h1>
-    <p>Découvrez les expositions passées et à venir. La prochaine exposition est mise en valeur ci-dessous.</p>
+    <h1>{{ site_settings.expositions_title }}</h1>
+    <p>{{ site_settings.expositions_description }}</p>
 </section>
 
 <!-- HERO PROCHAINE EXPOSITION -->
@@ -165,6 +165,9 @@
         <div class="hero-meta">
             <span>📍 {{ latest_expo[2] }}</span>
             <span>📅 {{ latest_expo[3] }}</span>
+            {% if latest_expo[7] %}
+            <span>🕒 {{ latest_expo[7] }}{% if latest_expo[8] %} - {{ latest_expo[8] }}{% endif %}</span>
+            {% endif %}
         </div>
         {% if latest_expo[4] %}
             <p>{{ latest_expo[4]|truncate(200) }}</p>
@@ -189,6 +192,9 @@
                 <div class="expo-meta">
                     <span>📍 {{ expo[2] }}</span>
                     <span>📅 {{ expo[3] }}</span>
+                    {% if expo[7] %}
+                    <span>🕒 {{ expo[7] }}{% if expo[8] %} - {{ expo[8] }}{% endif %}</span>
+                    {% endif %}
                 </div>
                 {% if expo[4] %}
                 <p>{{ expo[4]|truncate(120) }}</p>

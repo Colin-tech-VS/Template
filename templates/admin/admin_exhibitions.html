@@ -46,6 +46,8 @@
                         <th>Titre</th>
                         <th>Lieu</th>
                         <th>Date</th>
+                        <th>Horaires</th>
+                        <th>Organisateur</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -56,6 +58,14 @@
                         <td>{{ exhibition[1] }}</td>
                         <td>{{ exhibition[2] }}</td>
                         <td>{{ exhibition[3] }}</td>
+                        <td>
+                            {% if exhibition[7] %}
+                                {{ exhibition[7] }}{% if exhibition[8] %} - {{ exhibition[8] }}{% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ exhibition[10] if exhibition[10] else '-' }}</td>
                         <td>
                             <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition[0]) }}" class="btn-link">Éditer</a>
                             <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette exhibition ?');">
@@ -90,18 +100,11 @@
     background-color: #0069d9;
 }
 
-.btn-danger {
-    color: #fff;
+.btn-link.btn-danger {
     background-color: #dc3545;
-    border: none;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    text-decoration: none;
 }
 
-.btn-danger:hover {
+.btn-link.btn-danger:hover {
     background-color: #c82333;
 }
 </style>

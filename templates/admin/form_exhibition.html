@@ -53,8 +53,38 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="start_time">Heure de début</label>
+                    <input type="time" id="start_time" name="start_time" value="{{ exhibition[7] if exhibition else '' }}" placeholder="14:00">
+                </div>
+
+                <div class="form-group">
+                    <label for="end_time">Heure de fin</label>
+                    <input type="time" id="end_time" name="end_time" value="{{ exhibition[8] if exhibition else '' }}" placeholder="18:00">
+                </div>
+
+                <div class="form-group">
                     <label for="description">Description</label>
-                    <textarea id="description" name="description" placeholder="Description de l'exhibition">{{ exhibition[4] if exhibition else '' }}</textarea>
+                    <textarea id="description" name="description" placeholder="Description générale de l'exposition">{{ exhibition[4] if exhibition else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="venue_details">Détails du lieu</label>
+                    <textarea id="venue_details" name="venue_details" placeholder="Nom de la galerie, étage, informations d'accès...">{{ exhibition[9] if exhibition else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="organizer">Organisateur</label>
+                    <input type="text" id="organizer" name="organizer" placeholder="Nom de l'organisateur ou de la galerie" value="{{ exhibition[10] if exhibition else '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="entry_price">Prix d'entrée</label>
+                    <input type="text" id="entry_price" name="entry_price" placeholder="Gratuit, 5€, etc." value="{{ exhibition[11] if exhibition else '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="contact_info">Informations de contact</label>
+                    <textarea id="contact_info" name="contact_info" placeholder="Email, téléphone, site web...">{{ exhibition[12] if exhibition else '' }}</textarea>
                 </div>
 
                 <div class="form-group">
@@ -84,10 +114,11 @@
             <div class="form-info">
                 <h3>ℹ️ Informations</h3>
                 <ul>
-                    <li>Champ titre et lieu obligatoires</li>
-                    <li>Date obligatoire</li>
-                    <li>Image facultative (preview disponible)</li>
-                    <li>Description facultative</li>
+                    <li><strong>Obligatoires:</strong> Titre, Lieu, Date</li>
+                    <li><strong>Facultatifs:</strong> Heures (début/fin), Description, Détails du lieu, Organisateur, Prix d'entrée, Contact, Image</li>
+                    <li>Les heures permettent d'afficher l'horaire précis de l'exposition</li>
+                    <li>Les détails du lieu complètent l'adresse (étage, salle, accès...)</li>
+                    <li>Le prix peut être "Gratuit" ou un montant (ex: "5€", "10€")</li>
                 </ul>
             </div>
         </div>

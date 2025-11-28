@@ -3,7 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Jean-Baptiste — Artiste Peintre{% endblock %}</title>
+    <title>{% block title %}{{ site_settings.site_name }}{% endblock %}</title>
+    <meta name="description" content="{{ site_settings.site_description }}">
+    {% if site_settings.site_keywords %}<meta name="keywords" content="{{ site_settings.site_keywords }}">{% endif %}
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}{{ site_settings.site_name }}{% endblock %}">
+    <meta property="og:description" content="{{ site_settings.site_description }}">
+    <meta property="og:site_name" content="{{ site_settings.site_name }}">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ site_settings.site_name }}{% endblock %}">
+    <meta name="twitter:description" content="{{ site_settings.site_description }}">
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('dynamic_colors') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -176,13 +190,59 @@
         .flash-message.hide {animation: slideOut 0.3s ease-out forwards;}
         @keyframes slideIn {from {transform: translateX(400px); opacity: 0;} to {transform: translateX(0); opacity: 1;}}
         @keyframes slideOut {to {transform: translateX(400px); opacity: 0;}}
+        
+        /* RESPONSIVE MOBILE */
+        @media (max-width: 768px) {
+            .user-menu-content {
+                width: 95vw;
+                max-width: 350px;
+                right: 2.5vw;
+            }
+            
+            .user-menu-content.show {
+                grid-template-columns: 1fr;
+            }
+            
+            .user-menu-links {
+                padding: 15px;
+            }
+            
+            .cart-preview {
+                max-height: 300px;
+            }
+            
+            .cart-items-list {
+                max-height: 200px;
+            }
+            
+            .cart-item-preview {
+                padding: 10px;
+            }
+            
+            .cart-item-image {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .flash-container {
+                top: 60px;
+                right: 10px;
+                left: 10px;
+                max-width: calc(100vw - 20px);
+            }
+            
+            .flash-message {
+                padding: 12px 15px;
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
 
     <!-- NAVIGATION -->
     <nav>
-        <div class="logo">JB Art</div>
+        <div class="logo">{{ site_settings.site_logo }}</div>
         <div class="hamburger" onclick="toggleMenu()">
             <span></span>
             <span></span>

@@ -113,12 +113,37 @@
 }
 .buy-btn:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
 .buy-btn[disabled] {background:#ccc; cursor:not-allowed;}
+
+@media (max-width: 768px) {
+    .seo-intro h1 {
+        font-size: 26px;
+    }
+    .seo-intro p {
+        font-size: 14px;
+    }
+    .latest-gallery {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    .artwork-image-wrapper {
+        height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .seo-intro h1 {
+        font-size: 22px;
+    }
+    .latest-gallery {
+        grid-template-columns: 1fr;
+    }
+}
 </style>
 
 <!-- INTRODUCTION SEO -->
 <section class="section seo-intro">
-    <h1>Boutique en ligne de Jean-Baptiste</h1>
-    <p>Explorez la boutique en ligne de Jean-Baptiste, artiste peintre moderne et abstrait. Découvrez toutes ses œuvres originales disponibles à la vente, consultez le stock et ajoutez vos peintures préférées à votre panier en toute simplicité.</p>
+    <h1>{{ site_settings.boutique_title }}</h1>
+    <p>{{ site_settings.boutique_description }}</p>
 </section>
 
 <!-- BOUTIQUE -->

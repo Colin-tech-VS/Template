@@ -130,6 +130,40 @@ body {
 }
 .buy-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
 .buy-btn[disabled] { background:#ccc; cursor:not-allowed; }
+
+@media (max-width: 768px) {
+    .hero {
+        min-height: 50vh;
+        padding: 30px 15px;
+    }
+    .hero-overlay h1 {
+        font-size: 26px;
+    }
+    .hero-overlay p {
+        font-size: 14px;
+    }
+    .hero-cta {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .hero-cta a {
+        width: 100%;
+        text-align: center;
+    }
+    .latest-gallery {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-overlay h1 {
+        font-size: 22px;
+    }
+    .section h2 {
+        font-size: 22px;
+    }
+}
 </style>
 
 <!-- HERO -->
@@ -139,8 +173,8 @@ body {
          class="hero-media">
     <div class="hero-overlay">
         <div class="hero-text">
-            <h1>Bienvenue dans l’univers artistique de Jean-Baptiste</h1>
-            <p>Découvrez mes œuvres originales de paysages poétiques, inspirées de Ville-d’Avray et du Parc de Saint-Cloud, créées pour apporter calme, harmonie et émotion dans votre intérieur.</p>
+            <h1>{{ site_settings.home_title }}</h1>
+            <p>{{ site_settings.home_subtitle or site_settings.site_slogan }}</p>
         </div>
     </div>
 </header>

@@ -978,16 +978,22 @@ nav a:hover {
 
 /* BUTTONS */
 .btn-link {
-    color: #1E3A8A;
-    text-decoration: none;
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-size: 13px;
     font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
     transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
 }
 
 .btn-link:hover {
-    color: #3B65C4;
-    border-bottom-color: #3B65C4;
+    background-color: #0056b3;
+    transform: translateY(-1px);
 }
 
 .admin-form {
@@ -1853,4 +1859,220 @@ nav a:hover {
     border-radius: 50%;
     padding: 2px 6px;
     font-size: 12px;
+}
+
+/*------------------------------------------------*/
+/* RESPONSIVE MOBILE - GLOBAL IMPROVEMENTS */
+/*------------------------------------------------*/
+
+@media (max-width: 768px) {
+    /* Navigation mobile améliorée */
+    nav {
+        padding: 12px 20px;
+    }
+    
+    nav .logo {
+        font-size: 20px;
+    }
+    
+    /* Hero sections */
+    .hero {
+        min-height: 60vh;
+        padding: 30px 15px;
+    }
+    
+    .hero h1 {
+        font-size: 28px;
+    }
+    
+    .hero p {
+        font-size: 14px;
+    }
+    
+    /* Sections générales */
+    .section {
+        padding: 40px 15px;
+    }
+    
+    h2 {
+        font-size: 24px;
+    }
+    
+    /* Conteneurs */
+    .container, .center-container {
+        max-width: 100%;
+        padding: 0 15px;
+    }
+    
+    /* Grilles */
+    .latest-gallery,
+    .gallery-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    /* Panier mobile */
+    .cart-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .cart-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .cart-item img {
+        width: 100%;
+        height: 200px;
+    }
+    
+    .cart-summary {
+        position: static;
+        width: 100%;
+    }
+    
+    /* Checkout mobile */
+    .checkout-container {
+        grid-template-columns: 1fr;
+    }
+    
+    /* About page mobile */
+    .about-container {
+        flex-direction: column;
+    }
+    
+    .about-container img {
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    .about-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .about-buttons a {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Contact CTA */
+    .contact-cta-container {
+        padding: 30px 20px;
+    }
+    
+    .contact-cta h2 {
+        font-size: 22px;
+    }
+    
+    /* Footer mobile */
+    .footer-container {
+        flex-direction: column;
+        gap: 30px;
+        text-align: center;
+    }
+    
+    .footer-about,
+    .footer-links,
+    .footer-contact {
+        width: 100%;
+    }
+    
+    /* Expositions mobile */
+    .expo-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .hero-expo-card {
+        min-height: 300px;
+        width: 95%;
+    }
+    
+    .hero-expo-content h2 {
+        font-size: 1.5rem;
+    }
+    
+    /* Profile page mobile */
+    .profile-container {
+        padding: 20px 15px;
+    }
+    
+    .profile-section {
+        padding: 20px;
+    }
+    
+    /* Orders mobile */
+    .orders-list {
+        gap: 15px;
+    }
+    
+    .order-item {
+        padding: 15px;
+    }
+    
+    .order-details {
+        padding: 15px;
+    }
+    
+    /* Auth forms mobile */
+    .auth-container {
+        padding: 25px 20px;
+        margin: 20px 15px;
+    }
+    
+    .auth-container h2 {
+        font-size: 22px;
+    }
+    
+    /* Buttons mobile */
+    .btn-primary,
+    .btn-secondary {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small screens */
+    nav .logo {
+        font-size: 18px;
+    }
+    
+    .hero h1 {
+        font-size: 24px;
+    }
+    
+    .hero p {
+        font-size: 13px;
+    }
+    
+    h2 {
+        font-size: 20px;
+    }
+    
+    .section {
+        padding: 30px 10px;
+    }
+    
+    /* Cards très petits écrans */
+    .product-card img,
+    .latest-artwork .artwork-image-wrapper {
+        height: 200px;
+    }
+    
+    .cart-item img {
+        height: 150px;
+    }
+    
+    /* Admin mobile */
+    .admin-nav {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .nav-btn {
+        font-size: 13px;
+        padding: 8px 12px;
+    }
 }

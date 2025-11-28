@@ -38,20 +38,29 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" class="settings-form">
+        <form method="POST" enctype="multipart/form-data" class="settings-form">
 
-            <!-- SECTION: INFORMATIONS DU SITE -->
+            <!-- SECTION 1: IDENTITÉ DU SITE -->
             <div class="settings-section">
                 <div class="section-header">
-                    <h2>📄 Informations du Site</h2>
-                    <p class="section-subtitle">Gérez le nom, la description et les informations essentielles</p>
+                    <h2>🎨 Identité du Site</h2>
+                    <p class="section-subtitle">Logo, nom et informations principales de votre site</p>
                 </div>
                 <div class="section-divider"></div>
 
                 <div class="form-group">
                     <div class="label-group">
+                        <label for="site_logo">Logo de la Navbar</label>
+                        <span class="seo-hint">Texte affiché dans la barre de navigation et footer</span>
+                    </div>
+                    <input type="text" name="site_logo" id="site_logo" value="{{ settings.get('site_logo', 'JB Art') }}" placeholder="JB Art" class="form-input" maxlength="30">
+                    <p class="char-count"><span id="site_logo_count">{{ settings.get('site_logo', 'JB Art')|length }}</span>/30</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
                         <label for="site_name">Nom du site</label>
-                        <span class="seo-hint">Utilisé dans les onglets navigateur et SEO</span>
+                        <span class="seo-hint">Utilisé dans les onglets navigateur et le référencement (SEO)</span>
                     </div>
                     <input type="text" name="site_name" id="site_name" value="{{ settings.get('site_name', 'Jean-Baptiste Art') }}" placeholder="Votre nom de site" class="form-input" maxlength="60">
                     <p class="char-count"><span id="site_name_count">{{ settings.get('site_name', 'Jean-Baptiste Art')|length }}</span>/60</p>
@@ -59,64 +68,277 @@
 
                 <div class="form-group">
                     <div class="label-group">
-                        <label for="site_description">Description du site</label>
-                        <span class="seo-hint">Optimale: 150-160 caractères pour Google</span>
+                        <label for="site_description">Description du site (SEO)</label>
+                        <span class="seo-hint">Optimale : 150-160 caractères - Apparaît dans les résultats Google</span>
                     </div>
-                    <textarea name="site_description" id="site_description" class="form-textarea" maxlength="160" placeholder="Description concise de votre site...">{{ settings.get('site_description', '') }}</textarea>
+                    <textarea name="site_description" id="site_description" class="form-textarea" maxlength="160" placeholder="Description concise de votre site pour les moteurs de recherche...">{{ settings.get('site_description', '') }}</textarea>
                     <p class="char-count"><span id="site_description_count">{{ settings.get('site_description', '')|length }}</span>/160</p>
                 </div>
 
                 <div class="form-group">
                     <div class="label-group">
-                        <label for="site_about">À propos</label>
-                        <span class="seo-hint">Contenu long format pour votre page À propos</span>
-                    </div>
-                    <textarea name="site_about" id="site_about" class="form-textarea large" placeholder="Présentez votre histoire, votre vision, vos valeurs...">{{ settings.get('site_about', '') }}</textarea>
-                </div>
-
-                <div class="form-group">
-                    <div class="label-group">
                         <label for="site_keywords">Mots-clés SEO</label>
-                        <span class="seo-hint">Séparés par des virgules (ex: art, peinture, galerie)</span>
+                        <span class="seo-hint">Séparés par des virgules (ex: peinture, art moderne, galerie)</span>
                     </div>
-                    <input type="text" name="site_keywords" id="site_keywords" value="{{ settings.get('site_keywords', '') }}" placeholder="mot-clé1, mot-clé2, mot-clé3" class="form-input">
+                    <input type="text" name="site_keywords" id="site_keywords" value="{{ settings.get('site_keywords', '') }}" placeholder="art, peinture, galerie, moderne" class="form-input">
                 </div>
             </div>
 
-            <!-- SECTION: INTÉGRATIONS & SERVICES -->
+            <!-- SECTION 2: PAGE D'ACCUEIL -->
             <div class="settings-section">
                 <div class="section-header">
-                    <h2>🔧 Intégrations & Services</h2>
-                    <p class="section-subtitle">Configurez vos clés API et services externes</p>
+                    <h2>🏠 Page d'Accueil</h2>
+                    <p class="section-subtitle">Contenu de votre page principale</p>
                 </div>
                 <div class="section-divider"></div>
 
                 <div class="form-group">
-                    <label for="stripe_secret_key">Clé secrète Stripe</label>
+                    <div class="label-group">
+                        <label for="site_slogan">Slogan du site</label>
+                        <span class="seo-hint">Phrase d'accroche principale</span>
+                    </div>
+                    <input type="text" name="site_slogan" id="site_slogan" value="{{ settings.get('site_slogan', '') }}" placeholder="Bienvenue dans l'univers artistique..." class="form-input" maxlength="100">
+                    <p class="char-count"><span id="site_slogan_count">{{ settings.get('site_slogan', '')|length }}</span>/100</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="home_title">Titre principal</label>
+                        <span class="seo-hint">Grand titre de la section hero</span>
+                    </div>
+                    <input type="text" name="home_title" id="home_title" value="{{ settings.get('home_title', 'Découvrez mes créations') }}" placeholder="Titre accrocheur" class="form-input" maxlength="80">
+                    <p class="char-count"><span id="home_title_count">{{ settings.get('home_title', '')|length }}</span>/80</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="home_subtitle">Sous-titre / Description</label>
+                        <span class="seo-hint">Description sous le titre principal</span>
+                    </div>
+                    <textarea name="home_subtitle" id="home_subtitle" class="form-textarea" maxlength="200" placeholder="Description accrocheuse pour vos visiteurs...">{{ settings.get('home_subtitle', '') }}</textarea>
+                    <p class="char-count"><span id="home_subtitle_count">{{ settings.get('home_subtitle', '')|length }}</span>/200</p>
+                </div>
+            </div>
+
+            <!-- SECTION 3: PAGE À PROPOS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>👤 Page À Propos</h2>
+                    <p class="section-subtitle">Présentez votre histoire et votre univers artistique</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="about_page_title">Titre de la page</label>
+                        <span class="seo-hint">Titre principal de votre page À propos</span>
+                    </div>
+                    <input type="text" name="about_page_title" id="about_page_title" value="{{ settings.get('about_page_title', 'À propos de l\'artiste') }}" placeholder="À propos de l'artiste" class="form-input" maxlength="80">
+                    <p class="char-count"><span id="about_page_title_count">{{ settings.get('about_page_title', '')|length }}</span>/80</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="site_about">Introduction / Description SEO</label>
+                        <span class="seo-hint">Texte d'introduction court en haut de page</span>
+                    </div>
+                    <textarea name="site_about" id="site_about" class="form-textarea" maxlength="300" placeholder="Bienvenue dans l'univers artistique...">{{ settings.get('site_about', '') }}</textarea>
+                    <p class="char-count"><span id="site_about_count">{{ settings.get('site_about', '')|length }}</span>/300</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="about_biography_image">Image de biographie</label>
+                        <span class="seo-hint">Téléchargez une image (JPEG, PNG, WebP)</span>
+                    </div>
+                    {% if settings.get('about_biography_image') %}
+                    <div style="margin-bottom: 15px;">
+                        <img src="{{ url_for('static', filename=settings.get('about_biography_image', 'Images/artiste.jpeg')) }}" alt="Aperçu biographie" style="max-width: 200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <p style="font-size: 12px; color: #718096; margin-top: 8px;">Image actuelle : {{ settings.get('about_biography_image') }}</p>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="about_biography_image_file" id="about_biography_image_file" accept="image/jpeg,image/png,image/webp" class="form-input">
+                    <input type="hidden" name="about_biography_image" value="{{ settings.get('about_biography_image', 'Images/artiste.jpeg') }}">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="about_biography_text">Contenu Biographie</label>
+                        <span class="seo-hint">Texte complet de votre biographie</span>
+                    </div>
+                    <textarea name="about_biography_text" id="about_biography_text" class="form-textarea large" placeholder="Présentez votre parcours artistique, vos débuts, votre évolution...">{{ settings.get('about_biography_text', '') }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="about_inspiration_text">Contenu Inspiration</label>
+                        <span class="seo-hint">Décrivez vos sources d'inspiration</span>
+                    </div>
+                    <textarea name="about_inspiration_text" id="about_inspiration_text" class="form-textarea large" placeholder="D'où vient votre inspiration ? Nature, voyages, émotions...">{{ settings.get('about_inspiration_text', '') }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="about_technique_text">Contenu Technique</label>
+                        <span class="seo-hint">Décrivez vos techniques artistiques</span>
+                    </div>
+                    <textarea name="about_technique_text" id="about_technique_text" class="form-textarea large" placeholder="Quelles techniques utilisez-vous ? Acrylique, huile, techniques mixtes...">{{ settings.get('about_technique_text', '') }}</textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 4: PAGE GALERIE -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🖼️ Page Galerie</h2>
+                    <p class="section-subtitle">Textes de présentation de votre galerie d'œuvres</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="galerie_title">Titre de la page</label>
+                        <span class="seo-hint">Titre principal de la galerie</span>
+                    </div>
+                    <input type="text" name="galerie_title" id="galerie_title" value="{{ settings.get('galerie_title', 'Galerie des œuvres') }}" placeholder="Galerie des œuvres de..." class="form-input" maxlength="80">
+                    <p class="char-count"><span id="galerie_title_count">{{ settings.get('galerie_title', '')|length }}</span>/80</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="galerie_description">Description</label>
+                        <span class="seo-hint">Texte de présentation de la galerie</span>
+                    </div>
+                    <textarea name="galerie_description" id="galerie_description" class="form-textarea" maxlength="300" placeholder="Découvrez la collection complète...">{{ settings.get('galerie_description', '') }}</textarea>
+                    <p class="char-count"><span id="galerie_description_count">{{ settings.get('galerie_description', '')|length }}</span>/300</p>
+                </div>
+            </div>
+
+            <!-- SECTION 5: PAGE BOUTIQUE -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🛒 Page Boutique</h2>
+                    <p class="section-subtitle">Textes de présentation de votre boutique en ligne</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="boutique_title">Titre de la page</label>
+                        <span class="seo-hint">Titre principal de la boutique</span>
+                    </div>
+                    <input type="text" name="boutique_title" id="boutique_title" value="{{ settings.get('boutique_title', 'Boutique en ligne') }}" placeholder="Boutique en ligne de..." class="form-input" maxlength="80">
+                    <p class="char-count"><span id="boutique_title_count">{{ settings.get('boutique_title', '')|length }}</span>/80</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="boutique_description">Description</label>
+                        <span class="seo-hint">Texte de présentation de la boutique</span>
+                    </div>
+                    <textarea name="boutique_description" id="boutique_description" class="form-textarea" maxlength="300" placeholder="Explorez la boutique et découvrez toutes les œuvres disponibles...">{{ settings.get('boutique_description', '') }}</textarea>
+                    <p class="char-count"><span id="boutique_description_count">{{ settings.get('boutique_description', '')|length }}</span>/300</p>
+                </div>
+            </div>
+
+            <!-- SECTION 6: PAGE EXPOSITIONS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🎭 Page Expositions</h2>
+                    <p class="section-subtitle">Textes de présentation de vos expositions</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="expositions_title">Titre de la page</label>
+                        <span class="seo-hint">Titre principal de la page expositions</span>
+                    </div>
+                    <input type="text" name="expositions_title" id="expositions_title" value="{{ settings.get('expositions_title', 'Expositions') }}" placeholder="Expositions de..." class="form-input" maxlength="80">
+                    <p class="char-count"><span id="expositions_title_count">{{ settings.get('expositions_title', '')|length }}</span>/80</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="expositions_description">Description</label>
+                        <span class="seo-hint">Texte de présentation des expositions</span>
+                    </div>
+                    <textarea name="expositions_description" id="expositions_description" class="form-textarea" maxlength="300" placeholder="Découvrez les expositions passées et à venir...">{{ settings.get('expositions_description', '') }}</textarea>
+                    <p class="char-count"><span id="expositions_description_count">{{ settings.get('expositions_description', '')|length }}</span>/300</p>
+                </div>
+            </div>
+
+            <!-- SECTION 7: PAGE CONTACT & FOOTER -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>📧 Contact & Footer</h2>
+                    <p class="section-subtitle">Textes pour la page contact et pied de page</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="contact_intro">Introduction page Contact</label>
+                        <span class="seo-hint">Message d'accueil sur le formulaire de contact</span>
+                    </div>
+                    <textarea name="contact_intro" id="contact_intro" class="form-textarea" maxlength="300" placeholder="N'hésitez pas à me contacter...">{{ settings.get('contact_intro', '') }}</textarea>
+                    <p class="char-count"><span id="contact_intro_count">{{ settings.get('contact_intro', '')|length }}</span>/300</p>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="footer_text">Texte du footer</label>
+                        <span class="seo-hint">Description affichée en bas de toutes les pages</span>
+                    </div>
+                    <textarea name="footer_text" id="footer_text" class="form-textarea" placeholder="Artiste passionné par...">{{ settings.get('footer_text', '') }}</textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 8: INTÉGRATIONS & SERVICES -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2>🔧 Intégrations & Services</h2>
+                    <p class="section-subtitle">Clés API et services externes (paiement, email, etc.)</p>
+                </div>
+                <div class="section-divider"></div>
+
+                <div class="form-group">
+                    <div class="label-group">
+                        <label for="stripe_secret_key">Clé secrète Stripe</label>
+                        <span class="seo-hint">Pour le traitement des paiements en ligne</span>
+                    </div>
                     <input type="password" name="stripe_secret_key" id="stripe_secret_key" value="{{ settings['stripe_secret_key'] }}" placeholder="sk_live_..." class="form-input">
                 </div>
 
                 <div class="form-group">
-                    <label for="google_places_key">Clé API Google Places</label>
+                    <div class="label-group">
+                        <label for="google_places_key">Clé API Google Places</label>
+                        <span class="seo-hint">Pour l'autocomplétion d'adresses</span>
+                    </div>
                     <input type="text" name="google_places_key" id="google_places_key" value="{{ settings['google_places_key'] }}" placeholder="AIzaSyD..." class="form-input">
                 </div>
 
                 <div class="form-group">
-                    <label for="smtp_password">Mot de passe SMTP</label>
-                    <input type="password" name="smtp_password" id="smtp_password" value="{{ settings['smtp_password'] }}" placeholder="••••••••" class="form-input">
+                    <div class="label-group">
+                        <label for="email_sender">Adresse email d'envoi</label>
+                        <span class="seo-hint">Email utilisé pour l'envoi automatique</span>
+                    </div>
+                    <input type="text" name="email_sender" id="email_sender" value="{{ settings['email_sender'] }}" placeholder="contact@example.com" class="form-input">
                 </div>
 
                 <div class="form-group">
-                    <label for="email_sender">Adresse email d'envoi</label>
-                    <input type="text" name="email_sender" id="email_sender" value="{{ settings['email_sender'] }}" placeholder="contact@example.com" class="form-input">
+                    <div class="label-group">
+                        <label for="smtp_password">Mot de passe SMTP</label>
+                        <span class="seo-hint">Mot de passe pour le serveur d'envoi d'emails</span>
+                    </div>
+                    <input type="password" name="smtp_password" id="smtp_password" value="{{ settings['smtp_password'] }}" placeholder="••••••••" class="form-input">
                 </div>
             </div>
 
-            <!-- SECTION: THÈME DES COULEURS -->
+            <!-- SECTION 9: THÈME DES COULEURS -->
             <div class="settings-section">
                 <div class="section-header">
-                    <h2>🎨 Thème des couleurs</h2>
-                    <p class="section-subtitle">Personnalisez les couleurs principales de votre site</p>
+                    <h2>🎨 Thème des Couleurs</h2>
+                    <p class="section-subtitle">Personnalisez la palette de couleurs de votre site</p>
                 </div>
                 <div class="section-divider"></div>
 
@@ -124,7 +346,7 @@
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="primary_color">Couleur primaire</label>
-                            <p class="color-hint">Navbar, footer, bordures</p>
+                            <p class="color-hint">Navbar, footer, éléments principaux</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="primary_color" id="primary_color" value="{{ settings['primary_color'] }}" class="color-picker">
@@ -135,7 +357,7 @@
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="secondary_color">Couleur secondaire</label>
-                            <p class="color-hint">Gradients, accents</p>
+                            <p class="color-hint">Gradients, accents, hover</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="secondary_color" id="secondary_color" value="{{ settings['secondary_color'] }}" class="color-picker">
@@ -146,29 +368,18 @@
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="accent_color">Couleur d'accentuation</label>
-                            <p class="color-hint">Badges, highlights</p>
+                            <p class="color-hint">Badges, highlights, CTA</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="accent_color" id="accent_color" value="{{ settings['accent_color'] }}" class="color-picker">
                             <span class="color-value" data-for="accent_color">{{ settings['accent_color'] }}</span>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- SECTION: COULEURS DE TEXTE -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>📝 Couleurs de texte</h2>
-                    <p class="section-subtitle">Configurez les couleurs de texte pour tous vos éléments</p>
-                </div>
-                <div class="section-divider"></div>
-
-                <div class="color-grid">
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="button_text_color">Texte des boutons</label>
-                            <p class="color-hint">Boutons, navbar, footer</p>
+                            <p class="color-hint">Couleur du texte sur les boutons</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="button_text_color" id="button_text_color" value="{{ settings.get('button_text_color', '#FFFFFF') }}" class="color-picker">
@@ -179,29 +390,18 @@
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="content_text_color">Texte du contenu</label>
-                            <p class="color-hint">Pages, cartes, formulaires</p>
+                            <p class="color-hint">Couleur du texte principal</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="content_text_color" id="content_text_color" value="{{ settings.get('content_text_color', '#000000') }}" class="color-picker">
                             <span class="color-value" data-for="content_text_color">{{ settings.get('content_text_color', '#000000') }}</span>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- SECTION: INTERACTIONS -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>✨ Interactions</h2>
-                    <p class="section-subtitle">Personnalisez les effets au survol et transitions</p>
-                </div>
-                <div class="section-divider"></div>
-
-                <div class="color-grid">
                     <div class="color-item">
                         <div class="color-label-group">
                             <label for="button_hover_color">Couleur au survol</label>
-                            <p class="color-hint">État hover des boutons</p>
+                            <p class="color-hint">État hover des boutons et liens</p>
                         </div>
                         <div class="color-input-group">
                             <input type="color" name="button_hover_color" id="button_hover_color" value="{{ settings.get('button_hover_color', '#9C27B0') }}" class="color-picker">
@@ -212,7 +412,7 @@
             </div>
 
             <div class="settings-actions">
-                <button type="submit" class="btn-save">💾 Sauvegarder les paramètres</button>
+                <button type="submit" class="btn-save">💾 Sauvegarder tous les paramètres</button>
             </div>
         </form>
     </div>
