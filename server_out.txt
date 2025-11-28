@@ -1,0 +1,4 @@
+L'utilisateur coco.cayre@gmail.com est maintenant administrateur
+ * Serving Flask app 'app'
+ * Debug mode: on
+L'utilisateur coco.cayre@gmail.com est maintenant administrateur
