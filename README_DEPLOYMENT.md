@@ -25,13 +25,25 @@
 
 Sur votre machine locale :
 
+**PowerShell (Windows)** :
+```powershell
+# Installer les dépendances
+pip install psycopg2-binary
+
+# Définir l'URL PostgreSQL de Render
+$env:DATABASE_URL="postgresql://paintings_db_2qqb_user:0W89yVPSj6MWZBhgaPPVmpc73cXRa6Fi@dpg-d4ksbtggjchc73acsma0-a.oregon-postgres.render.com/paintings_db_2qqb"
+
+# Exécuter la migration
+python migrate_to_postgres.py
+```
+
+**Bash/Linux/Mac** :
 ```bash
 # Installer les dépendances
 pip install psycopg2-binary
 
 # Définir l'URL PostgreSQL de Render
-export DATABASE_URL="postgresql://user:pass@host/database"
-# Remplacez par l'URL Internal Database URL de Render
+export DATABASE_URL="postgresql://paintings_db_2qqb_user:0W89yVPSj6MWZBhgaPPVmpc73cXRa6Fi@dpg-d4ksbtggjchc73acsma0-a/paintings_db_2qqb"
 
 # Exécuter la migration
 python migrate_to_postgres.py
@@ -107,6 +119,17 @@ Projet_JB/
 
 Avant de déployer, testez que SQLite fonctionne toujours :
 
+**PowerShell (Windows)** :
+```powershell
+# Sans DATABASE_URL, utilise SQLite
+python app.py
+
+# Avec DATABASE_URL, utilise PostgreSQL
+$env:DATABASE_URL="postgresql://..."
+python app.py
+```
+
+**Bash/Linux/Mac** :
 ```bash
 # Sans DATABASE_URL, utilise SQLite
 python app.py

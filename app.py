@@ -381,15 +381,9 @@ def generate_invoice_pdf(order, items, total_price):
 
 
 def migrate_orders_db():
-    """Migration des colonnes manquantes pour orders"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("PRAGMA table_info(orders)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'status' not in columns:
-        c.execute("ALTER TABLE orders ADD COLUMN status TEXT NOT NULL DEFAULT 'En cours'")
-    conn.commit()
-    conn.close()
+    """Migration des colonnes manquantes pour orders (DEPRECATED - utilisez migrate_db())"""
+    # Cette fonction n'est plus nécessaire car migrate_db() gère tout
+    pass
 
 def get_or_create_cart(conn=None):
     close_conn = False
@@ -420,74 +414,37 @@ def get_or_create_cart(conn=None):
     return cart_id, session_id
 
 
+# ===== FONCTIONS OBSOLÈTES (remplacées par migrate_db()) =====
 def init_users_table():
-    """Crée la table users si elle n'existe pas"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'user',
-            create_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    """DEPRECATED - utilisez migrate_db()"""
+    pass
 
 def migrate_orders_user():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("PRAGMA table_info(orders)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'user_id' not in columns:
-        c.execute("ALTER TABLE orders ADD COLUMN user_id INTEGER")
-    conn.commit()
-    conn.close()
+    """DEPRECATED - utilisez migrate_db()"""
+    pass
 
 def migrate_users_role():
-    """Ajoute la colonne role à la table users si elle n'existe pas"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("PRAGMA table_info(users)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'role' not in columns:
-        c.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
-        conn.commit()
-    conn.close()
+    """DEPRECATED - utilisez migrate_db()"""
+    pass
+
+def init_favorites_table():
+    """DEPRECATED - utilisez migrate_db()"""
+    pass
+# ==============================================================
 
 def set_admin_user(email):
     """Définit un utilisateur comme administrateur"""
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute("UPDATE users SET role='admin' WHERE email=?", (email,))
+        query = adapt_query("UPDATE users SET role='admin' WHERE email=?")
+        c.execute(query, (email,))
         conn.commit()
         print(f"L'utilisateur {email} est maintenant administrateur")
     except Exception as e:
         print(f"Erreur : {e}")
     finally:
         conn.close()
-
-def init_favorites_table():
-    """Crée la table favorites si elle n'existe pas"""
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS favorites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            painting_id INTEGER NOT NULL,
-            created_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id),
-            FOREIGN KEY(painting_id) REFERENCES paintings(id),
-            UNIQUE(user_id, painting_id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
 def merge_carts(user_id, session_id):
     conn = get_db()
@@ -527,14 +484,8 @@ def merge_carts(user_id, session_id):
     conn.commit()
     conn.close()
 
-# Initialisation et migration
-
-init_users_table()
-init_favorites_table()
+# Initialisation de la base de données (une seule fonction suffit maintenant)
 migrate_db()
-migrate_orders_db()
-migrate_orders_user()
-migrate_users_role()
 
 # Définir l'administrateur
 set_admin_user('coco.cayre@gmail.com')
@@ -3294,5 +3245,3 @@ input[type="reset"]:hover {{
 # --------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
-    migrate_db()
-    print("Migration terminée ✅")
