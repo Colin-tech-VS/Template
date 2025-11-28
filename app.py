@@ -206,6 +206,21 @@ def generate_email_html(title, content, button_text=None, button_url=None):
     """
 
 TABLES = {
+    "users": {
+        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "name": "TEXT NOT NULL",
+        "email": "TEXT UNIQUE NOT NULL",
+        "password": "TEXT NOT NULL",
+        "phone": "TEXT",
+        "address": "TEXT",
+        "city": "TEXT",
+        "postal_code": "TEXT",
+        "country": "TEXT DEFAULT 'France'",
+        "birth_date": "TEXT",
+        "role": "TEXT NOT NULL DEFAULT 'user'",
+        "accepts_marketing": "INTEGER DEFAULT 0",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    },
     "paintings": {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "name": "TEXT NOT NULL",
@@ -564,28 +579,55 @@ def boutique():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form['name']
-        email = request.form['email']
-        password = request.form['password']
+        # Récupérer tous les champs du formulaire
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        phone = request.form.get('phone', '')
+        address = request.form.get('address', '')
+        city = request.form.get('city', '')
+        postal_code = request.form.get('postal_code', '')
+        country = request.form.get('country', 'France')
+        birth_date = request.form.get('birth_date', '')
+        accepts_marketing = 1 if request.form.get('accepts_marketing') else 0
 
-        hashed_password = generate_password_hash(password)  # hachage du mot de passe
+        # Validation
+        if not name or not email or not password:
+            flash("❌ Veuillez remplir tous les champs obligatoires.")
+            return redirect(url_for('register'))
+        
+        if password != confirm_password:
+            flash("❌ Les mots de passe ne correspondent pas.")
+            return redirect(url_for('register'))
+        
+        if len(password) < 6:
+            flash("❌ Le mot de passe doit contenir au moins 6 caractères.")
+            return redirect(url_for('register'))
+
+        # Hachage du mot de passe
+        hashed_password = generate_password_hash(password)
 
         conn = get_db()
         c = conn.cursor()
         try:
-            c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
-                      (name, email, hashed_password))
+            query = adapt_query("""
+                INSERT INTO users 
+                (name, email, password, phone, address, city, postal_code, country, birth_date, accepts_marketing) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """)
+            c.execute(query, (name, email, hashed_password, phone, address, city, postal_code, country, birth_date, accepts_marketing))
             conn.commit()
             conn.close()
-            flash("Inscription réussie !")
+            flash("✅ Inscription réussie ! Vous pouvez maintenant vous connecter.")
             return redirect(url_for('login'))
         except Exception as e:
             conn.close()
             # IntegrityError pour email déjà utilisé
             if 'UNIQUE' in str(e) or 'unique' in str(e):
-                flash("Cet email est déjà utilisé.")
+                flash("❌ Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.")
             else:
-                flash("Erreur lors de l'inscription.")
+                flash(f"❌ Erreur lors de l'inscription : {str(e)}")
             return redirect(url_for('register'))
 
     return render_template("register.html")
