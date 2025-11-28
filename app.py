@@ -2378,6 +2378,13 @@ nav a:hover {{
     background: rgba(255, 255, 255, 0.2) !important;
 }}
 
+/* RESPONSIVE NAV MENU */
+@media (max-width: 768px) {{
+    nav ul {{
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    }}
+}}
+
 /* HERO */
 .hero-overlay {{
     background: linear-gradient(to bottom, rgba(0,0,50,0.2), rgba({int(primary_color[1:3], 16)},{int(primary_color[3:5], 16)},{int(primary_color[5:7], 16)},0.6)) !important;
@@ -2399,6 +2406,46 @@ a:hover {{
 
 body, p, span, li, td {{
     color: var(--content-text-color) !important;
+}}
+
+/* PROFILE HEADER */
+.profile-header {{
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    color: var(--button-text-color) !important;
+}}
+
+.profile-header h1,
+.profile-email,
+.profile-meta {{
+    color: var(--button-text-color) !important;
+}}
+
+.action-btn {{
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    color: var(--button-text-color) !important;
+}}
+
+.action-btn:hover {{
+    background: var(--button-hover-color) !important;
+}}
+
+/* PROFILE BUY BUTTON */
+.buy-btn {{
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    color: var(--button-text-color) !important;
+}}
+
+.buy-btn:hover {{
+    background: var(--button-hover-color) !important;
+}}
+
+/* ORDERS TABLE */
+.orders-table thead {{
+    background: var(--primary-color) !important;
+}}
+
+.orders-table th {{
+    color: var(--button-text-color) !important;
 }}
 
 /* MEGA MENU (fond blanc, toujours texte noir) */
@@ -2432,6 +2479,35 @@ body, p, span, li, td {{
     color: var(--button-text-color) !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}}
+
+/* PROFILE BUY BUTTON */
+.buy-btn {{
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    color: var(--button-text-color) !important;
+}}
+
+.buy-btn:hover {{
+    background: var(--button-hover-color) !important;
+}}
+
+/* PROFILE BUY BUTTON */
+.buy-btn {{
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    color: var(--button-text-color) !important;
+}}
+
+.buy-btn:hover {{
+    background: var(--button-hover-color) !important;
+}}
+
+/* ORDERS TABLE */
+.orders-table thead {{
+    background: var(--primary-color) !important;
+}}
+
+.orders-table th {{
+    color: var(--button-text-color) !important;
 }}
 
 /* BUTTONS & BADGES */

@@ -84,7 +84,7 @@ nav a:hover {
         top: 70px;
         right: 0;
         width: 220px;
-        background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+        /* background géré par dynamic-colors.css */
         padding: 20px;
         flex-direction: column;
         text-align: right;

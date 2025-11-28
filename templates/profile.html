@@ -7,7 +7,7 @@
 <style>
 /* HEADER PROFIL */
 .profile-header {
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    /* background géré par dynamic-colors.css */
     color: white;
     padding: 60px 20px;
     text-align: center;
@@ -37,14 +37,14 @@
 .action-btn {
     display: block;
     padding: 12px;
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    /* background géré par dynamic-colors.css */
     color: white;
     border-radius: 8px;
     text-decoration: none;
     text-align: center;
     transition: background 0.3s;
 }
-.action-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
+.action-btn:hover { /* hover géré par dynamic-colors.css */ }
 
 /* FAVORIS */
 .section-header { text-align: center; margin-bottom: 30px; }
@@ -118,7 +118,7 @@
 .buy-btn {
     margin-top: 10px;
     padding: 8px 12px;
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    /* background géré par dynamic-colors.css */
     color: white;
     border: none;
     border-radius: 8px;
@@ -127,13 +127,13 @@
     transition: background 0.3s;
     width: 100%;
 }
-.buy-btn:hover { background: linear-gradient(90deg, #3B65C4, #1E3A8A); }
+.buy-btn:hover { /* hover géré par dynamic-colors.css */ }
 .buy-btn[disabled] { background:#ccc; cursor:not-allowed; }
 
 /* HISTORIQUE DES COMMANDES */
 .orders-table-wrapper { overflow-x: auto; background: white; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
 .orders-table { width: 100%; border-collapse: collapse; }
-.orders-table thead { background: #1E3A8A; color: white; }
+.orders-table thead { /* background géré par dynamic-colors.css */ color: white; }
 .orders-table th { padding: 15px; text-align: left; font-weight: 600; }
 .orders-table td { padding: 15px; border-bottom: 1px solid #f0f0f0; }
 .status-badge { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
