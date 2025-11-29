@@ -3739,6 +3739,33 @@ def api_export_stats():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/export/settings/<key>', methods=['PUT'])
+@require_api_key
+def update_setting_api(key):
+    """Modifier un paramètre spécifique via l'API"""
+    try:
+        data = request.get_json()
+        new_value = data.get('value')
+        
+        if new_value is None:
+            return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
+        
+        # Mettre à jour dans la base de données
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (new_value, key))
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Paramètre non trouvé'}), 404
+        
+        conn.close()
+        return jsonify({'success': True, 'message': f'Paramètre {key} mis à jour'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/export/api-key', methods=['GET'])
 @require_admin
 def get_export_api_key():
