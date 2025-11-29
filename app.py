@@ -1,7 +1,7 @@
 # --------------------------------
 # IMPORTS
 # --------------------------------
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
@@ -206,21 +206,6 @@ def generate_email_html(title, content, button_text=None, button_url=None):
     """
 
 TABLES = {
-    "users": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-        "name": "TEXT NOT NULL",
-        "email": "TEXT UNIQUE NOT NULL",
-        "password": "TEXT NOT NULL",
-        "phone": "TEXT",
-        "address": "TEXT",
-        "city": "TEXT",
-        "postal_code": "TEXT",
-        "country": "TEXT DEFAULT 'France'",
-        "birth_date": "TEXT",
-        "role": "TEXT NOT NULL DEFAULT 'user'",
-        "accepts_marketing": "INTEGER DEFAULT 0",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
-    },
     "paintings": {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "name": "TEXT NOT NULL",
@@ -228,7 +213,21 @@ TABLES = {
         "price": "REAL NOT NULL DEFAULT 0",
         "quantity": "INTEGER NOT NULL DEFAULT 0",
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "description": "TEXT"
+        "description": "TEXT",
+        "description_long": "TEXT",
+        "dimensions": "TEXT",
+        "technique": "TEXT",
+        "year": "TEXT",
+        "category": "TEXT",
+        "status": "TEXT DEFAULT 'disponible'",
+        "image_2": "TEXT",
+        "image_3": "TEXT",
+        "image_4": "TEXT",
+        "weight": "TEXT",
+        "framed": "INTEGER DEFAULT 0",
+        "certificate": "INTEGER DEFAULT 1",
+        "unique_piece": "INTEGER DEFAULT 1",
+        "display_order": "INTEGER DEFAULT 0"
     },
     "orders": {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
@@ -579,55 +578,28 @@ def boutique():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # Récupérer tous les champs du formulaire
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        phone = request.form.get('phone', '')
-        address = request.form.get('address', '')
-        city = request.form.get('city', '')
-        postal_code = request.form.get('postal_code', '')
-        country = request.form.get('country', 'France')
-        birth_date = request.form.get('birth_date', '')
-        accepts_marketing = 1 if request.form.get('accepts_marketing') else 0
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
 
-        # Validation
-        if not name or not email or not password:
-            flash("❌ Veuillez remplir tous les champs obligatoires.")
-            return redirect(url_for('register'))
-        
-        if password != confirm_password:
-            flash("❌ Les mots de passe ne correspondent pas.")
-            return redirect(url_for('register'))
-        
-        if len(password) < 6:
-            flash("❌ Le mot de passe doit contenir au moins 6 caractères.")
-            return redirect(url_for('register'))
-
-        # Hachage du mot de passe
-        hashed_password = generate_password_hash(password)
+        hashed_password = generate_password_hash(password)  # hachage du mot de passe
 
         conn = get_db()
         c = conn.cursor()
         try:
-            query = adapt_query("""
-                INSERT INTO users 
-                (name, email, password, phone, address, city, postal_code, country, birth_date, accepts_marketing) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """)
-            c.execute(query, (name, email, hashed_password, phone, address, city, postal_code, country, birth_date, accepts_marketing))
+            c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
+                      (name, email, hashed_password))
             conn.commit()
             conn.close()
-            flash("✅ Inscription réussie ! Vous pouvez maintenant vous connecter.")
+            flash("Inscription réussie !")
             return redirect(url_for('login'))
         except Exception as e:
             conn.close()
             # IntegrityError pour email déjà utilisé
             if 'UNIQUE' in str(e) or 'unique' in str(e):
-                flash("❌ Cet email est déjà utilisé. Essayez de vous connecter ou utilisez un autre email.")
+                flash("Cet email est déjà utilisé.")
             else:
-                flash(f"❌ Erreur lors de l'inscription : {str(e)}")
+                flash("Erreur lors de l'inscription.")
             return redirect(url_for('register'))
 
     return render_template("register.html")
@@ -1113,19 +1085,25 @@ def remove_exhibition(exhibition_id):
 # ---------------------------------------------------------
 # AJOUTER UN ARTICLE AU PANIER
 # ---------------------------------------------------------
-@app.route('/add_to_cart/<int:painting_id>')
+@app.route('/add_to_cart/<int:painting_id>', methods=['GET', 'POST'])
 def add_to_cart(painting_id):
     cart_id, session_id = get_or_create_cart()
     conn = get_db()
     c = conn.cursor()
+    
+    # Récupérer la quantité depuis le formulaire POST ou défaut 1
+    quantity_to_add = 1
+    if request.method == 'POST':
+        quantity_to_add = int(request.form.get('quantity', 1))
 
     # Vérifie si l'article existe déjà
     c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
     row = c.fetchone()
     if row:
-        c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (row[0]+1, cart_id, painting_id))
+        new_quantity = row[0] + quantity_to_add
+        c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (new_quantity, cart_id, painting_id))
     else:
-        c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, 1)"), (cart_id, painting_id))
+        c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"), (cart_id, painting_id, quantity_to_add))
 
     conn.commit()
     conn.close()
@@ -1587,7 +1565,17 @@ def add_painting_web():
         name = request.form['name']
         price = float(request.form['price'])
         quantity = int(request.form['quantity'])
-        description = request.form.get('description', '')  # <-- Récupère la description ou '' si vide
+        description = request.form.get('description', '')
+        description_long = request.form.get('description_long', '')
+        dimensions = request.form.get('dimensions', '')
+        technique = request.form.get('technique', '')
+        year = request.form.get('year', '')
+        category = request.form.get('category', '')
+        status = request.form.get('status', '')
+        weight = request.form.get('weight', '')
+        framed = 1 if request.form.get('framed') else 0
+        certificate = 1 if request.form.get('certificate') else 0
+        unique_piece = 1 if request.form.get('unique_piece') else 0
 
         if 'image' not in request.files:
             flash('Aucun fichier sélectionné')
@@ -1602,20 +1590,45 @@ def add_painting_web():
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             image_path = f'Images/{filename}'
+            
+            # Gestion des images additionnelles
+            image_2 = None
+            image_3 = None
+            image_4 = None
+            
+            for i, field_name in enumerate(['image_2', 'image_3', 'image_4'], 2):
+                if field_name in request.files:
+                    file_extra = request.files[field_name]
+                    if file_extra.filename and allowed_file(file_extra.filename):
+                        filename_extra = secure_filename(file_extra.filename)
+                        file_extra.save(os.path.join(app.config['UPLOAD_FOLDER'], filename_extra))
+                        if i == 2:
+                            image_2 = f'Images/{filename_extra}'
+                        elif i == 3:
+                            image_3 = f'Images/{filename_extra}'
+                        elif i == 4:
+                            image_4 = f'Images/{filename_extra}'
 
             create_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             conn = get_db()
             c = conn.cursor()
-            c.execute(
-                "INSERT INTO paintings (name, image, price, quantity, description, create_date) VALUES (?, ?, ?, ?, ?, ?)",
-                (name, image_path, price, quantity, description, create_date)
-            )
+            c.execute(adapt_query("""
+                INSERT INTO paintings (
+                    name, image, price, quantity, description, create_date,
+                    description_long, dimensions, technique, year, category, status,
+                    image_2, image_3, image_4, weight, framed, certificate, unique_piece
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """), (
+                name, image_path, price, quantity, description, create_date,
+                description_long, dimensions, technique, year, category, status,
+                image_2, image_3, image_4, weight, framed, certificate, unique_piece
+            ))
             conn.commit()
             conn.close()
 
             flash('Peinture ajoutée avec succès !')
-            return redirect(url_for('home'))
+            return redirect(url_for('admin_paintings'))
 
         else:
             flash('Fichier non autorisé. Seules les images sont acceptées.')
@@ -1770,10 +1783,110 @@ def mark_notification_read(notif_id):
 def galerie():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, name, image, price FROM paintings ORDER BY id DESC")
+    c.execute("SELECT id, name, image, price, quantity FROM paintings ORDER BY display_order ASC, id DESC")
     paintings = c.fetchall()
     conn.close()
-    return render_template('galerie.html', paintings=paintings)
+    
+    # Vérifier si l'utilisateur est admin
+    user_is_admin = is_admin()
+    
+    return render_template('galerie.html', paintings=paintings, user_is_admin=user_is_admin)
+
+@app.route('/api/reorder_paintings', methods=['POST'])
+def reorder_paintings():
+    """Route API pour réorganiser l'ordre des peintures (admin seulement)"""
+    if not is_admin():
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    painting_ids = data.get('order', [])
+    
+    if not painting_ids:
+        return jsonify({'error': 'No order provided'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Mettre à jour l'ordre d'affichage
+    for index, painting_id in enumerate(painting_ids):
+        c.execute(adapt_query(
+            "UPDATE paintings SET display_order = ? WHERE id = ?"
+        ), (index, painting_id))
+    
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': 'Ordre mis à jour'})
+
+# --------------------------------
+# ROUTE PAGE PRODUIT DÉTAILLÉE
+# --------------------------------
+
+@app.route('/painting/<int:painting_id>')
+def painting_detail(painting_id):
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Récupérer les détails complets de la peinture
+    query = adapt_query("""
+        SELECT id, name, image, price, quantity, description, description_long,
+               dimensions, technique, year, category, status, image_2, image_3, image_4,
+               weight, framed, certificate, unique_piece
+        FROM paintings WHERE id = ?
+    """)
+    c.execute(query, (painting_id,))
+    painting = c.fetchone()
+    
+    if not painting:
+        conn.close()
+        abort(404)
+    
+    # Convertir en dict pour faciliter l'accès
+    painting_dict = {
+        'id': painting[0],
+        'name': painting[1],
+        'image': painting[2],
+        'price': painting[3],
+        'quantity': painting[4],
+        'description': painting[5],
+        'description_long': painting[6],
+        'dimensions': painting[7],
+        'technique': painting[8],
+        'year': painting[9],
+        'category': painting[10],
+        'status': painting[11],
+        'image_2': painting[12],
+        'image_3': painting[13],
+        'image_4': painting[14],
+        'weight': painting[15],
+        'framed': painting[16],
+        'certificate': painting[17],
+        'unique_piece': painting[18]
+    }
+    
+    # Récupérer des peintures similaires (même catégorie ou aléatoire)
+    if painting_dict['category']:
+        query_similar = adapt_query("""
+            SELECT id, name, image, price 
+            FROM paintings 
+            WHERE category = ? AND id != ? AND quantity > 0
+            LIMIT 4
+        """)
+        c.execute(query_similar, (painting_dict['category'], painting_id))
+    else:
+        query_similar = adapt_query("""
+            SELECT id, name, image, price 
+            FROM paintings 
+            WHERE id != ? AND quantity > 0
+            ORDER BY RANDOM()
+            LIMIT 4
+        """)
+        c.execute(query_similar, (painting_id,))
+    
+    similar_paintings = c.fetchall()
+    conn.close()
+    
+    return render_template('painting_detail.html', painting=painting_dict, similar_paintings=similar_paintings)
 
 # --------------------------------
 # ROUTE CONTACT
@@ -2125,6 +2238,28 @@ def admin_dashboard():
     """)
     out_of_stock = c.fetchall()
     
+    # Produits les plus vendus (TOP 5)
+    c.execute(adapt_query("""
+        SELECT p.id, p.name, p.image, p.price, SUM(oi.quantity) as total_sold
+        FROM paintings p
+        JOIN order_items oi ON p.id = oi.painting_id
+        GROUP BY p.id, p.name, p.image, p.price
+        ORDER BY total_sold DESC
+        LIMIT 5
+    """))
+    top_selling = c.fetchall()
+    
+    # Produits les plus aimés (TOP 5)
+    c.execute(adapt_query("""
+        SELECT p.id, p.name, p.image, p.price, COUNT(f.id) as favorite_count
+        FROM paintings p
+        JOIN favorites f ON p.id = f.painting_id
+        GROUP BY p.id, p.name, p.image, p.price
+        ORDER BY favorite_count DESC
+        LIMIT 5
+    """))
+    most_loved = c.fetchall()
+    
     conn.close()
     
     return render_template('admin/admin_dashboard.html',
@@ -2134,7 +2269,22 @@ def admin_dashboard():
                          total_users=total_users,
                          recent_orders=recent_orders,
                          out_of_stock=out_of_stock,
+                         top_selling=top_selling,
+                         most_loved=most_loved,
                          active="dashboard")
+
+
+@app.route('/admin/api-export')
+@require_admin
+def admin_api_export():
+    """Page de gestion de l'API d'export"""
+    api_key = get_setting("export_api_key")
+    if not api_key:
+        api_key = secrets.token_urlsafe(32)
+        set_setting("export_api_key", api_key)
+    
+    return render_template('admin/api_export.html', api_key=api_key, active="api")
+
 
 @app.route('/admin/paintings')
 @require_admin
@@ -2162,8 +2312,13 @@ def edit_painting(painting_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Récupérer la peinture
-    c.execute(adapt_query("SELECT id, name, image, price, quantity, description, create_date FROM paintings WHERE id=?"), (painting_id,))
+    # Récupérer la peinture avec tous les champs
+    c.execute(adapt_query("""
+        SELECT id, name, image, price, quantity, description, create_date,
+               description_long, dimensions, technique, year, category, status,
+               image_2, image_3, image_4, weight, framed, certificate, unique_piece
+        FROM paintings WHERE id=?
+    """), (painting_id,))
     painting = c.fetchone()
     
     if not painting:
@@ -2176,6 +2331,16 @@ def edit_painting(painting_id):
         price = request.form.get('price', '0').strip()
         quantity = request.form.get('quantity', '0').strip()
         description = request.form.get('description', '').strip()
+        description_long = request.form.get('description_long', '').strip()
+        dimensions = request.form.get('dimensions', '').strip()
+        technique = request.form.get('technique', '').strip()
+        year = request.form.get('year', '').strip()
+        category = request.form.get('category', '').strip()
+        status = request.form.get('status', '').strip()
+        weight = request.form.get('weight', '').strip()
+        framed = 1 if request.form.get('framed') else 0
+        certificate = 1 if request.form.get('certificate') else 0
+        unique_piece = 1 if request.form.get('unique_piece') else 0
         
         if not name or price == '' or quantity == '':
             flash("Tous les champs sont obligatoires.")
@@ -2186,36 +2351,48 @@ def edit_painting(painting_id):
             price = float(price)
             quantity = int(quantity)
 
-            # Gestion du fichier image
-            file = request.files.get('image')
-            image_path = painting[2]  # valeur par défaut : garder l'image actuelle
-            if file and file.filename and allowed_file(file.filename):
-                # Générer un nom de fichier unique pour éviter collisions
-                filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
-                os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-                save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(save_path)
+            # Gestion des images (principale + 3 additionnelles)
+            image_fields = {
+                'image': painting[2],
+                'image_2': painting[13],
+                'image_3': painting[14],
+                'image_4': painting[15]
+            }
+            
+            for field_name, current_value in image_fields.items():
+                file = request.files.get(field_name)
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
+                    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+                    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(save_path)
+                    
+                    # Supprimer l'ancienne image
+                    try:
+                        if current_value:
+                            old_path = current_value if current_value.startswith("static") else os.path.join('static', current_value)
+                            if os.path.exists(old_path) and os.path.abspath(old_path) != os.path.abspath(save_path):
+                                os.remove(old_path)
+                    except Exception:
+                        pass
+                    
+                    image_fields[field_name] = f"Images/{filename}"
 
-                # Supprimer l'ancienne image si elle existe et n'est pas la même
-                try:
-                    old_image_rel = painting[2] or ""
-                    if old_image_rel:
-                        old_image_path = old_image_rel
-                        if not old_image_path.startswith("static") and not os.path.isabs(old_image_path):
-                            old_image_path = os.path.join('static', old_image_path)
-                        if os.path.exists(old_image_path) and os.path.abspath(old_image_path) != os.path.abspath(save_path):
-                            os.remove(old_image_path)
-                except Exception:
-                    pass
-
-                # Stocker le chemin relatif cohérent
-                image_path = f"Images/{filename}"
-
-            # Update BDD
-            c.execute(
-                "UPDATE paintings SET name=?, price=?, quantity=?, image=?, description=? WHERE id=?",
-                (name, price, quantity, image_path, description, painting_id)
-            )
+            # Update BDD avec tous les champs
+            c.execute(adapt_query("""
+                UPDATE paintings SET 
+                    name=?, price=?, quantity=?, image=?, description=?,
+                    description_long=?, dimensions=?, technique=?, year=?, 
+                    category=?, status=?, image_2=?, image_3=?, image_4=?,
+                    weight=?, framed=?, certificate=?, unique_piece=?
+                WHERE id=?
+            """), (
+                name, price, quantity, image_fields['image'], description,
+                description_long, dimensions, technique, year,
+                category, status, image_fields['image_2'], image_fields['image_3'], image_fields['image_4'],
+                weight, framed, certificate, unique_piece,
+                painting_id
+            ))
             conn.commit()
             flash("Peinture mise à jour avec succès !")
             conn.close()
@@ -3281,6 +3458,323 @@ input[type="reset"]:hover {{
     response = make_response(css)
     response.headers["Content-Type"] = "text/css"
     return response
+
+
+# ================================
+# API EXPORT DE DONNÉES
+# ================================
+
+def require_api_key(f):
+    """Décorateur pour vérifier la clé API"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({"error": "API key manquante"}), 401
+        
+        # Vérifier la clé API dans les settings
+        stored_key = get_setting("export_api_key")
+        if not stored_key:
+            # Générer une clé si elle n'existe pas
+            stored_key = secrets.token_urlsafe(32)
+            set_setting("export_api_key", stored_key)
+            print(f"🔑 Nouvelle clé API générée: {stored_key}")
+        
+        if api_key != stored_key:
+            return jsonify({"error": "Clé API invalide"}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route('/api/export/full', methods=['GET'])
+@require_api_key
+def api_export_full():
+    """
+    Exporte TOUTES les données du site en JSON
+    Headers requis: X-API-Key
+    """
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        data = {}
+        
+        # Exporter toutes les tables
+        for table_name in TABLES.keys():
+            try:
+                cur.execute(adapt_query(f"SELECT * FROM {table_name}"))
+                rows = cur.fetchall()
+                
+                # Convertir en liste de dictionnaires
+                if rows:
+                    columns = [description[0] for description in cur.description]
+                    data[table_name] = [dict(zip(columns, row)) for row in rows]
+                else:
+                    data[table_name] = []
+            except Exception as e:
+                print(f"Erreur lors de l'export de {table_name}: {e}")
+                data[table_name] = []
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "data": data,
+            "tables_count": len(data),
+            "total_records": sum(len(v) for v in data.values())
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/paintings', methods=['GET'])
+@require_api_key
+def api_export_paintings():
+    """Exporte uniquement les peintures"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT * FROM paintings ORDER BY display_order, id"))
+        rows = cur.fetchall()
+        
+        columns = [description[0] for description in cur.description]
+        paintings = [dict(zip(columns, row)) for row in rows]
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(paintings),
+            "data": paintings
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/orders', methods=['GET'])
+@require_api_key
+def api_export_orders():
+    """Exporte les commandes avec leurs items"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Récupérer toutes les commandes
+        cur.execute(adapt_query("SELECT * FROM orders ORDER BY order_date DESC"))
+        orders_rows = cur.fetchall()
+        columns = [description[0] for description in cur.description]
+        orders = [dict(zip(columns, row)) for row in orders_rows]
+        
+        # Pour chaque commande, récupérer les items
+        for order in orders:
+            cur.execute(adapt_query("""
+                SELECT oi.*, p.name, p.image 
+                FROM order_items oi
+                LEFT JOIN paintings p ON oi.painting_id = p.id
+                WHERE oi.order_id = ?
+            """), (order['id'],))
+            items_rows = cur.fetchall()
+            items_columns = [description[0] for description in cur.description]
+            order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(orders),
+            "data": orders
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/users', methods=['GET'])
+@require_api_key
+def api_export_users():
+    """Exporte les utilisateurs (sans mots de passe)"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT id, name, email, role, created_at FROM users"))
+        rows = cur.fetchall()
+        
+        columns = [description[0] for description in cur.description]
+        users = [dict(zip(columns, row)) for row in rows]
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(users),
+            "data": users
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/exhibitions', methods=['GET'])
+@require_api_key
+def api_export_exhibitions():
+    """Exporte les expositions"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT * FROM exhibitions ORDER BY date DESC"))
+        rows = cur.fetchall()
+        
+        columns = [description[0] for description in cur.description]
+        exhibitions = [dict(zip(columns, row)) for row in rows]
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(exhibitions),
+            "data": exhibitions
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/custom-requests', methods=['GET'])
+@require_api_key
+def api_export_custom_requests():
+    """Exporte les demandes personnalisées"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT * FROM custom_requests ORDER BY created_at DESC"))
+        rows = cur.fetchall()
+        
+        columns = [description[0] for description in cur.description]
+        requests_data = [dict(zip(columns, row)) for row in rows]
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(requests_data),
+            "data": requests_data
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/settings', methods=['GET'])
+@require_api_key
+def api_export_settings():
+    """Exporte les paramètres (sauf clés sensibles)"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT * FROM settings"))
+        rows = cur.fetchall()
+        
+        # Masquer les clés sensibles
+        sensitive_keys = ['stripe_secret_key', 'smtp_password', 'export_api_key']
+        
+        columns = [description[0] for description in cur.description]
+        settings = []
+        for row in rows:
+            setting = dict(zip(columns, row))
+            if setting['key'] in sensitive_keys:
+                setting['value'] = '***MASKED***'
+            settings.append(setting)
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "count": len(settings),
+            "data": settings
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/stats', methods=['GET'])
+@require_api_key
+def api_export_stats():
+    """Exporte des statistiques générales"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        stats = {}
+        
+        # Compter les enregistrements dans chaque table
+        for table_name in TABLES.keys():
+            try:
+                cur.execute(adapt_query(f"SELECT COUNT(*) FROM {table_name}"))
+                count = cur.fetchone()[0]
+                stats[f"{table_name}_count"] = count
+            except:
+                stats[f"{table_name}_count"] = 0
+        
+        # Statistiques supplémentaires
+        try:
+            cur.execute(adapt_query("SELECT SUM(total_price) FROM orders"))
+            total_revenue = cur.fetchone()[0] or 0
+            stats['total_revenue'] = float(total_revenue)
+        except:
+            stats['total_revenue'] = 0
+        
+        try:
+            cur.execute(adapt_query("SELECT COUNT(*) FROM orders WHERE status = 'Livrée'"))
+            stats['delivered_orders'] = cur.fetchone()[0] or 0
+        except:
+            stats['delivered_orders'] = 0
+        
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "stats": stats
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/api-key', methods=['GET'])
+@require_admin
+def get_export_api_key():
+    """
+    Récupère ou génère la clé API pour l'export
+    Accessible uniquement aux administrateurs connectés
+    """
+    api_key = get_setting("export_api_key")
+    if not api_key:
+        api_key = secrets.token_urlsafe(32)
+        set_setting("export_api_key", api_key)
+    
+    return jsonify({
+        "success": True,
+        "api_key": api_key,
+        "usage": "Utilisez cette clé dans le header 'X-API-Key' pour les requêtes d'export"
+    })
+
+
+@app.route('/api/export/regenerate-key', methods=['POST'])
+@require_admin
+def regenerate_export_api_key():
+    """Régénère une nouvelle clé API"""
+    new_key = secrets.token_urlsafe(32)
+    set_setting("export_api_key", new_key)
+    
+    return jsonify({
+        "success": True,
+        "api_key": new_key,
+        "message": "Nouvelle clé API générée"
+    })
+
+
+# ================================
+# FIN API EXPORT
+# ================================
 
 # --------------------------------
 # LANCEMENT DE L'APPLICATION

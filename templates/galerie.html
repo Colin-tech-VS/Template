@@ -11,8 +11,9 @@
     padding: 40px 20px;
 }
 .seo-intro h1 {
-    font-size: 32px;
+    font-size: 36px;
     color: #1E3A8A;
+    font-weight: 700;
     margin-bottom: 20px;
 }
 .seo-intro p {
@@ -24,23 +25,53 @@
 /* GRID CARDS */
 .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
     margin-top: 30px;
+    max-width: 100%;
 }
 
 .gallery-card {
     position: relative;
     width: 100%;
-    border-radius: 10px;
     overflow: hidden;
-    height: 0;
     padding-bottom: 100%; /* carré */
+    background: #f5f5f5;
+    display: block;
+    transition: opacity 0.2s ease;
+}
+
+.gallery-card.dragging {
+    opacity: 0.5;
+    cursor: move;
+}
+
+.gallery-card.drag-over {
+    border: 3px dashed #1E3A8A;
+}
+
+.drag-indicator {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(30, 58, 138, 0.9);
+    color: white;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: move;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    line-height: 1;
 }
 
 .gallery-image-wrapper {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -50,21 +81,27 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s;
+    transition: transform 0.4s ease, filter 0.3s ease;
 }
 
 .gallery-card:hover img {
-    transform: scale(1.05);
+    transform: scale(1.1);
+    filter: brightness(0.85);
 }
 
 .gallery-overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
+    top: 0; 
+    left: 0; 
+    right: 0; 
+    bottom: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 100%);
     opacity: 0;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-end;
     align-items: center;
+    padding: 20px;
     transition: opacity 0.3s;
 }
 
@@ -74,9 +111,10 @@
 
 .gallery-title {
     color: #fff;
-    font-weight: 600;
+    font-weight: 700;
     text-align: center;
     font-size: 18px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
     padding: 0 10px;
 }
 
@@ -86,22 +124,34 @@
     right: 10px;
     font-size: 24px;
     cursor: pointer;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.9);
     border-radius: 50%;
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    transition: background 0.3s;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 10;
 }
 
-.favorite-btn:hover { background: rgba(255,255,255,1); }
+.favorite-btn:hover { 
+    background: rgba(255,255,255,1);
+    transform: scale(1.1);
+}
+
+@media (max-width: 1024px) {
+    .gallery-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
 
 @media (max-width: 768px) {
-    .gallery-card {height: auto; padding-bottom: 0;}
-    .gallery-image-wrapper {height: 200px;}
+    .gallery-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
 }
 </style>
 
@@ -116,20 +166,25 @@
     <h2 id="gallery-section" style="text-align:center;">Galerie</h2>
 
     {% if paintings %}
-    <div class="gallery-grid">
+    <div class="gallery-grid" id="gallery-grid">
         {% for p in paintings %}
-        <article class="gallery-card">
-            <div class="gallery-image-wrapper">
-                <img src="{{ url_for('static', filename=p[2]) }}" alt="Peinture '{{ p[1] }}' par Jean-Baptiste">
-                <div class="gallery-overlay">
-                    <span class="gallery-title">{{ p[1] }}</span>
+        <article class="gallery-card" data-painting-id="{{ p[0] }}" {% if user_is_admin %}draggable="true"{% endif %}>
+            <a href="{{ url_for('painting_detail', painting_id=p[0]) }}" style="text-decoration: none; color: inherit; display: block; width: 100%; height: 100%;" class="card-link">
+                <div class="gallery-image-wrapper">
+                    <img src="{{ url_for('static', filename=p[2]) }}" alt="Peinture '{{ p[1] }}' par Jean-Baptiste">
+                    <div class="gallery-overlay">
+                        <span class="gallery-title">{{ p[1] }}</span>
+                    </div>
                 </div>
-                {% if p[0] in favorite_ids %}
-                    <a href="{{ url_for('remove_favorite', painting_id=p[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
-                {% else %}
-                    <a href="{{ url_for('add_favorite', painting_id=p[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
-                {% endif %}
-            </div>
+            </a>
+            {% if p[0] in favorite_ids %}
+                <a href="{{ url_for('remove_favorite', painting_id=p[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+            {% else %}
+                <a href="{{ url_for('add_favorite', painting_id=p[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+            {% endif %}
+            {% if user_is_admin %}
+            <div class="drag-indicator">⋮⋮</div>
+            {% endif %}
         </article>
         {% endfor %}
     </div>
@@ -137,5 +192,149 @@
         <p style="text-align:center;">Aucune peinture disponible pour le moment.</p>
     {% endif %}
 </section>
+
+{% if user_is_admin %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const grid = document.getElementById('gallery-grid');
+    const cards = document.querySelectorAll('.gallery-card[draggable="true"]');
+    
+    let draggedElement = null;
+    
+    cards.forEach(card => {
+        // Empêcher le clic sur le lien pendant le drag
+        const dragIndicator = card.querySelector('.drag-indicator');
+        
+        card.addEventListener('dragstart', function(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            
+            // Désactiver le lien pendant le drag
+            const link = this.querySelector('.card-link');
+            if (link) {
+                link.style.pointerEvents = 'none';
+            }
+        });
+        
+        card.addEventListener('dragend', function(e) {
+            this.classList.remove('dragging');
+            
+            // Réactiver le lien
+            const link = this.querySelector('.card-link');
+            if (link) {
+                link.style.pointerEvents = 'auto';
+            }
+            
+            // Retirer les classes drag-over
+            cards.forEach(c => c.classList.remove('drag-over'));
+            
+            // Sauvegarder le nouvel ordre
+            saveOrder();
+        });
+        
+        card.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            if (draggedElement !== this) {
+                this.classList.add('drag-over');
+            }
+        });
+        
+        card.addEventListener('dragleave', function(e) {
+            this.classList.remove('drag-over');
+        });
+        
+        card.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (draggedElement !== this) {
+                // Déterminer la position relative
+                const allCards = [...grid.querySelectorAll('.gallery-card')];
+                const draggedIndex = allCards.indexOf(draggedElement);
+                const targetIndex = allCards.indexOf(this);
+                
+                if (draggedIndex < targetIndex) {
+                    this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                } else {
+                    this.parentNode.insertBefore(draggedElement, this);
+                }
+            }
+            
+            this.classList.remove('drag-over');
+        });
+    });
+    
+    function saveOrder() {
+        const newOrder = [];
+        const allCards = grid.querySelectorAll('.gallery-card');
+        
+        allCards.forEach(card => {
+            const paintingId = card.getAttribute('data-painting-id');
+            if (paintingId) {
+                newOrder.push(parseInt(paintingId));
+            }
+        });
+        
+        // Envoyer au serveur
+        fetch('/api/reorder_paintings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ order: newOrder })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Ordre sauvegardé');
+                
+                // Afficher une notification temporaire
+                const notification = document.createElement('div');
+                notification.textContent = '✅ Ordre mis à jour';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #10b981;
+                    color: white;
+                    padding: 15px 25px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease;
+                `;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => notification.remove(), 300);
+                }, 2000);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur:', error);
+            alert('Erreur lors de la sauvegarde de l\'ordre');
+        });
+    }
+});
+</script>
+
+<style>
+@keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+}
+</style>
+{% endif %}
 
 {% endblock %}

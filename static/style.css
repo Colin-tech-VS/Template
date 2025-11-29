@@ -196,7 +196,7 @@ nav a:hover {
 
 .latest-gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 25px;
     margin-top: 20px;
 }
@@ -204,18 +204,18 @@ nav a:hover {
 .latest-artwork {
     position: relative;
     background: #ffffff;
-    border-radius: 15px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 
 .latest-artwork:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
 }
 
 .latest-artwork .badge {
@@ -224,18 +224,23 @@ nav a:hover {
     left: 10px;
     background: linear-gradient(90deg, #FF7F50, #FF4500);
     color: white;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 5px 10px;
-    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
     text-transform: uppercase;
     z-index: 10;
 }
 
 .latest-artwork img {
     width: 100%;
-    height: 280px;
+    height: 250px;
     object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.latest-artwork:hover img {
+    transform: scale(1.08);
 }
 
 .latest-artwork .info {

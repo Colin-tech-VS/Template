@@ -7,7 +7,7 @@
 <style>
 /* INTRO */
 .seo-intro {text-align: center; padding: 40px 20px;}
-.seo-intro h1 {font-size: 32px; color: #1E3A8A; margin-bottom: 20px;}
+.seo-intro h1 {font-size: 36px; color: #1E3A8A; font-weight: 700; margin-bottom: 20px;}
 .seo-intro p {font-size: 16px; color: #555; line-height: 1.6;}
 
 /* BIO */
@@ -21,25 +21,30 @@
 /* GALERIE */
 .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
     margin-top: 30px;
 }
 
 .artwork-card {
     position: relative;
     width: 100%;
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
-    height: 0;
-    padding-bottom: 100%; /* carré */
+    background: white;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.artwork-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
 }
 
 .artwork-image-wrapper {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    position: relative;
     width: 100%;
-    height: 100%;
+    height: 250px;
     overflow: hidden;
 }
 
@@ -47,11 +52,11 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s;
+    transition: transform 0.3s ease;
 }
 
 .artwork-card:hover img {
-    transform: scale(1.05);
+    transform: scale(1.08);
 }
 
 .artwork-overlay {
@@ -81,9 +86,9 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    font-size: 24px;
+    font-size: 22px;
     cursor: pointer;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.9);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -91,9 +96,12 @@
     align-items: center;
     justify-content: center;
     text-decoration: none;
-    transition: background 0.3s;
+    transition: all 0.3s ease;
 }
-.favorite-btn:hover {background: rgba(255,255,255,1);}
+.favorite-btn:hover {
+    background: rgba(255,255,255,1);
+    transform: scale(1.1);
+}
 
 /* CONTACT CTA */
 .contact-cta {

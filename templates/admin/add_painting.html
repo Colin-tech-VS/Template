@@ -40,36 +40,151 @@
             </div>
 
             <form method="POST" enctype="multipart/form-data" class="admin-form">
-                <div class="form-group">
-                    <label for="name">Nom de l'œuvre *</label>
-                    <input type="text" id="name" name="name" placeholder="Ex: La Nuit Étoilée" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="image">Image de la peinture *</label>
-                    <div class="file-input-wrapper">
-                        <input type="file" id="image" name="image" accept="image/*" required onchange="previewImage(event)">
-                        <span class="file-label">📁 Cliquez pour sélectionner une image</span>
-                    </div>
-                    <div id="preview-container" style="display: none;">
-                        <img id="preview-image" src="" alt="Aperçu" class="preview-img">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" placeholder="Décrivez la peinture..." rows="4"></textarea>
-                </div>
-
-                <div class="form-row">
+                <!-- IMAGES -->
+                <div class="form-section">
+                    <h3>🖼️ Images</h3>
+                    
                     <div class="form-group">
-                        <label for="price">Prix (€) *</label>
-                        <input type="number" id="price" name="price" placeholder="150" min="0" step="0.01" required>
+                        <label for="image">Image principale *</label>
+                        <div class="file-input-wrapper" onclick="document.getElementById('image').click()">
+                            <input type="file" id="image" name="image" accept="image/*" required onchange="previewImage(this, 'preview-main')">
+                            <span class="file-label">📸 Cliquez pour télécharger</span>
+                        </div>
+                        <img id="preview-main" src="" alt="Aperçu" class="preview-img" style="display:none; max-width:300px; margin-top:15px;">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="image_2">Image 2 (optionnelle)</label>
+                            <input type="file" id="image_2" name="image_2" accept="image/*" onchange="previewImage(this, 'preview-2')">
+                            <img id="preview-2" src="" alt="" class="preview-img-small" style="display:none; max-width:150px; margin-top:10px;">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="image_3">Image 3 (optionnelle)</label>
+                            <input type="file" id="image_3" name="image_3" accept="image/*" onchange="previewImage(this, 'preview-3')">
+                            <img id="preview-3" src="" alt="" class="preview-img-small" style="display:none; max-width:150px; margin-top:10px;">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="image_4">Image 4 (optionnelle)</label>
+                            <input type="file" id="image_4" name="image_4" accept="image/*" onchange="previewImage(this, 'preview-4')">
+                            <img id="preview-4" src="" alt="" class="preview-img-small" style="display:none; max-width:150px; margin-top:10px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INFORMATIONS GÉNÉRALES -->
+                <div class="form-section">
+                    <h3>📝 Informations générales</h3>
+                    
+                    <div class="form-group">
+                        <label for="name">Nom de l'œuvre *</label>
+                        <input type="text" id="name" name="name" placeholder="Ex: La Nuit Étoilée" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="category">Catégorie</label>
+                            <select id="category" name="category">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Abstrait">Abstrait</option>
+                                <option value="Paysage">Paysage</option>
+                                <option value="Portrait">Portrait</option>
+                                <option value="Nature morte">Nature morte</option>
+                                <option value="Moderne">Moderne</option>
+                                <option value="Figuratif">Figuratif</option>
+                                <option value="Contemporain">Contemporain</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status">Statut</label>
+                            <select id="status" name="status">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Disponible" selected>Disponible</option>
+                                <option value="Vendu">Vendu</option>
+                                <option value="Réservé">Réservé</option>
+                                <option value="Exposition">En exposition</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="price">Prix (€) *</label>
+                            <input type="number" id="price" name="price" placeholder="150" min="0" step="0.01" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="quantity">Quantité en stock *</label>
+                            <input type="number" id="quantity" name="quantity" placeholder="5" min="0" required>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="quantity">Quantité en stock *</label>
-                        <input type="number" id="quantity" name="quantity" placeholder="5" min="0" required>
+                        <label for="description">Description courte</label>
+                        <textarea id="description" name="description" placeholder="Courte description pour les aperçus..." rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description_long">Description détaillée</label>
+                        <textarea id="description_long" name="description_long" placeholder="Description complète de l'œuvre..." rows="6"></textarea>
+                    </div>
+                </div>
+
+                <!-- CARACTÉRISTIQUES TECHNIQUES -->
+                <div class="form-section">
+                    <h3>🎨 Caractéristiques techniques</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dimensions">Dimensions</label>
+                            <input type="text" id="dimensions" name="dimensions" placeholder="Ex: 50x70 cm">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="technique">Technique</label>
+                            <input type="text" id="technique" name="technique" placeholder="Ex: Huile sur toile">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="year">Année</label>
+                            <input type="text" id="year" name="year" placeholder="Ex: 2024">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weight">Poids</label>
+                            <input type="text" id="weight" name="weight" placeholder="Ex: 2 kg">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OPTIONS SPÉCIALES -->
+                <div class="form-section">
+                    <h3>⭐ Options spéciales</h3>
+                    
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="unique_piece" value="1">
+                            <span>🎯 Pièce unique</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="certificate" value="1">
+                            <span>📜 Avec certificat d'authenticité</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="framed" value="1">
+                            <span>🖼️ Encadrée</span>
+                        </label>
                     </div>
                 </div>
 
@@ -82,10 +197,11 @@
             <div class="form-info">
                 <h3>ℹ️ Informations</h3>
                 <ul>
-                    <li>Format acceptés : JPG, PNG, GIF</li>
-                    <li>Taille recommandée : minimum 300x300 pixels</li>
-                    <li>Poids maximum : 5 MB</li>
-                    <li>Tous les champs sont obligatoires sauf la description</li>
+                    <li>✅ Format acceptés : JPG, PNG, GIF</li>
+                    <li>📐 Taille recommandée : minimum 500x500 pixels</li>
+                    <li>📦 Poids maximum : 5 MB par image</li>
+                    <li>🎨 Les caractéristiques détaillées aident les clients à mieux comprendre vos œuvres</li>
+                    <li>⭐ Les options spéciales (certificat, pièce unique) augmentent la valeur perçue</li>
                 </ul>
             </div>
         </div>
@@ -93,36 +209,132 @@
 </section>
 
 <script>
-function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+    const file = input.files[0];
+    if(file){
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('preview-image');
-            const container = document.getElementById('preview-container');
+        reader.onload = e => {
             preview.src = e.target.result;
-            container.style.display = 'block';
+            preview.style.display = 'block';
         };
         reader.readAsDataURL(file);
     }
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    const fileInput = document.getElementById('image');
-    const wrapper = document.querySelector('.file-input-wrapper');
-    
-    if (wrapper) {
-        wrapper.addEventListener('click', function() { fileInput.click(); });
-        wrapper.addEventListener('dragover', function(e) { e.preventDefault(); wrapper.style.background = '#e0f2ff'; });
-        wrapper.addEventListener('dragleave', function(e) { e.preventDefault(); wrapper.style.background = '#f9f9f9'; });
-        wrapper.addEventListener('drop', function(e) {
-            e.preventDefault();
-            wrapper.style.background = '#f9f9f9';
-            fileInput.files = e.dataTransfer.files;
-            previewImage({target: fileInput});
-        });
-    }
-});
 </script>
+
+<style>
+/* SECTIONS */
+.form-section {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.form-section h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1E3A8A;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+/* CHECKBOXES */
+.checkbox-group {
+    margin: 15px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.checkbox-label:hover {
+    background: #f3f4f6;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* IMAGES */
+.preview-img-small {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.file-input-wrapper {
+    position: relative;
+    border: 2px dashed #1E3A8A;
+    border-radius: 8px;
+    padding: 30px 20px;
+    text-align: center;
+    background: #f9f9f9;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+}
+
+.file-input-wrapper:hover { 
+    background: #f0f4f8; 
+    border-color: #3B65C4; 
+}
+
+.file-input-wrapper input { 
+    display: none; 
+}
+
+.file-label { 
+    color: #1E3A8A; 
+    font-weight: 600; 
+    font-size: 14px; 
+    cursor: pointer; 
+}
+
+.preview-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* SELECT */
+select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #374151;
+    background: white;
+    cursor: pointer;
+}
+
+select:focus {
+    outline: none;
+    border-color: #1E3A8A;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+}
+</style>
 
 {% endblock %}

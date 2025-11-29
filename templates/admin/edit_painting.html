@@ -40,46 +40,177 @@
             </div>
 
             <form method="POST" class="admin-form" enctype="multipart/form-data">
-                <!-- IMAGE ACTUELLE -->
-                <div class="form-group">
-                    <label>Image actuelle</label>
-                    <div class="image-preview" style="max-width:300px;">
-                        <img src="{{ url_for('static', filename=painting[2]) }}" alt="{{ painting[1] }}" class="preview-img">
-                    </div>
-                </div>
-
-                <!-- NOUVELLE IMAGE -->
-                <div class="form-group">
-                    <label for="image">Changer l'image</label>
-                    <div class="file-input-wrapper" id="file-wrapper">
-                        <input type="file" id="image" name="image" accept="image/*">
-                        <span class="file-label">Cliquez ou glissez pour télécharger une image</span>
-                    </div>
-                </div>
-
-                <!-- NOM -->
-                <div class="form-group">
-                    <label for="name">Nom de la peinture *</label>
-                    <input type="text" id="name" name="name" value="{{ painting[1] }}" required>
-                </div>
-
-                <!-- PRIX ET QUANTITÉ -->
-                <div class="form-row">
+                <!-- IMAGES -->
+                <div class="form-section">
+                    <h3>🖼️ Images</h3>
+                    
+                    <!-- IMAGE PRINCIPALE -->
                     <div class="form-group">
-                        <label for="price">Prix (€) *</label>
-                        <input type="number" id="price" name="price" value="{{ painting[3] }}" min="0" step="0.01" required>
+                        <label>Image principale actuelle</label>
+                        <div class="image-preview" style="max-width:300px;">
+                            <img src="{{ url_for('static', filename=painting[2]) }}" alt="{{ painting[1] }}" class="preview-img" id="preview-main">
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="quantity">Quantité en stock *</label>
-                        <input type="number" id="quantity" name="quantity" value="{{ painting[4] }}" min="0" required>
+                        <label for="image">Changer l'image principale</label>
+                        <div class="file-input-wrapper" onclick="document.getElementById('image').click()">
+                            <input type="file" id="image" name="image" accept="image/*" onchange="previewImage(this, 'preview-main')">
+                            <span class="file-label">📸 Cliquez pour télécharger</span>
+                        </div>
+                    </div>
+
+                    <!-- IMAGES ADDITIONNELLES -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="image_2">Image 2 (optionnelle)</label>
+                            {% if painting[13] %}
+                            <img src="{{ url_for('static', filename=painting[13]) }}" alt="Image 2" class="preview-img-small" id="preview-2" style="max-width:150px;">
+                            {% else %}
+                            <img src="" alt="" class="preview-img-small" id="preview-2" style="max-width:150px; display:none;">
+                            {% endif %}
+                            <input type="file" id="image_2" name="image_2" accept="image/*" onchange="previewImage(this, 'preview-2')">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="image_3">Image 3 (optionnelle)</label>
+                            {% if painting[14] %}
+                            <img src="{{ url_for('static', filename=painting[14]) }}" alt="Image 3" class="preview-img-small" id="preview-3" style="max-width:150px;">
+                            {% else %}
+                            <img src="" alt="" class="preview-img-small" id="preview-3" style="max-width:150px; display:none;">
+                            {% endif %}
+                            <input type="file" id="image_3" name="image_3" accept="image/*" onchange="previewImage(this, 'preview-3')">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="image_4">Image 4 (optionnelle)</label>
+                            {% if painting[15] %}
+                            <img src="{{ url_for('static', filename=painting[15]) }}" alt="Image 4" class="preview-img-small" id="preview-4" style="max-width:150px;">
+                            {% else %}
+                            <img src="" alt="" class="preview-img-small" id="preview-4" style="max-width:150px; display:none;">
+                            {% endif %}
+                            <input type="file" id="image_4" name="image_4" accept="image/*" onchange="previewImage(this, 'preview-4')">
+                        </div>
                     </div>
                 </div>
 
-                <!-- DESCRIPTION -->
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="4">{{ painting[5] or '' }}</textarea>
+                <!-- INFORMATIONS GÉNÉRALES -->
+                <div class="form-section">
+                    <h3>📝 Informations générales</h3>
+                    
+                    <!-- NOM -->
+                    <div class="form-group">
+                        <label for="name">Nom de la peinture *</label>
+                        <input type="text" id="name" name="name" value="{{ painting[1] }}" required>
+                    </div>
+
+                    <!-- CATÉGORIE ET STATUT -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="category">Catégorie</label>
+                            <select id="category" name="category">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Abstrait" {% if painting[11] == 'Abstrait' %}selected{% endif %}>Abstrait</option>
+                                <option value="Paysage" {% if painting[11] == 'Paysage' %}selected{% endif %}>Paysage</option>
+                                <option value="Portrait" {% if painting[11] == 'Portrait' %}selected{% endif %}>Portrait</option>
+                                <option value="Nature morte" {% if painting[11] == 'Nature morte' %}selected{% endif %}>Nature morte</option>
+                                <option value="Moderne" {% if painting[11] == 'Moderne' %}selected{% endif %}>Moderne</option>
+                                <option value="Figuratif" {% if painting[11] == 'Figuratif' %}selected{% endif %}>Figuratif</option>
+                                <option value="Contemporain" {% if painting[11] == 'Contemporain' %}selected{% endif %}>Contemporain</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status">Statut</label>
+                            <select id="status" name="status">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Disponible" {% if painting[12] == 'Disponible' %}selected{% endif %}>Disponible</option>
+                                <option value="Vendu" {% if painting[12] == 'Vendu' %}selected{% endif %}>Vendu</option>
+                                <option value="Réservé" {% if painting[12] == 'Réservé' %}selected{% endif %}>Réservé</option>
+                                <option value="Exposition" {% if painting[12] == 'Exposition' %}selected{% endif %}>En exposition</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- PRIX ET QUANTITÉ -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="price">Prix (€) *</label>
+                            <input type="number" id="price" name="price" value="{{ painting[3] }}" min="0" step="0.01" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="quantity">Quantité en stock *</label>
+                            <input type="number" id="quantity" name="quantity" value="{{ painting[4] }}" min="0" required>
+                        </div>
+                    </div>
+
+                    <!-- DESCRIPTION COURTE -->
+                    <div class="form-group">
+                        <label for="description">Description courte</label>
+                        <textarea id="description" name="description" rows="3">{{ painting[5] or '' }}</textarea>
+                    </div>
+
+                    <!-- DESCRIPTION LONGUE -->
+                    <div class="form-group">
+                        <label for="description_long">Description détaillée</label>
+                        <textarea id="description_long" name="description_long" rows="6">{{ painting[7] or '' }}</textarea>
+                    </div>
+                </div>
+
+                <!-- CARACTÉRISTIQUES TECHNIQUES -->
+                <div class="form-section">
+                    <h3>🎨 Caractéristiques techniques</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dimensions">Dimensions (ex: 50x70 cm)</label>
+                            <input type="text" id="dimensions" name="dimensions" value="{{ painting[8] or '' }}" placeholder="50x70 cm">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="technique">Technique</label>
+                            <input type="text" id="technique" name="technique" value="{{ painting[9] or '' }}" placeholder="Huile sur toile">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="year">Année</label>
+                            <input type="text" id="year" name="year" value="{{ painting[10] or '' }}" placeholder="2024">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="weight">Poids (ex: 2 kg)</label>
+                            <input type="text" id="weight" name="weight" value="{{ painting[16] or '' }}" placeholder="2 kg">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OPTIONS SPÉCIALES -->
+                <div class="form-section">
+                    <h3>⭐ Options spéciales</h3>
+                    
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="unique_piece" value="1" {% if painting[19] %}checked{% endif %}>
+                            <span>🎯 Pièce unique</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="certificate" value="1" {% if painting[18] %}checked{% endif %}>
+                            <span>📜 Avec certificat d'authenticité</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="framed" value="1" {% if painting[17] %}checked{% endif %}>
+                            <span>🖼️ Encadrée</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- ACTIONS -->
@@ -94,54 +225,84 @@
 
 <!-- SCRIPT PREVIEW IMAGE -->
 <script>
-const imageInput = document.getElementById('image');
-const preview = document.querySelector('.preview-img');
-const fileWrapper = document.getElementById('file-wrapper');
-
-// Clic sur le wrapper ouvre le sélecteur
-fileWrapper.addEventListener('click', () => imageInput.click());
-
-// Prévisualisation de l'image
-imageInput.addEventListener('change', () => {
-    const file = imageInput.files[0];
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+    const file = input.files[0];
     if(file){
         const reader = new FileReader();
-        reader.onload = e => preview.src = e.target.result;
+        reader.onload = e => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
         reader.readAsDataURL(file);
     }
-});
-
-// Drag & drop
-fileWrapper.addEventListener('dragover', e => {
-    e.preventDefault();
-    fileWrapper.classList.add('drag-over');
-});
-
-fileWrapper.addEventListener('dragleave', e => {
-    e.preventDefault();
-    fileWrapper.classList.remove('drag-over');
-});
-
-fileWrapper.addEventListener('drop', e => {
-    e.preventDefault();
-    fileWrapper.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if(file){
-        imageInput.files = e.dataTransfer.files;
-        const reader = new FileReader();
-        reader.onload = e => preview.src = e.target.result;
-        reader.readAsDataURL(file);
-    }
-});
+}
 </script>
 
 <style>
+/* SECTIONS */
+.form-section {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.form-section h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1E3A8A;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+/* CHECKBOXES */
+.checkbox-group {
+    margin: 15px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.checkbox-label:hover {
+    background: #f3f4f6;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+}
+
+/* IMAGES SMALL */
+.preview-img-small {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin: 10px 0;
+}
+
 /* STYLE FILE INPUT WRAPPER */
 .file-input-wrapper {
     position: relative;
     border: 2px dashed #1E3A8A;
     border-radius: 8px;
-    padding: 40px 20px;
+    padding: 30px 20px;
     text-align: center;
     background: #f9f9f9;
     cursor: pointer;
@@ -149,7 +310,7 @@ fileWrapper.addEventListener('drop', e => {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 120px;
+    min-height: 100px;
 }
 .file-input-wrapper:hover { background: #f0f4f8; border-color: #3B65C4; }
 .file-input-wrapper.drag-over { background: #e0f2ff; border-color: #1E3A8A; }
@@ -163,6 +324,24 @@ fileWrapper.addEventListener('drop', e => {
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     margin-top: 10px;
+}
+
+/* SELECT STYLING */
+select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #374151;
+    background: white;
+    cursor: pointer;
+}
+
+select:focus {
+    outline: none;
+    border-color: #1E3A8A;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
 }
 </style>
 

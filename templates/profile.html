@@ -48,15 +48,15 @@
 
 /* FAVORIS */
 .section-header { text-align: center; margin-bottom: 30px; }
-.section-header h2 { font-size: 28px; color: #1E3A8A; margin: 0; }
+.section-header h2 { font-size: 32px; color: #1E3A8A; font-weight: 700; margin: 0 0 40px 0; }
 
 .favorites-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 20px;
-    justify-content: start; /* empêche les cartes seules de s'étirer */
-    max-width: 1000px;     /* limite la largeur totale de la grille */
-    margin: 0 auto;        /* centre la grille si peu de cartes */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    justify-content: start;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 
@@ -66,33 +66,48 @@
     justify-content: space-between;
     position: relative;
     background: white;
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    min-height: 350px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+.favorite-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
 }
 
 .favorite-image {
     position: relative;
     width: 100%;
-    height: 200px;
+    height: 250px;
     overflow: hidden;
 }
-.favorite-image img { width: 100%; height: 100%; object-fit: cover; }
+.favorite-image img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+.favorite-card:hover .favorite-image img {
+    transform: scale(1.08);
+}
 
 .favorite-btn {
     position: absolute;
     top: 10px;
     right: 10px;
-    font-size: 24px;
+    font-size: 22px;
     cursor: pointer;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.9);
     border-radius: 50%;
     width: 40px; height: 40px;
     display: flex; align-items: center; justify-content: center;
-    text-decoration: none; transition: background 0.3s;
+    text-decoration: none; transition: all 0.3s ease;
 }
-.favorite-btn:hover { background: rgba(255,255,255,1); }
+.favorite-btn:hover { 
+    background: rgba(255,255,255,1);
+    transform: scale(1.1);
+}
 
 .favorite-info {
     display: flex;

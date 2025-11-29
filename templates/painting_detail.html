@@ -1,0 +1,754 @@
+{% extends "base.html" %}
+
+{% block title %}{{ painting.name }} - JB Artiste Peintre{% endblock %}
+
+{% block content %}
+<style>
+    .product-container {
+        max-width: 1400px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+    
+    .product-main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        margin-bottom: 60px;
+    }
+    
+    /* === GALERIE D'IMAGES === */
+    .product-gallery {
+        position: sticky;
+        top: 20px;
+        height: fit-content;
+    }
+    
+    .main-image-container {
+        position: relative;
+        width: 100%;
+        padding-bottom: 100%;
+        background: #f8f9fa;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    
+    .main-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        cursor: zoom-in;
+        transition: transform 0.3s ease;
+    }
+    
+    .main-image:hover {
+        transform: scale(1.05);
+    }
+    
+    .thumbnails {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+    
+    .thumbnail {
+        position: relative;
+        width: 100%;
+        padding-bottom: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .thumbnail.active {
+        border-color: var(--color-primary);
+    }
+    
+    .thumbnail:hover {
+        border-color: var(--color-secondary);
+    }
+    
+    .thumbnail img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .stock-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #10b981;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 14px;
+        z-index: 10;
+    }
+    
+    .stock-badge.sold-out {
+        background: #ef4444;
+    }
+    
+    /* === INFORMATIONS PRODUIT === */
+    .product-info {
+        padding: 20px 0;
+    }
+    
+    .product-header {
+        margin-bottom: 30px;
+    }
+    
+    .product-category {
+        display: inline-block;
+        background: var(--gradient-primary);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    
+    .product-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 10px;
+        line-height: 1.2;
+    }
+    
+    .product-meta {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        color: #666;
+        font-size: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .product-meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .product-price {
+        font-size: 42px;
+        font-weight: 700;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 30px;
+    }
+    
+    .product-description {
+        color: #444;
+        font-size: 16px;
+        line-height: 1.8;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 12px;
+        border-left: 4px solid var(--color-primary);
+    }
+    
+    /* === CARACTÉRISTIQUES === */
+    .product-specs {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .product-specs h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #1a1a1a;
+    }
+    
+    .specs-grid {
+        display: grid;
+        gap: 15px;
+    }
+    
+    .spec-item {
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .spec-icon {
+        font-size: 24px;
+        margin-right: 12px;
+    }
+    
+    .spec-content {
+        flex: 1;
+    }
+    
+    .spec-label {
+        font-size: 13px;
+        color: #666;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 2px;
+    }
+    
+    .spec-value {
+        font-size: 15px;
+        color: #1a1a1a;
+        font-weight: 600;
+    }
+    
+    /* === BADGES AVANTAGES === */
+    .product-features {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+    }
+    
+    .feature-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #2e7d32;
+    }
+    
+    /* === ACTIONS === */
+    .product-actions {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .quantity-selector {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f8f9fa;
+        padding: 10px 20px;
+        border-radius: 12px;
+    }
+    
+    .quantity-selector button {
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-primary);
+        transition: all 0.3s ease;
+    }
+    
+    .quantity-selector button:hover {
+        background: var(--color-primary);
+        color: white;
+    }
+    
+    .quantity-selector input {
+        width: 50px;
+        text-align: center;
+        border: none;
+        background: transparent;
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .btn-add-cart {
+        flex: 1;
+        padding: 18px 40px;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    .btn-add-cart:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+    }
+    
+    .btn-add-cart:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .btn-favorite {
+        width: 60px;
+        height: 60px;
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        font-size: 24px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    
+    .btn-favorite:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+        transform: scale(1.1);
+    }
+    
+    /* === INFORMATIONS SUPPLÉMENTAIRES === */
+    .product-extra-info {
+        background: #f8f9fa;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+    
+    .extra-info-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .extra-info-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .extra-info-icon {
+        font-size: 20px;
+        color: var(--color-primary);
+        margin-top: 2px;
+    }
+    
+    .extra-info-text {
+        flex: 1;
+        font-size: 14px;
+        color: #444;
+        line-height: 1.6;
+    }
+    
+    /* === PRODUITS SIMILAIRES === */
+    .similar-products {
+        margin-top: 80px;
+    }
+    
+    .similar-products h2 {
+        font-size: 32px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 40px;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .similar-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 25px;
+    }
+    
+    .similar-card {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        background: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .similar-card:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+    }
+    
+    .similar-image {
+        position: relative;
+        width: 100%;
+        height: 250px;
+        overflow: hidden;
+    }
+    
+    .similar-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+    
+    .similar-card:hover .similar-image img {
+        transform: scale(1.08);
+    }
+    
+    .similar-info {
+        padding: 15px;
+    }
+    
+    .similar-name {
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: #1a1a1a;
+    }
+    
+    .similar-price {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--color-primary);
+    }
+    
+    /* === RESPONSIVE === */
+    @media (max-width: 1024px) {
+        .product-main {
+            grid-template-columns: 1fr;
+            gap: 40px;
+        }
+        
+        .product-gallery {
+            position: relative;
+            top: 0;
+        }
+        
+        .similar-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 640px) {
+        .product-title {
+            font-size: 28px;
+        }
+        
+        .product-price {
+            font-size: 32px;
+        }
+        
+        .product-actions {
+            flex-direction: column;
+        }
+        
+        .btn-add-cart {
+            width: 100%;
+        }
+        
+        .similar-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .thumbnails {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+</style>
+
+<div class="product-container">
+    <!-- Breadcrumb -->
+    <div style="margin-bottom: 30px; color: #666; font-size: 14px;">
+        <a href="{{ url_for('home') }}" style="color: inherit; text-decoration: none;">🏠 Accueil</a>
+        <span> / </span>
+        <a href="{{ url_for('galerie') }}" style="color: inherit; text-decoration: none;">Galerie</a>
+        <span> / </span>
+        <span style="color: var(--color-primary); font-weight: 600;">{{ painting.name }}</span>
+    </div>
+    
+    <div class="product-main">
+        <!-- GALERIE -->
+        <div class="product-gallery">
+            <div class="main-image-container">
+                {% if painting.quantity <= 0 %}
+                <div class="stock-badge sold-out">❌ Vendu</div>
+                {% elif painting.quantity <= 3 %}
+                <div class="stock-badge" style="background: #f59e0b;">⚠️ Plus que {{ painting.quantity }} en stock</div>
+                {% else %}
+                <div class="stock-badge">✅ En stock</div>
+                {% endif %}
+                
+                <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}" class="main-image" id="mainImage">
+            </div>
+            
+            <div class="thumbnails">
+                <div class="thumbnail active" onclick="changeImage('{{ url_for('static', filename=painting.image) }}', this)">
+                    <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}">
+                </div>
+                
+                {% if painting.image_2 %}
+                <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_2) }}', this)">
+                    <img src="{{ url_for('static', filename=painting.image_2) }}" alt="{{ painting.name }}">
+                </div>
+                {% endif %}
+                
+                {% if painting.image_3 %}
+                <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_3) }}', this)">
+                    <img src="{{ url_for('static', filename=painting.image_3) }}" alt="{{ painting.name }}">
+                </div>
+                {% endif %}
+                
+                {% if painting.image_4 %}
+                <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_4) }}', this)">
+                    <img src="{{ url_for('static', filename=painting.image_4) }}" alt="{{ painting.name }}">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- INFORMATIONS -->
+        <div class="product-info">
+            <div class="product-header">
+                {% if painting.category %}
+                <span class="product-category">{{ painting.category }}</span>
+                {% endif %}
+                
+                <h1 class="product-title">{{ painting.name }}</h1>
+                
+                <div class="product-meta">
+                    {% if painting.year %}
+                    <span>📅 {{ painting.year }}</span>
+                    {% endif %}
+                    {% if painting.technique %}
+                    <span>🎨 {{ painting.technique }}</span>
+                    {% endif %}
+                </div>
+                
+                <div class="product-price">{{ painting.price }} €</div>
+            </div>
+            
+            {% if painting.description or painting.description_long %}
+            <div class="product-description">
+                {{ painting.description_long or painting.description }}
+            </div>
+            {% endif %}
+            
+            <!-- CARACTÉRISTIQUES -->
+            <div class="product-specs">
+                <h3>📋 Caractéristiques</h3>
+                <div class="specs-grid">
+                    {% if painting.dimensions %}
+                    <div class="spec-item">
+                        <span class="spec-icon">📐</span>
+                        <div class="spec-content">
+                            <span class="spec-label">Dimensions</span>
+                            <span class="spec-value">{{ painting.dimensions }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if painting.technique %}
+                    <div class="spec-item">
+                        <span class="spec-icon">🖌️</span>
+                        <div class="spec-content">
+                            <span class="spec-label">Technique</span>
+                            <span class="spec-value">{{ painting.technique }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if painting.weight %}
+                    <div class="spec-item">
+                        <span class="spec-icon">⚖️</span>
+                        <div class="spec-content">
+                            <span class="spec-label">Poids</span>
+                            <span class="spec-value">{{ painting.weight }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if painting.year %}
+                    <div class="spec-item">
+                        <span class="spec-icon">📅</span>
+                        <div class="spec-content">
+                            <span class="spec-label">Année</span>
+                            <span class="spec-value">{{ painting.year }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- BADGES AVANTAGES -->
+            <div class="product-features">
+                {% if painting.unique_piece %}
+                <div class="feature-badge">
+                    ⭐ Pièce unique
+                </div>
+                {% endif %}
+                
+                {% if painting.certificate %}
+                <div class="feature-badge">
+                    📜 Certificat d'authenticité
+                </div>
+                {% endif %}
+                
+                {% if painting.framed %}
+                <div class="feature-badge">
+                    🖼️ Encadrée
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- ACTIONS PANIER -->
+            {% if painting.quantity > 0 %}
+            <div class="product-actions">
+                <div class="quantity-selector">
+                    <button type="button" onclick="decreaseQuantity()">−</button>
+                    <input type="number" id="quantity" value="1" min="1" max="{{ painting.quantity }}" readonly>
+                    <button type="button" onclick="increaseQuantity()">+</button>
+                </div>
+                
+                <button class="btn-add-cart" onclick="addToCart()">
+                    🛒 Ajouter au panier
+                </button>
+                
+                {% if session.user_id %}
+                {% if painting.id in favorite_ids %}
+                <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="btn-favorite" title="Retirer des favoris">
+                    ❤️
+                </a>
+                {% else %}
+                <a href="{{ url_for('add_favorite', painting_id=painting.id) }}" class="btn-favorite" title="Ajouter aux favoris">
+                    🤍
+                </a>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="padding: 20px; background: #fee2e2; border-radius: 12px; text-align: center; color: #991b1b; font-weight: 600;">
+                ❌ Cette œuvre est actuellement indisponible
+            </div>
+            {% endif %}
+            
+            <!-- INFORMATIONS SUPPLÉMENTAIRES -->
+            <div class="product-extra-info">
+                <div class="extra-info-item">
+                    <span class="extra-info-icon">🚚</span>
+                    <div class="extra-info-text">
+                        <strong>Livraison sécurisée</strong><br>
+                        Emballage soigné et livraison assurée sous 5-7 jours ouvrés
+                    </div>
+                </div>
+                
+                <div class="extra-info-item">
+                    <span class="extra-info-icon">💳</span>
+                    <div class="extra-info-text">
+                        <strong>Paiement sécurisé</strong><br>
+                        CB, PayPal - Vos données sont protégées
+                    </div>
+                </div>
+                
+                <div class="extra-info-item">
+                    <span class="extra-info-icon">✉️</span>
+                    <div class="extra-info-text">
+                        <strong>Une question ?</strong><br>
+                        <a href="{{ url_for('contact') }}" style="color: var(--color-primary); font-weight: 600;">Contactez-nous</a>, nous répondons sous 24h
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PRODUITS SIMILAIRES -->
+    {% if similar_paintings %}
+    <div class="similar-products">
+        <h2>🎨 Vous aimerez aussi</h2>
+        <div class="similar-grid">
+            {% for similar in similar_paintings %}
+            <a href="{{ url_for('painting_detail', painting_id=similar[0]) }}" class="similar-card">
+                <div class="similar-image">
+                    <img src="{{ url_for('static', filename=similar[2]) }}" alt="{{ similar[1] }}">
+                </div>
+                <div class="similar-info">
+                    <div class="similar-name">{{ similar[1] }}</div>
+                    <div class="similar-price">{{ similar[3] }} €</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Changer l'image principale
+    function changeImage(src, element) {
+        document.getElementById('mainImage').src = src;
+        
+        // Retirer la classe active de toutes les miniatures
+        document.querySelectorAll('.thumbnail').forEach(thumb => {
+            thumb.classList.remove('active');
+        });
+        
+        // Ajouter la classe active à la miniature cliquée
+        element.classList.add('active');
+    }
+    
+    // Gestion quantité
+    const maxQuantity = {{ painting.quantity }};
+    
+    function increaseQuantity() {
+        const input = document.getElementById('quantity');
+        if (parseInt(input.value) < maxQuantity) {
+            input.value = parseInt(input.value) + 1;
+        }
+    }
+    
+    function decreaseQuantity() {
+        const input = document.getElementById('quantity');
+        if (parseInt(input.value) > 1) {
+            input.value = parseInt(input.value) - 1;
+        }
+    }
+    
+    // Ajouter au panier
+    function addToCart() {
+        const quantity = document.getElementById('quantity').value;
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/add_to_cart/{{ painting.id }}';
+        
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'hidden';
+        quantityInput.name = 'quantity';
+        quantityInput.value = quantity;
+        
+        form.appendChild(quantityInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+
+{% endblock %}
