@@ -3598,7 +3598,7 @@ def api_export_users():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, name, email, role, created_at FROM users"))
+        cur.execute(adapt_query("SELECT id, name, email, role, create_date, phone, address, city, postal_code, country, birth_date, accepts_marketing FROM users"))
         rows = cur.fetchall()
         
         columns = [description[0] for description in cur.description]
