@@ -3766,6 +3766,44 @@ def update_setting_api(key):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/upload/image', methods=['POST'])
+@require_api_key
+def upload_image():
+    """Uploader une image via l'API"""
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'Aucun fichier'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'Nom de fichier vide'}), 400
+    
+    # Vérifier l'extension
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    
+    if ext not in allowed_extensions:
+        return jsonify({'success': False, 'error': 'Format non autorisé'}), 400
+    
+    try:
+        # Sécuriser le nom de fichier
+        filename = secure_filename(file.filename)
+        
+        # Sauvegarder dans le dossier static/Images
+        filepath = os.path.join('static', 'Images', filename)
+        file.save(filepath)
+        
+        # Retourner le chemin relatif
+        return jsonify({
+            'success': True,
+            'path': f'Images/{filename}',
+            'filename': filename,
+            'message': 'Image uploadée avec succès'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/export/api-key', methods=['GET'])
 @require_admin
 def get_export_api_key():
