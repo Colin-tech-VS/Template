@@ -2274,16 +2274,17 @@ def admin_dashboard():
                          active="dashboard")
 
 
-@app.route('/admin/api-export')
-@require_admin
-def admin_api_export():
-    """Page de gestion de l'API d'export"""
-    api_key = get_setting("export_api_key")
-    if not api_key:
-        api_key = secrets.token_urlsafe(32)
-        set_setting("export_api_key", api_key)
-    
-    return render_template('admin/api_export.html', api_key=api_key, active="api")
+# Route désactivée - L'API est gérée automatiquement
+# @app.route('/admin/api-export')
+# @require_admin
+# def admin_api_export():
+#     """Page de gestion de l'API d'export"""
+#     api_key = get_setting("export_api_key")
+#     if not api_key:
+#         api_key = secrets.token_urlsafe(32)
+#         set_setting("export_api_key", api_key)
+#     
+#     return render_template('admin/api_export.html', api_key=api_key, active="api")
 
 
 @app.route('/admin/paintings')
@@ -3841,8 +3842,96 @@ def regenerate_export_api_key():
 # FIN API EXPORT
 # ================================
 
+# ================================
+# SYSTÈME AUTO-REGISTRATION AU DASHBOARD CENTRAL
+# ================================
+
+def auto_generate_api_key():
+    """Génère automatiquement une clé API si elle n'existe pas"""
+    api_key = get_setting("export_api_key")
+    if not api_key:
+        api_key = secrets.token_urlsafe(32)
+        set_setting("export_api_key", api_key)
+        print(f"✅ Clé API générée automatiquement: {api_key[:10]}...")
+    return api_key
+
+def register_site_to_dashboard():
+    """Enregistre automatiquement ce site sur le dashboard central"""
+    import requests
+    
+    # Vérifier si déjà enregistré
+    if get_setting("dashboard_registered") == "true":
+        return
+    
+    # Vérifier si l'enregistrement est activé
+    if get_setting("enable_auto_registration") != "true":
+        print("ℹ️ Auto-registration désactivé. Génération de l'API key uniquement.")
+        auto_generate_api_key()
+        return
+    
+    try:
+        # Générer l'API key
+        api_key = auto_generate_api_key()
+        
+        # Récupérer les infos du site
+        site_name = get_setting("site_name") or "Site Artiste"
+        site_url = os.getenv("SITE_URL") or request.url_root if request else "http://localhost:5000"
+        
+        # Données à envoyer
+        data = {
+            "site_name": site_name,
+            "site_url": site_url.rstrip('/'),
+            "api_key": api_key,
+            "auto_registered": True
+        }
+        
+        # URL du dashboard central
+        dashboard_url = "https://mydashboard-v39e.onrender.com/api/sites/register"
+        
+        # Envoyer les données
+        response = requests.post(dashboard_url, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            set_setting("dashboard_registered", "true")
+            set_setting("dashboard_id", response.json().get("site_id"))
+            print(f"✅ Site enregistré sur le dashboard central: {site_name}")
+        else:
+            print(f"⚠️ Erreur d'enregistrement: {response.status_code}")
+            print(f"   L'endpoint /api/sites/register n'existe pas encore sur le dashboard.")
+            print(f"   L'API key est générée localement et reste fonctionnelle.")
+    
+    except Exception as e:
+        print(f"⚠️ Impossible de contacter le dashboard central: {e}")
+        print(f"   L'API key est générée localement et reste fonctionnelle.")
+        # Continuer quand même avec l'API key locale
+        auto_generate_api_key()
+
+@app.route('/api/sync-dashboard', methods=['POST'])
+def sync_dashboard():
+    """Endpoint manuel pour forcer la synchronisation avec le dashboard"""
+    try:
+        # Réinitialiser le flag
+        set_setting("dashboard_registered", "false")
+        
+        # Relancer l'enregistrement
+        register_site_to_dashboard()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Synchronisation effectuée'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # --------------------------------
 # LANCEMENT DE L'APPLICATION
 # --------------------------------
 if __name__ == "__main__":
+    # Enregistrement automatique au démarrage
+    with app.app_context():
+        try:
+            register_site_to_dashboard()
+        except Exception as e:
+            print(f"⚠️ Erreur lors de l'auto-registration: {e}")
+    
     app.run(debug=True)
