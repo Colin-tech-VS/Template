@@ -345,6 +345,20 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
+# Fonction helper pour récupérer le nombre de notifications non lues
+def get_new_notifications_count():
+    """Retourne le nombre de notifications admin non lues"""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        SELECT COUNT(*) 
+        FROM notifications 
+        WHERE user_id IS NULL AND is_read = 0
+    """)
+    count = c.fetchone()[0]
+    conn.close()
+    return count
+
 # Les fonctions create_table_if_not_exists et add_column_if_not_exists 
 # sont maintenant dans database.py
 
@@ -920,6 +934,7 @@ def admin_custom_requests():
                          in_progress_count=in_progress_count,
                          accepted_count=accepted_count,
                          refused_count=refused_count,
+                         new_notifications_count=get_new_notifications_count(),
                          active="custom_requests")
 
 @app.route("/admin/custom-requests/<int:request_id>/status", methods=["POST"])
@@ -970,7 +985,10 @@ def admin_exhibitions():
     c.execute("SELECT * FROM exhibitions ORDER BY create_date DESC")
     exhibitions = c.fetchall()
     conn.close()
-    return render_template("admin/admin_exhibitions.html", exhibitions=exhibitions, active="exhibitions")
+    return render_template("admin/admin_exhibitions.html", 
+                         exhibitions=exhibitions, 
+                         new_notifications_count=get_new_notifications_count(),
+                         active="exhibitions")
 
 
 # Ajouter une exhibition
@@ -1013,7 +1031,8 @@ def add_exhibition():
     return render_template(
         "admin/form_exhibition.html",
         action="Ajouter",
-        google_places_key=google_places_key
+        google_places_key=google_places_key,
+        new_notifications_count=get_new_notifications_count()
     )
 
 
@@ -1061,7 +1080,8 @@ def edit_exhibition(exhibition_id):
         "admin/form_exhibition.html",
         exhibition=exhibition,
         action="Éditer",
-        google_places_key=google_places_key  # ← clé dynamique passée au template
+        google_places_key=google_places_key,
+        new_notifications_count=get_new_notifications_count()
     )
 
 # Supprimer une exhibition
@@ -1634,7 +1654,8 @@ def add_painting_web():
             flash('Fichier non autorisé. Seules les images sont acceptées.')
             return redirect(request.url)
 
-    return render_template('admin/add_painting.html')
+    return render_template('admin/add_painting.html', 
+                         new_notifications_count=get_new_notifications_count())
 
 
 @app.context_processor
@@ -1679,7 +1700,7 @@ def inject_cart():
     # --- NOTIFICATIONS ADMIN ---
     new_notifications_count = 0
     if is_admin():
-        c.execute(adapt_query("SELECT COUNT(*) FROM notifications WHERE user_id IS ? AND is_read=0"), (None,))
+        c.execute("SELECT COUNT(*) FROM notifications WHERE user_id IS NULL AND is_read=0")
         new_notifications_count = c.fetchone()[0]
 
     conn.close()
@@ -2260,6 +2281,14 @@ def admin_dashboard():
     """))
     most_loved = c.fetchall()
     
+    # Compter les notifications non lues
+    c.execute("""
+        SELECT COUNT(*) 
+        FROM notifications 
+        WHERE user_id IS NULL AND is_read = 0
+    """)
+    new_notifications_count = c.fetchone()[0]
+    
     conn.close()
     
     return render_template('admin/admin_dashboard.html',
@@ -2271,6 +2300,7 @@ def admin_dashboard():
                          out_of_stock=out_of_stock,
                          top_selling=top_selling,
                          most_loved=most_loved,
+                         new_notifications_count=new_notifications_count,
                          active="dashboard")
 
 
@@ -2292,7 +2322,10 @@ def admin_dashboard():
 def admin_paintings():
     """Gestion des peintures"""
     paintings = get_paintings()
-    return render_template('admin/admin_paintings.html', paintings=paintings, active="paintings")
+    return render_template('admin/admin_paintings.html', 
+                         paintings=paintings, 
+                         new_notifications_count=get_new_notifications_count(),
+                         active="paintings")
 
 @app.route('/admin/painting/remove/<int:painting_id>', methods=['POST'])
 def remove_painting(painting_id):
@@ -2405,7 +2438,9 @@ def edit_painting(painting_id):
             return redirect(url_for('edit_painting', painting_id=painting_id))
     
     conn.close()
-    return render_template('admin/edit_painting.html', painting=painting)
+    return render_template('admin/edit_painting.html', 
+                         painting=painting, 
+                         new_notifications_count=get_new_notifications_count())
 
 @app.route('/admin/painting/delete/<int:painting_id>')
 @require_admin
@@ -2480,7 +2515,11 @@ def admin_orders():
         all_items[order_id] = c.fetchall()
 
     conn.close()
-    return render_template('admin/admin_orders.html', orders=orders_list, all_items=all_items, active="orders")
+    return render_template('admin/admin_orders.html', 
+                         orders=orders_list, 
+                         all_items=all_items, 
+                         new_notifications_count=get_new_notifications_count(),
+                         active="orders")
 
 @app.route("/order/<int:order_id>")
 def order_status(order_id):
@@ -2561,7 +2600,10 @@ def admin_order_detail(order_id):
     items = c.fetchall()
     conn.close()
 
-    return render_template("admin/admin_order_detail.html", order=order, items=items)
+    return render_template("admin/admin_order_detail.html", 
+                         order=order, 
+                         items=items, 
+                         new_notifications_count=get_new_notifications_count())
 
 
 @app.route('/admin/users')
@@ -2604,7 +2646,10 @@ def admin_users():
     users = c.fetchall()
     conn.close()
 
-    return render_template('admin/admin_users.html', users=users, active="users")
+    return render_template('admin/admin_users.html', 
+                         users=users, 
+                         new_notifications_count=get_new_notifications_count(),
+                         active="users")
 
 @app.route('/admin/users/export')
 @require_admin
