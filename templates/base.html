@@ -243,7 +243,7 @@
 
     <!-- NAVIGATION -->
     <nav>
-        <div class="logo">{{ site_settings.site_logo }}</div>
+        <div class="logo" data-shop-name>{{ site_settings.site_logo }}</div>
         <div class="hamburger" onclick="toggleMenu()">
             <span></span>
             <span></span>
@@ -368,6 +368,142 @@
                 }, 3000);
             });
         });
+
+        // ===== PREVIEW MODE SYSTEM =====
+        // Fonction pour lire les paramètres URL
+        function getPreviewData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const previewParam = urlParams.get('preview');
+            
+            if (previewParam) {
+                try {
+                    const previewData = JSON.parse(decodeURIComponent(previewParam));
+                    return previewData;
+                } catch (e) {
+                    console.error('Erreur parsing preview data:', e);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        // Appliquer les données preview si disponibles
+        function applyPreviewData() {
+            const previewData = getPreviewData();
+            
+            if (!previewData) {
+                return; // Pas de données preview, utiliser les données par défaut
+            }
+            
+            console.log('📦 Données preview reçues:', previewData);
+            
+            // Afficher une bannière "Mode Preview"
+            const previewBanner = document.createElement('div');
+            previewBanner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; text-align: center; z-index: 10000; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
+            previewBanner.innerHTML = '🎨 Mode Aperçu - Ceci est une preview de votre boutique';
+            document.body.insertBefore(previewBanner, document.body.firstChild);
+            document.body.style.paddingTop = '40px';
+            
+            // Appliquer le nom de la boutique
+            if (previewData.shop_name) {
+                const shopNameElements = document.querySelectorAll('[data-shop-name], .shop-name, h1.brand-name, .site-name');
+                shopNameElements.forEach(el => {
+                    el.textContent = previewData.shop_name;
+                });
+                document.title = `${previewData.shop_name} - Boutique d'Art`;
+            }
+            
+            // Appliquer le style artistique
+            if (previewData.art_style) {
+                const artStyleElements = document.querySelectorAll('[data-art-style], .art-style, .subtitle');
+                artStyleElements.forEach(el => {
+                    el.textContent = previewData.art_style;
+                });
+            }
+            
+            // Appliquer la bio
+            if (previewData.bio) {
+                const bioElements = document.querySelectorAll('[data-bio], .bio, .description, .about-text');
+                bioElements.forEach(el => {
+                    el.textContent = previewData.bio;
+                });
+            }
+            
+            // Appliquer le logo
+            if (previewData.logo_url) {
+                const logoElements = document.querySelectorAll('[data-logo], .logo img, .brand-logo, .site-logo');
+                logoElements.forEach(el => {
+                    if (el.tagName === 'IMG') {
+                        el.src = previewData.logo_url;
+                        el.alt = previewData.shop_name || 'Logo';
+                    } else {
+                        el.style.backgroundImage = `url(${previewData.logo_url})`;
+                    }
+                });
+            }
+            
+            // Appliquer les images de la galerie
+            if (previewData.images && previewData.images.length > 0) {
+                const galleryContainer = document.querySelector('[data-gallery], .gallery, .artworks-grid, .paintings-grid');
+                
+                if (galleryContainer) {
+                    galleryContainer.innerHTML = '';
+                    
+                    previewData.images.forEach((imageUrl, index) => {
+                        const imgElement = document.createElement('div');
+                        imgElement.className = 'gallery-item painting-card';
+                        imgElement.innerHTML = `
+                            <img src="${imageUrl}" 
+                                 alt="Œuvre ${index + 1}" 
+                                 loading="lazy"
+                                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+                        `;
+                        galleryContainer.appendChild(imgElement);
+                    });
+                }
+            }
+            
+            // Appliquer l'email
+            if (previewData.email) {
+                const emailElements = document.querySelectorAll('[data-email], a[href^="mailto:"]');
+                emailElements.forEach(el => {
+                    if (el.tagName === 'A') {
+                        el.href = `mailto:${previewData.email}`;
+                    }
+                    el.textContent = previewData.email;
+                });
+            }
+            
+            // Appliquer le téléphone
+            if (previewData.phone) {
+                const phoneElements = document.querySelectorAll('[data-phone], .contact-phone');
+                phoneElements.forEach(el => {
+                    el.textContent = previewData.phone;
+                    if (el.tagName === 'A') {
+                        el.href = `tel:${previewData.phone.replace(/\s/g, '')}`;
+                    }
+                });
+            }
+            
+            // Appliquer Instagram
+            if (previewData.instagram) {
+                const instagramElements = document.querySelectorAll('[data-instagram], .instagram-link');
+                instagramElements.forEach(el => {
+                    const username = previewData.instagram.replace('@', '');
+                    if (el.tagName === 'A') {
+                        el.href = `https://instagram.com/${username}`;
+                    }
+                    el.textContent = `@${username}`;
+                });
+            }
+        }
+
+        // Exécuter au chargement de la page
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyPreviewData);
+        } else {
+            applyPreviewData();
+        }
     </script>
 </body>
 </html>

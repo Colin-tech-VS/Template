@@ -37,12 +37,13 @@
         <!-- Contact -->
         <div class="footer-contact">
             <h4>Contact</h4>
-            <p>Email : <a href="mailto:coco.cayre@gmail.com">coco.cayre@gmail.com</a></p>
-            <p>Téléphone : 06 00 00 00 00</p>
+            <p>Email : <a data-email href="mailto:contact@example.com">contact@example.com</a></p>
+            <p>Téléphone : <span data-phone>+33 X XX XX XX XX</span></p>
+            <p>Instagram : <a data-instagram href="https://instagram.com/artiste" target="_blank">@artiste</a></p>
         </div>
     </div>
 
     <div class="footer-bottom">
-        &copy; {{ current_year }} {{ site_settings.site_logo }}. Tous droits réservés.
+        &copy; {{ current_year }} <span data-shop-name>{{ site_settings.site_logo }}</span>. Tous droits réservés.
     </div>
 </footer>

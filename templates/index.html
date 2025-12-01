@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Accueil - JB Artiste Peintre{% endblock %}
+{% block title %}Accueil - {{ site_settings.site_name }}{% endblock %}
 
 {% block content %}
 
@@ -177,12 +177,12 @@ body {
 <!-- HERO -->
 <header class="hero">
     <img src="{{ url_for('static', filename='Images/Test.jpg') }}" 
-         alt="Œuvre d'art visuelle de Jean-Baptiste" 
+         alt="Œuvre d'art visuelle" 
          class="hero-media">
     <div class="hero-overlay">
         <div class="hero-text">
-            <h1>{{ site_settings.home_title }}</h1>
-            <p>{{ site_settings.home_subtitle or site_settings.site_slogan }}</p>
+            <h1 data-shop-name>{{ site_settings.home_title }}</h1>
+            <p data-art-style>{{ site_settings.home_subtitle or site_settings.site_slogan }}</p>
         </div>
     </div>
 </header>
@@ -197,7 +197,7 @@ body {
                 <span class="badge" aria-label="Nouvelle œuvre">Nouveau</span>
                 <div class="artwork-image-wrapper">
                     <img src="{{ url_for('static', filename=painting[2]) }}" 
-                         alt="Peinture '{{ painting[1] }}' par Jean-Baptiste">
+                         alt="Peinture '{{ painting[1] }}' par l'artiste">
                     {% if painting[0] in favorite_ids %}
                         <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
                     {% else %}
