@@ -3906,11 +3906,12 @@ def register_site_to_dashboard():
     
     # Vérifier si déjà enregistré
     if get_setting("dashboard_registered") == "true":
+        print("[AUTO-REG] Site déjà enregistré sur le dashboard")
         return
     
     # Vérifier si l'enregistrement est activé
     if get_setting("enable_auto_registration") != "true":
-        print("ℹ️ Auto-registration désactivé. Génération de l'API key uniquement.")
+        print("[AUTO-REG] Auto-registration désactivé. Génération de l'API key uniquement.")
         auto_generate_api_key()
         return
     
@@ -3920,12 +3921,23 @@ def register_site_to_dashboard():
         
         # Récupérer les infos du site
         site_name = get_setting("site_name") or "Site Artiste"
-        site_url = os.getenv("SITE_URL") or request.url_root if request else "http://localhost:5000"
+        
+        # Détecter l'URL du site (compatible Render)
+        site_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("SITE_URL")
+        if not site_url:
+            render_service = os.getenv("RENDER_SERVICE_NAME")
+            if render_service:
+                site_url = f"https://{render_service}.onrender.com"
+            else:
+                print("[AUTO-REG] ⚠️ Impossible de déterminer l'URL - skip registration")
+                return
+        
+        site_url = site_url.rstrip('/')
         
         # Données à envoyer
         data = {
             "site_name": site_name,
-            "site_url": site_url.rstrip('/'),
+            "site_url": site_url,
             "api_key": api_key,
             "auto_registered": True
         }
@@ -3933,22 +3945,33 @@ def register_site_to_dashboard():
         # URL du dashboard central
         dashboard_url = "https://mydashboard-v39e.onrender.com/api/sites/register"
         
+        print(f"[AUTO-REG] 📤 Enregistrement sur le dashboard central...")
+        print(f"[AUTO-REG]    Nom: {site_name}")
+        print(f"[AUTO-REG]    URL: {site_url}")
+        print(f"[AUTO-REG]    Dashboard: {dashboard_url}")
+        
         # Envoyer les données
-        response = requests.post(dashboard_url, json=data, timeout=10)
+        response = requests.post(dashboard_url, json=data, timeout=15)
         
         if response.status_code == 200:
+            result = response.json()
+            site_id = result.get("site_id")
             set_setting("dashboard_registered", "true")
-            set_setting("dashboard_id", response.json().get("site_id"))
-            print(f"✅ Site enregistré sur le dashboard central: {site_name}")
+            set_setting("dashboard_id", str(site_id))
+            print(f"[AUTO-REG] ✅ {result.get('message', 'Site enregistré')} - Site ID: {site_id}")
+        elif response.status_code == 404:
+            print(f"[AUTO-REG] ⚠️ Erreur 404: L'endpoint /api/sites/register n'existe pas encore")
+            print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
         else:
-            print(f"⚠️ Erreur d'enregistrement: {response.status_code}")
-            print(f"   L'endpoint /api/sites/register n'existe pas encore sur le dashboard.")
-            print(f"   L'API key est générée localement et reste fonctionnelle.")
+            print(f"[AUTO-REG] ⚠️ Erreur {response.status_code}: {response.text}")
     
+    except requests.exceptions.Timeout:
+        print(f"[AUTO-REG] ⚠️ Timeout: Le dashboard ne répond pas")
+        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
     except Exception as e:
-        print(f"⚠️ Impossible de contacter le dashboard central: {e}")
-        print(f"   L'API key est générée localement et reste fonctionnelle.")
-        # Continuer quand même avec l'API key locale
+        print(f"[AUTO-REG] ⚠️ Erreur: {e}")
+        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
+        # S'assurer que l'API key est générée même en cas d'erreur
         auto_generate_api_key()
 
 @app.route('/api/sync-dashboard', methods=['POST'])
@@ -3968,15 +3991,42 @@ def sync_dashboard():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ================================
+# AUTO-REGISTRATION AU CHARGEMENT DU MODULE
+# (Compatible avec Gunicorn)
+# ================================
+
+def init_auto_registration():
+    """
+    Initialise l'auto-registration au chargement du module.
+    S'exécute avec Flask dev server ET avec Gunicorn.
+    """
+    import threading
+    import time
+    
+    def register_async():
+        """Enregistrement asynchrone pour ne pas bloquer le démarrage"""
+        time.sleep(2)  # Attendre que l'app soit prête
+        
+        with app.app_context():
+            try:
+                print("[AUTO-REG] 🚀 Démarrage auto-registration...")
+                register_site_to_dashboard()
+            except Exception as e:
+                print(f"[AUTO-REG] ⚠️ Erreur globale: {e}")
+    
+    # Lancer dans un thread daemon pour ne pas bloquer
+    thread = threading.Thread(target=register_async, daemon=True)
+    thread.start()
+    print("[AUTO-REG] Thread de registration lancé")
+
+# Exécuter l'auto-registration au chargement du module
+# (fonctionne avec 'python app.py' ET 'gunicorn app:app')
+init_auto_registration()
+
 # --------------------------------
 # LANCEMENT DE L'APPLICATION
 # --------------------------------
 if __name__ == "__main__":
-    # Enregistrement automatique au démarrage
-    with app.app_context():
-        try:
-            register_site_to_dashboard()
-        except Exception as e:
-            print(f"⚠️ Erreur lors de l'auto-registration: {e}")
-    
+    # Mode développement local uniquement
     app.run(debug=True)
