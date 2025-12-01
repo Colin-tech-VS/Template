@@ -3914,8 +3914,11 @@ def register_site_to_dashboard():
         print("[AUTO-REG] Site déjà enregistré sur le dashboard")
         return
     
-    # Vérifier si l'enregistrement est activé
-    if get_setting("enable_auto_registration") != "true":
+    # Vérifier si l'enregistrement est activé (avec override par variable d'environnement)
+    env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
+    enabled_setting = get_setting("enable_auto_registration")
+    is_enabled = env_override or (enabled_setting == "true")
+    if not is_enabled:
         print("[AUTO-REG] Auto-registration désactivé. Génération de l'API key uniquement.")
         auto_generate_api_key()
         return
@@ -4008,6 +4011,20 @@ def init_auto_registration():
     """
     import threading
     import time
+    
+    # Sécuriser l'activation au démarrage: activer si variable d'env présente
+    try:
+        env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
+        current = get_setting("enable_auto_registration")
+        if env_override:
+            set_setting("enable_auto_registration", "true")
+            print("[AUTO-REG] ✅ Activation via ENABLE_AUTO_REGISTRATION=true")
+        elif current is None:
+            # Défaut sûr: activer si le paramètre n'existe pas
+            set_setting("enable_auto_registration", "true")
+            print("[AUTO-REG] ✅ Activation par défaut de enable_auto_registration (paramètre manquant)")
+    except Exception as e:
+        print(f"[AUTO-REG] ⚠️ Impossible de forcer l'activation: {e}")
     
     def register_async():
         """Enregistrement asynchrone pour ne pas bloquer le démarrage"""
