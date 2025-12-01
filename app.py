@@ -374,6 +374,11 @@ def migrate_db():
             add_column_if_not_exists(table_name, col_name, col_type)
     
     print("Migration terminée ✅")
+    
+    # --- Activer l'auto-registration par défaut ---
+    if not get_setting("enable_auto_registration"):
+        set_setting("enable_auto_registration", "true")
+        print("✅ Auto-registration activé par défaut")
 
 
 def generate_invoice_pdf(order, items, total_price):
