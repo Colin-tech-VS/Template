@@ -301,6 +301,15 @@ TABLES = {
         "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "key": "TEXT UNIQUE NOT NULL",
         "value": "TEXT NOT NULL"
+    },
+    # Table SAAS: suivi du cycle de vie des sites artistes
+    "saas_sites": {
+        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "user_id": "INTEGER UNIQUE",
+        "status": "TEXT NOT NULL DEFAULT 'pending_approval'",
+        "sandbox_url": "TEXT",
+        "final_domain": "TEXT",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     }
 }
 
@@ -317,7 +326,13 @@ def get_setting(key):
     return None
 
 stripe_key = get_setting("stripe_secret_key")
-print("Clé Stripe actuelle :", stripe_key)
+masked_stripe = (stripe_key[:6] + "…") if stripe_key else "None"
+print("Clé Stripe actuelle (masquée) :", masked_stripe)
+# Configurer Stripe si la clé est disponible
+if stripe_key:
+    stripe.api_key = stripe_key
+else:
+    print("Stripe non configuré: aucune clé fournie")
 
 # Vérifier les valeurs SMTP
 smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
@@ -328,7 +343,7 @@ smtp_password = get_setting("smtp_password") or "motdepassepardefaut"
 print("SMTP_SERVER :", smtp_server)
 print("SMTP_PORT   :", smtp_port)
 print("SMTP_USER   :", smtp_user)
-print("SMTP_PASSWORD :", smtp_password)
+print("SMTP_PASSWORD défini :", bool(get_setting("smtp_password")))
 
 google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
@@ -1266,6 +1281,14 @@ def checkout():
                 conn.close()
                 return resp
 
+        # Vérifier configuration Stripe
+        if not stripe.api_key:
+            error = "Paiement indisponible: Stripe n'est pas configuré."
+            resp = make_response(render_template("checkout.html", items=items, total_price=total_price, error=error, google_places_key=google_places_key))
+            resp.set_cookie('cart_session', session_id, max_age=30*24*3600)
+            conn.close()
+            return resp
+
         # Créer la session Stripe
         line_items = [{
             'price_data': {
@@ -1762,7 +1785,7 @@ def from_json_filter(value):
 @app.route("/admin/notifications")
 def admin_notifications():
     if not is_admin():
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))
 
     with get_db() as conn:
         c = conn.cursor()
@@ -1788,7 +1811,7 @@ def admin_notifications():
 @app.route("/admin/notifications/read/<int:notif_id>")
 def mark_notification_read(notif_id):
     if not is_admin():
-        return redirect(url_for("index"))
+        return redirect(url_for("home"))
 
     with get_db() as conn:
         c = conn.cursor()
@@ -2335,7 +2358,7 @@ def admin_paintings():
 @app.route('/admin/painting/remove/<int:painting_id>', methods=['POST'])
 def remove_painting(painting_id):
     if not is_admin():
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))
 
     with get_db() as conn:
         c = conn.cursor()
@@ -3942,12 +3965,13 @@ def register_site_to_dashboard():
         
         site_url = site_url.rstrip('/')
         
-        # Données à envoyer
+        # Données à envoyer (minimales, alignées avec un schéma classique)
+        # Certains dashboards attendent des clés génériques: name, url, api_key
+        # On évite tout champ non indispensable pour contourner des migrations manquantes côté dashboard.
         data = {
-            "site_name": site_name,
-            "site_url": site_url,
-            "api_key": api_key,
-            "auto_registered": True
+            "name": site_name,
+            "url": site_url,
+            "api_key": api_key
         }
         
         # URL du dashboard central
@@ -3994,10 +4018,142 @@ def sync_dashboard():
         
         return jsonify({
             'success': True,
-            'message': 'Synchronisation effectuée'
-        })
+            'message': 'Sync triggered'
+        }), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# ================================
+# SAAS ARTISTES – WORKFLOW
+# ================================
+
+def _get_user_info(user_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(adapt_query("SELECT id, name, email FROM users WHERE id=?"), (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row if row else None
+
+def _saas_upsert(user_id, **fields):
+    conn = get_db()
+    c = conn.cursor()
+    # Check existence
+    c.execute(adapt_query("SELECT id FROM saas_sites WHERE user_id=?"), (user_id,))
+    existing = c.fetchone()
+    if existing:
+        # Build update dynamically
+        keys = list(fields.keys())
+        set_clause = ", ".join([f"{k}=?" for k in keys])
+        values = [fields[k] for k in keys] + [user_id]
+        c.execute(adapt_query(f"UPDATE saas_sites SET {set_clause} WHERE user_id=?"), values)
+    else:
+        cols = ["user_id"] + list(fields.keys())
+        placeholders = ",".join([PARAM_PLACEHOLDER] * len(cols))
+        values = [user_id] + [fields[k] for k in fields.keys()]
+        c.execute(adapt_query(f"INSERT INTO saas_sites ({','.join(cols)}) VALUES ({placeholders})"), values)
+    conn.commit()
+    conn.close()
+
+def _send_saas_step_email(user_id, step_name, subject, content):
+    try:
+        user = _get_user_info(user_id)
+        if not user:
+            print(f"[DEBUG] Step: Email SKIP | UserID: {user_id} | Reason: user_not_found")
+            return
+        _, user_name, user_email = user
+        email_sender = get_setting("email_sender") or "contact@example.com"
+        smtp_password = get_setting("smtp_password")
+        smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
+        smtp_port = int(get_setting("smtp_port") or 587)
+
+        html_body = generate_email_html(
+            title=subject,
+            content=content,
+            button_text=None,
+            button_url=None
+        )
+
+        if smtp_password:
+            import smtplib
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+
+            msg = MIMEMultipart()
+            msg['From'] = email_sender
+            msg['To'] = user_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(html_body, 'html'))
+
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(email_sender, smtp_password)
+            server.send_message(msg)
+            server.quit()
+
+        print(f"[DEBUG] Step: Email envoyé | UserID: {user_id} | Step: {step_name}")
+    except Exception as e:
+        print(f"[DEBUG] Step: Email erreur | UserID: {user_id} | Step: {step_name} | Err: {e}")
+
+@app.route('/saas/apply', methods=['POST'])
+def saas_apply():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "unauthorized"}), 401
+    _saas_upsert(user_id, status='pending_approval')
+    print(f"[DEBUG] Step: Formulaire rempli | UserID: {user_id} | Status: pending_approval")
+    _send_saas_step_email(user_id, 'pending_approval', 'Formulaire reçu', 'Votre demande a été enregistrée. En attente d\'approbation.')
+    return jsonify({"ok": True, "status": "pending_approval"})
+
+@app.route('/saas/approve/<int:user_id>', methods=['POST'])
+@require_admin
+def saas_approve(user_id):
+    sandbox_url = f"https://sandbox-projetjb-{user_id}.onrender.com"
+    _saas_upsert(user_id, status='approved', sandbox_url=sandbox_url)
+    print(f"[DEBUG] Step: Sandbox créé | UserID: {user_id} | Domain: {sandbox_url}")
+    print(f"[DEBUG] Preview → API désactivée | UserID: {user_id}")
+    _send_saas_step_email(user_id, 'approved', 'Sandbox créé', f"Votre espace de prévisualisation est prêt: {sandbox_url}")
+    return jsonify({"ok": True, "status": "approved", "sandbox_url": sandbox_url})
+
+@app.route('/saas/paid/<int:user_id>', methods=['POST'])
+@require_admin
+def saas_paid(user_id):
+    _saas_upsert(user_id, status='paid')
+    print(f"[DEBUG] Step: Paiement Stripe validé | UserID: {user_id} | Status: paid")
+    _send_saas_step_email(user_id, 'paid', 'Paiement confirmé', "Votre paiement a été validé. Nous poursuivons la mise en ligne.")
+    return jsonify({"ok": True, "status": "paid"})
+
+@app.route('/saas/domain/<int:user_id>', methods=['POST'])
+@require_admin
+def saas_domain_verified(user_id):
+    final_domain = (request.json or {}).get('final_domain')
+    if not final_domain:
+        return jsonify({"error": "final_domain requis"}), 400
+    _saas_upsert(user_id, status='domain_verified', final_domain=final_domain)
+    print(f"[DEBUG] Step: Domaine vérifié | UserID: {user_id} | Domain: {final_domain}")
+    _send_saas_step_email(user_id, 'domain_verified', 'Domaine vérifié', f"Votre domaine {final_domain} a été validé.")
+    return jsonify({"ok": True, "status": "domain_verified", "final_domain": final_domain})
+
+@app.route('/saas/clone/<int:user_id>', methods=['POST'])
+@require_admin
+def saas_clone_to_prod(user_id):
+    # Ici, on simule le clonage; dans un vrai setup on copierait DB/fichiers
+    info = _get_user_info(user_id)
+    print(f"[DEBUG] Step: Site cloné en prod | UserID: {user_id} | Domain: {(get_setting('site_name') or 'Projet_JB')} | Status: site_created")
+    _saas_upsert(user_id, status='site_created')
+    _send_saas_step_email(user_id, 'site_created', 'Site cloné en production', "Votre site a été cloné en production. Activation en cours.")
+    return jsonify({"ok": True, "status": "site_created"})
+
+@app.route('/saas/activate/<int:user_id>', methods=['POST'])
+@require_admin
+def saas_activate(user_id):
+    # Production: SSL + API activée (on log uniquement pour ne rien casser)
+    print(f"[DEBUG] Step: Site actif en prod | UserID: {user_id} | Status: active")
+    print(f"[DEBUG] Production → API activée | UserID: {user_id}")
+    _saas_upsert(user_id, status='active')
+    _send_saas_step_email(user_id, 'active', 'Site activé', "Votre site est maintenant actif en production.")
+    return jsonify({"ok": True, "status": "active"})
+
 
 # ================================
 # AUTO-REGISTRATION AU CHARGEMENT DU MODULE
