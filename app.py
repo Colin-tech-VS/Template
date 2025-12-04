@@ -13,6 +13,7 @@ import secrets
 import tempfile
 import stripe
 import json
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -359,6 +360,45 @@ def set_setting(key, value):
     cur.execute(query, (key, value))
     conn.commit()
     conn.close()
+
+
+# Prévisualisation / Dashboard helpers
+def get_dashboard_base_url():
+    return (get_setting("dashboard_api_base") or "https://artworksdigital.fr").rstrip("/")
+
+
+def is_preview_request():
+    host = (request.host or "").lower()
+    return (
+        host.endswith(".preview.artworks.fr")
+        or ".preview." in host
+        or host.startswith("preview.")
+        or "sandbox" in host
+    )
+
+
+def fetch_dashboard_site_price():
+    base_url = get_dashboard_base_url()
+    site_id = get_setting("dashboard_id")
+    endpoint = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
+    try:
+        resp = requests.get(endpoint, timeout=8)
+        if resp.status_code == 200:
+            data = resp.json() or {}
+            price = float(data.get("price", 0))
+            if price > 0:
+                set_setting("saas_site_price_cache", str(price))
+                return price
+            print(f"[SAAS] Prix non disponible dans la réponse: {data}")
+        else:
+            print(f"[SAAS] Prix dashboard indisponible: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"[SAAS] Erreur récupération prix dashboard: {e}")
+    cached = get_setting("saas_site_price_cache")
+    try:
+        return float(cached) if cached else None
+    except Exception:
+        return None
 
 # Fonction helper pour récupérer le nombre de notifications non lues
 def get_new_notifications_count():
@@ -1733,6 +1773,16 @@ def inject_cart():
 
     conn.close()
 
+    # --- PREVIEW / PRICING ---
+    is_preview_host = False
+    preview_price = None
+    try:
+        is_preview_host = is_preview_request()
+        if is_preview_host:
+            preview_price = fetch_dashboard_site_price()
+    except Exception as e:
+        print(f"[SAAS] Erreur détection preview/prix: {e}")
+
     # --- PARAMÈTRES DU SITE ---
     site_settings = {
         "site_logo": get_setting("site_logo") or "JB Art",
@@ -1764,7 +1814,9 @@ def inject_cart():
         favorite_ids=favorite_ids,
         is_admin=is_admin(),
         new_notifications_count=new_notifications_count,
-        site_settings=site_settings
+        site_settings=site_settings,
+        is_preview_host=is_preview_host,
+        preview_price=preview_price
     )
 
 
@@ -4153,6 +4205,57 @@ def saas_activate(user_id):
     _saas_upsert(user_id, status='active')
     _send_saas_step_email(user_id, 'active', 'Site activé', "Votre site est maintenant actif en production.")
     return jsonify({"ok": True, "status": "active"})
+
+
+@app.route('/saas/launch-site')
+def saas_launch_site():
+    """Crée une session Stripe pour lancer le site depuis le mode preview."""
+    price = fetch_dashboard_site_price()
+    if not price or price <= 0:
+        flash("Prix indisponible pour le lancement.")
+        return redirect(url_for('home'))
+
+    stripe_secret = get_setting("stripe_secret_key")
+    if not stripe_secret:
+        flash("Stripe n'est pas configuré.")
+        return redirect(url_for('home'))
+
+    stripe.api_key = stripe_secret
+
+    success_url = url_for('saas_launch_success', _external=True)
+    cancel_url = request.referrer or url_for('home', _external=True)
+
+    try:
+        session_obj = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {'name': 'Lancement de votre site'},
+                    'unit_amount': int(price * 100)
+                },
+                'quantity': 1
+            }],
+            mode='payment',
+            success_url=success_url + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=cancel_url,
+            metadata={
+                'site_id': get_setting('dashboard_id') or '',
+                'user_id': session.get('user_id') or '',
+                'context': 'saas_launch'
+            }
+        )
+        return redirect(session_obj.url, code=303)
+    except Exception as e:
+        print(f"[SAAS] Erreur création session Stripe: {e}")
+        flash("Impossible de lancer la session de paiement pour le moment.")
+        return redirect(url_for('home'))
+
+
+@app.route('/saas/launch/success')
+def saas_launch_success():
+    flash("Merci ! Paiement reçu, nous lançons votre site.")
+    return redirect(url_for('home'))
 
 
 # ================================
