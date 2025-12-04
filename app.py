@@ -364,13 +364,13 @@ def set_setting(key, value):
 
 # Prévisualisation / Dashboard helpers
 def get_dashboard_base_url():
-    return (get_setting("dashboard_api_base") or "https://artworksdigital.fr").rstrip("/")
+    return (get_setting("dashboard_api_base") or "https://admin.artworksdigital.fr").rstrip("/")
 
 
 def is_preview_request():
     host = (request.host or "").lower()
     return (
-        host.endswith(".preview.artworks.fr")
+        host.endswith(".preview.artworksdigital.fr")
         or ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
@@ -385,10 +385,12 @@ def fetch_dashboard_site_price():
         resp = requests.get(endpoint, timeout=8)
         if resp.status_code == 200:
             data = resp.json() or {}
-            price = float(data.get("price", 0))
-            if price > 0:
-                set_setting("saas_site_price_cache", str(price))
-                return price
+            base_price = float(data.get("price") or 0)
+            percent = float(data.get("percent") or data.get("commission") or 0)
+            final_price = base_price * (1 + (percent / 100)) if base_price > 0 else 0
+            if final_price > 0:
+                set_setting("saas_site_price_cache", str(final_price))
+                return final_price
             print(f"[SAAS] Prix non disponible dans la réponse: {data}")
         else:
             print(f"[SAAS] Prix dashboard indisponible: {resp.status_code} {resp.text}")
