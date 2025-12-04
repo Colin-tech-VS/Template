@@ -380,20 +380,38 @@ def is_preview_request():
 def fetch_dashboard_site_price():
     base_url = get_dashboard_base_url()
     site_id = get_setting("dashboard_id")
-    endpoint = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
+
+    # Priorité 0: override manuel (settings)
+    manual = get_setting("saas_site_price_override")
     try:
-        resp = requests.get(endpoint, timeout=8)
-        if resp.status_code == 200:
+        if manual:
+            val = float(manual)
+            if val > 0:
+                return val
+    except Exception:
+        pass
+
+    # Priorité 1: endpoint price dédié au site
+    endpoint_site_price = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
+    # Priorité 2: endpoint config (prix affiché dans l'input config artwork)
+    endpoint_config = f"{base_url}/api/config/artworks"
+    endpoint_config_alt = f"{base_url}/api/config/artwork"
+
+    endpoints = [endpoint_site_price, endpoint_config, endpoint_config_alt]
+    try:
+        for ep in endpoints:
+            resp = requests.get(ep, timeout=8)
+            if resp.status_code != 200:
+                continue
             data = resp.json() or {}
-            base_price = float(data.get("price") or 0)
+            base_price = float(data.get("price") or data.get("site_price") or 0)
             percent = float(data.get("percent") or data.get("commission") or 0)
             final_price = base_price * (1 + (percent / 100)) if base_price > 0 else 0
             if final_price > 0:
                 set_setting("saas_site_price_cache", str(final_price))
                 return final_price
             print(f"[SAAS] Prix non disponible dans la réponse: {data}")
-        else:
-            print(f"[SAAS] Prix dashboard indisponible: {resp.status_code} {resp.text}")
+        print(f"[SAAS] Aucun endpoint prix n'a retourné de valeur exploitable")
     except Exception as e:
         print(f"[SAAS] Erreur récupération prix dashboard: {e}")
     cached = get_setting("saas_site_price_cache")
