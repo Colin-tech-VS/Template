@@ -192,12 +192,15 @@
         @keyframes slideIn {from {transform: translateX(400px); opacity: 0;} to {transform: translateX(0); opacity: 1;}}
         @keyframes slideOut {to {transform: translateX(400px); opacity: 0;}}
 
-        /* PREVIEW BANNER */
-        .preview-banner {display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 18px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; font-weight:600; position:sticky; top:0; z-index:1200; box-shadow:0 6px 20px rgba(0,0,0,0.15);} 
-        .preview-actions {display:flex; align-items:center; gap:12px;}
-        .preview-price {background: rgba(255,255,255,0.15); padding:8px 12px; border-radius:8px; font-weight:700; letter-spacing:0.2px;}
-        .preview-launch-btn {padding:10px 16px; background:#10b981; color:#fff; border-radius:10px; text-decoration:none; font-weight:700; transition:all 0.2s ease; border:2px solid transparent;}
-        .preview-launch-btn:hover {transform:translateY(-1px); box-shadow:0 10px 25px rgba(16,185,129,0.25);}
+        /* PREVIEW CTA (floating bottom-left button) */
+        .preview-fab {position: fixed; left: 18px; bottom: 18px; z-index: 1400;}
+        .preview-fab .preview-launch-btn {display:flex; align-items:center; gap:10px; padding:12px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; border-radius:14px; text-decoration:none; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:2px solid rgba(255,255,255,0.1); transition:transform 0.15s ease, box-shadow 0.15s ease;}
+        .preview-fab .preview-launch-btn:hover {transform: translateY(-2px); box-shadow:0 14px 34px rgba(0,0,0,0.25);} 
+        .preview-price {background: rgba(255,255,255,0.16); padding:8px 12px; border-radius:10px; font-weight:700; letter-spacing:0.2px;}
+        @media (max-width: 768px) {
+            .preview-fab {left: 12px; bottom: 12px;}
+            .preview-fab .preview-launch-btn {padding:10px 14px; font-size:14px;}
+        }
         
         /* RESPONSIVE MOBILE */
         @media (max-width: 768px) {
@@ -330,12 +333,11 @@
     </nav>
 
     {% if is_preview_host %}
-    <div class="preview-banner">
-        <div>🚀 Mode preview – prêt à lancer votre site ?</div>
-        <div class="preview-actions">
-            <span class="preview-price">{% if preview_price %}{{ preview_price }} €{% else %}Tarif en cours de récupération{% endif %}</span>
-            <a class="preview-launch-btn" href="{{ url_for('saas_launch_site') }}">Lancer mon site</a>
-        </div>
+    <div class="preview-fab">
+        <a class="preview-launch-btn" href="{{ url_for('saas_launch_site') }}">
+            🚀 Lancer mon site
+            <span class="preview-price">{% if preview_price %}{{ preview_price }} €{% else %}Tarif en cours{% endif %}</span>
+        </a>
     </div>
     {% endif %}
 
@@ -414,12 +416,15 @@
             
             console.log('📦 Données preview reçues:', previewData);
             
-            // Afficher une bannière "Mode Preview"
+            // Bouton flottant "Mode Preview" (cohérent avec CTA bas-gauche)
             const previewBanner = document.createElement('div');
-            previewBanner.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px; text-align: center; z-index: 10000; font-weight: 600; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
-            previewBanner.innerHTML = '🎨 Mode Aperçu - Ceci est une preview de votre boutique';
-            document.body.insertBefore(previewBanner, document.body.firstChild);
-            document.body.style.paddingTop = '40px';
+            previewBanner.style.cssText = 'position: fixed; left: 18px; bottom: 18px; z-index: 1400;';
+            previewBanner.innerHTML = `
+                <a style="display:flex; align-items:center; gap:10px; padding:12px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border-radius:14px; text-decoration:none; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:2px solid rgba(255,255,255,0.14);" href="#preview-info">
+                    🎨 Mode Aperçu
+                </a>
+            `;
+            document.body.appendChild(previewBanner);
             
             // Appliquer le nom de la boutique
             if (previewData.shop_name) {

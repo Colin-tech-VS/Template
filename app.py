@@ -14,6 +14,7 @@ import tempfile
 import stripe
 import json
 import requests
+import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -1316,6 +1317,12 @@ def checkout():
 
     total_price = sum(item[3] * item[4] for item in items)
 
+    # Désactiver Stripe en mode preview
+    if is_preview_request():
+        conn.close()
+        flash("Paiement désactivé en mode preview.")
+        return redirect(url_for('home'))
+
     # Récupérer la clé Google Places depuis les settings
     google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
  
@@ -1794,10 +1801,18 @@ def inject_cart():
     conn.close()
 
     # --- PREVIEW / PRICING ---
+    preview_data = None
+    try:
+        raw_preview = request.args.get("preview")
+        if raw_preview:
+            preview_data = json.loads(urllib.parse.unquote(raw_preview))
+    except Exception as e:
+        print(f"[SAAS] Erreur parsing preview data: {e}")
+
     is_preview_host = False
     preview_price = None
     try:
-        is_preview_host = is_preview_request()
+        is_preview_host = is_preview_request() or bool(preview_data)
         if is_preview_host:
             preview_price = fetch_dashboard_site_price()
     except Exception as e:
@@ -1828,6 +1843,17 @@ def inject_cart():
         "expositions_description": get_setting("expositions_description") or "Découvrez les expositions passées et à venir.",
     }
 
+    # Si on est en preview, on réécrit les contenus principaux pour la template de preview
+    if preview_data:
+        site_settings["site_logo"] = preview_data.get("logo") or preview_data.get("logo_url") or preview_data.get("logo_text") or site_settings["site_logo"]
+        site_settings["site_name"] = preview_data.get("shop_name") or site_settings["site_name"]
+        site_settings["site_slogan"] = preview_data.get("art_style") or site_settings["site_slogan"]
+        site_settings["site_description"] = preview_data.get("bio") or site_settings["site_description"]
+        site_settings["about_biography_text"] = preview_data.get("bio") or site_settings.get("about_biography_text")
+        site_settings["about_inspiration_text"] = preview_data.get("art_style") or site_settings.get("about_inspiration_text")
+        site_settings["about_technique_text"] = preview_data.get("art_style") or site_settings.get("about_technique_text")
+        site_settings["contact_intro"] = preview_data.get("bio") or site_settings.get("contact_intro")
+
     return dict(
         cart_items=cart_items,
         cart_count=total_qty,
@@ -1836,7 +1862,8 @@ def inject_cart():
         new_notifications_count=new_notifications_count,
         site_settings=site_settings,
         is_preview_host=is_preview_host,
-        preview_price=preview_price
+        preview_price=preview_price,
+        preview_data=preview_data
     )
 
 
@@ -4230,6 +4257,10 @@ def saas_activate(user_id):
 @app.route('/saas/launch-site')
 def saas_launch_site():
     """Crée une session Stripe pour lancer le site depuis le mode preview."""
+    if is_preview_request():
+        flash("Stripe est désactivé en mode preview.")
+        return redirect(url_for('home'))
+
     price = fetch_dashboard_site_price()
     if not price or price <= 0:
         flash("Prix indisponible pour le lancement.")
