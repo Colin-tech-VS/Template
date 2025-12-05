@@ -33,8 +33,8 @@ TEMPLATE_MASTER_KEY = 'template-master-key-2025'
 PUBLISHABLE_KEY = 'pk_test_51Hxxxx...'
 
 sites = [
-    'https://site1.preview.artworksdigital.fr',
-    'https://site2.preview.artworksdigital.fr',
+    'https://site1.artworksdigital.fr',
+    'https://site2.artworksdigital.fr',
 ]
 
 for s in sites:

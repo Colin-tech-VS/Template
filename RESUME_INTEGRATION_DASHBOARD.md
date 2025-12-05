@@ -182,7 +182,7 @@ Tous les tests doivent être ✅
 ## 📋 Workflow complet Dashboard → Template
 
 1. **Dashboard** : Artiste crée son compte
-2. **Dashboard** : Génère un sous-domaine preview (ex: `artiste123.preview.artworksdigital.fr`)
+2. **Dashboard** : Génère un sous-domaine (ex: `artiste123.artworksdigital.fr`)
 3. **Dashboard** : Clone le template sur ce sous-domaine
 4. **Dashboard** : Calcule le prix final (ex: 500€ + 10% = 550€)
 5. **Dashboard** : Appelle l'API du template :
