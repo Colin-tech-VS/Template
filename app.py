@@ -1586,6 +1586,7 @@ def admin_settings_page():
         "google_places_key",
         "smtp_password",
         "email_sender",
+        "ga4_property",
         "enable_custom_orders",
         "site_logo",
         "site_name",

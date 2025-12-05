@@ -320,6 +320,14 @@
 
                 <div class="form-group">
                     <div class="label-group">
+                        <label for="ga4_property">GA4 Measurement ID</label>
+                        <span class="seo-hint">Ex: G-XXXXXXXXXX — utilisé pour Google Analytics 4</span>
+                    </div>
+                    <input type="text" name="ga4_property" id="ga4_property" value="{{ settings.get('ga4_property', '') }}" placeholder="G-XXXXXXXXXX" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-group">
                         <label for="email_sender">Adresse email d'envoi</label>
                         <span class="seo-hint">Email utilisé pour l'envoi automatique</span>
                     </div>
