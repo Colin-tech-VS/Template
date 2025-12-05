@@ -1326,12 +1326,6 @@ def checkout():
 
     total_price = sum(item[3] * item[4] for item in items)
 
-    # Désactiver Stripe en mode preview
-    if is_preview_request():
-        conn.close()
-        flash("Paiement désactivé en mode preview.")
-        return redirect(url_for('home'))
-
     # Récupérer la clé Google Places depuis les settings
     google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
  
@@ -4303,10 +4297,6 @@ def saas_activate(user_id):
 @app.route('/saas/launch-site')
 def saas_launch_site():
     """Crée une session Stripe pour lancer le site depuis le mode preview."""
-    if is_preview_request():
-        flash("Stripe est désactivé en mode preview.")
-        return redirect(url_for('home'))
-
     price = fetch_dashboard_site_price()
     if not price or price <= 0:
         flash("Prix indisponible pour le lancement.")
