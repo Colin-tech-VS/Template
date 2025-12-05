@@ -24,6 +24,16 @@
     <!-- Stripe.js (v3) -->
     <script src="https://js.stripe.com/v3/"></script>
     <script src="{{ url_for('static', filename='js/stripe-init.js') }}" defer></script>
+        {% if site_settings.ga4_property %}
+        <!-- Google Analytics 4 -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ site_settings.ga4_property }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{{ site_settings.ga4_property }}');
+        </script>
+        {% endif %}
     <style>
         /* USER MENU / MEGA MENU */
         .user-menu {position: relative; cursor: pointer;}
