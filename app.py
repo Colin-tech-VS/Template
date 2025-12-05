@@ -25,6 +25,10 @@ from reportlab.lib import colors
 from flask_mail import Mail
 from openpyxl import Workbook
 from io import BytesIO
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+load_dotenv()
 
 # Import du module de base de données
 from database import (
@@ -3638,14 +3642,20 @@ input[type="reset"]:hover {{
 # ================================
 
 def require_api_key(f):
-    """Décorateur pour vérifier la clé API"""
+    """Décorateur pour vérifier la clé API (supporte clé maître du dashboard)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         api_key = request.headers.get('X-API-Key')
         if not api_key:
             return jsonify({"error": "API key manquante"}), 401
         
-        # Vérifier la clé API dans les settings
+        # Vérifier d'abord la clé maître du dashboard (depuis .env)
+        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
+        if master_key and api_key == master_key:
+            print(f"🔓 Accès autorisé via clé maître dashboard")
+            return f(*args, **kwargs)
+        
+        # Sinon, vérifier la clé API du site dans les settings
         stored_key = get_setting("export_api_key")
         if not stored_key:
             # Générer une clé si elle n'existe pas
