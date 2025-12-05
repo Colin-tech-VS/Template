@@ -352,12 +352,20 @@ def get_setting(key):
         return row['value'] if IS_POSTGRES else row["value"]
     return None
 
-stripe_key = get_setting("stripe_secret_key")
+try:
+    stripe_key = get_stripe_secret_key()
+except Exception as e:
+    print(f"[SAAS] Erreur lecture clé Stripe au démarrage: {e}")
+    stripe_key = None
+
 masked_stripe = (stripe_key[:6] + "…") if stripe_key else "None"
 print("Clé Stripe actuelle (masquée) :", masked_stripe)
-# Configurer Stripe si la clé est disponible
+# Configurer Stripe si la clé est disponible (secret côté serveur)
 if stripe_key:
-    stripe.api_key = stripe_key
+    try:
+        stripe.api_key = stripe_key
+    except Exception as e:
+        print(f"[SAAS] Erreur configuration Stripe API key: {e}")
 else:
     print("Stripe non configuré: aucune clé fournie")
 
