@@ -1,19 +1,37 @@
 # Fonction pour récupérer dynamiquement la clé Stripe depuis le dashboard central
 def get_stripe_secret_key():
+    # 1) env var (highest priority)
+    env_key = os.getenv('STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
+    if env_key:
+        print('[SAAS] Stripe secret key loaded from environment')
+        return env_key
+
+    # 2) local DB setting
     try:
-        base_url = get_setting("dashboard_api_base") or "https://admin.artworksdigital.fr"
-        site_id = get_setting("dashboard_id")
-        if site_id:
+        db_key = get_setting('stripe_secret_key')
+        if db_key:
+            print('[SAAS] Stripe secret key loaded from local settings (DB)')
+            return db_key
+    except Exception as e:
+        print(f"[SAAS] Erreur lecture clé Stripe BDD: {e}")
+
+    # 3) dashboard server->server fallback (only if dashboard exposes it)
+    try:
+        base_url = get_setting("dashboard_api_base") or os.getenv('DASHBOARD_URL') or "https://admin.artworksdigital.fr"
+        site_id = get_setting("dashboard_id") or os.getenv('SITE_NAME')
+        if base_url and site_id:
             url = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
             resp = requests.get(url, timeout=8)
             if resp.status_code == 200:
                 data = resp.json()
-                key = data.get("stripe_secret_key")
+                key = data.get("stripe_secret_key") or data.get('secret_key') or data.get('sk')
                 if key:
+                    print('[SAAS] Stripe secret key retrieved from dashboard endpoint')
                     return key
     except Exception as e:
         print(f"[SAAS] Erreur récupération clé Stripe dashboard: {e}")
-    return get_setting("stripe_secret_key")
+
+    return None
 # --------------------------------
 # IMPORTS
 # --------------------------------
