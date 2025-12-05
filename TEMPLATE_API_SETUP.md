@@ -8,49 +8,50 @@ La clé API maître `TEMPLATE_MASTER_API_KEY=template-master-key-2025` a été c
 
 ## 📋 Ce qui a été mis en place
 
-### 1. Fichier `.env` créé
+### 1. Variable d'environnement configurée
 ```env
 TEMPLATE_MASTER_API_KEY=template-master-key-2025
 ```
-- ✅ Fichier `.env` est déjà dans `.gitignore` (ne sera jamais commité)
-- ✅ Variable chargée automatiquement au démarrage de Flask via `python-dotenv`
+- ✅ À ajouter dans Scalingo : Variables d'environnement > Add
+- ✅ Chargée au démarrage de l'application
+- ✅ Valeur par défaut en local via `.env`
 
-### 2. Modification du décorateur `@require_api_key` dans `app.py`
-Le décorateur accepte maintenant **deux types de clés** :
-1. **Clé maître du dashboard** (prioritaire) : `TEMPLATE_MASTER_API_KEY` depuis `.env`
-2. **Clé API locale du site** : `export_api_key` depuis la table `settings`
-
+### 2. Constante globale dans `app.py`
 ```python
-def require_api_key(f):
-    """Décorateur pour vérifier la clé API (supporte clé maître du dashboard)"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
-        if not api_key:
-            return jsonify({"error": "API key manquante"}), 401
-        
-        # Vérifier d'abord la clé maître du dashboard (depuis .env)
-        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
-        if master_key and api_key == master_key:
-            print(f"🔓 Accès autorisé via clé maître dashboard")
-            return f(*args, **kwargs)
-        
-        # Sinon, vérifier la clé API du site dans les settings
+TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
+```
+- ✅ Chargée depuis la variable d'environnement Scalingo
+- ✅ Fallback sur la valeur par défaut en développement
+
+### 3. Route `/api/export/settings/<key>` modifiée
+La route accepte maintenant **directement** la clé maître sans décorateur :
+```python
+@app.route('/api/export/settings/<key>', methods=['PUT'])
+def update_setting_api(key):
+    api_key = request.headers.get('X-API-Key')
+    
+    # Accepter la clé maître du dashboard (priorité absolue)
+    if api_key == TEMPLATE_MASTER_API_KEY:
+        print(f'[API] 🔑 Clé maître acceptée - Configuration {key}')
+        # Skip la vérification normale
+    else:
+        # Vérification normale pour les autres requêtes
         stored_key = get_setting("export_api_key")
-        if not stored_key:
-            stored_key = secrets.token_urlsafe(32)
-            set_setting("export_api_key", stored_key)
-            print(f"🔑 Nouvelle clé API générée: {stored_key}")
-        
         if api_key != stored_key:
-            return jsonify({"error": "Clé API invalide"}), 403
-        
-        return f(*args, **kwargs)
-    return decorated_function
+            return jsonify({'error': 'Clé API invalide'}), 403
+    
+    # Mettre à jour (INSERT ou UPDATE automatique)
+    data = request.json
+    value = data.get('value')
+    save_setting(key, value)
+    
+    return jsonify({'success': True})
 ```
 
-### 3. Documentation dans `.env.example`
-Ajout de la documentation pour les futurs déploiements.
+### 4. Fonctionnalités ajoutées
+- ✅ **INSERT automatique** : Si le paramètre n'existe pas, il est créé
+- ✅ **Logs détaillés** : Chaque mise à jour est loggée
+- ✅ **Gestion d'erreur** : Retours JSON clairs en cas d'échec
 
 ---
 
@@ -119,12 +120,43 @@ curl -X PUT https://template.artworksdigital.fr/api/export/settings/saas_site_pr
 4. **Clés sensibles masquées** dans `GET /api/export/settings`
 5. **Validation stricte** des headers HTTP
 
-### ⚠️ À faire en production
-1. **Changer la clé maître** pour une valeur unique et complexe
-2. **Utiliser HTTPS** obligatoire en production
-3. **Rate limiting** : ajouter une limitation de requêtes (ex: Flask-Limiter)
-4. **Logs** : monitorer les accès API pour détecter les abus
-5. **Rotation des clés** : prévoir un système de rotation périodique
+### 🚀 Déploiement sur Scalingo
+
+### Étape 1 : Ajouter la variable d'environnement
+Dans l'interface Scalingo de votre app `template` :
+1. Allez dans **Environment** > **Environment variables**
+2. Cliquez sur **Add a variable**
+3. Ajoutez :
+   - **Name** : `TEMPLATE_MASTER_API_KEY`
+   - **Value** : `template-master-key-2025`
+4. Cliquez sur **Save changes**
+5. L'application redémarrera automatiquement
+
+### Étape 2 : Déployer le code
+```bash
+git add .
+git commit -m "Add TEMPLATE_MASTER_API_KEY support for dashboard"
+git push scalingo main
+```
+
+### Étape 3 : Vérifier le démarrage
+Dans les logs Scalingo, vous devriez voir :
+```
+🔑 Clé maître dashboard chargée: template-ma...y-2025
+```
+
+### Étape 4 : Tester l'API
+```bash
+curl -X PUT https://template.artworksdigital.fr/api/export/settings/saas_site_price_cache \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: template-master-key-2025" \
+  -d '{"value": "550.00"}'
+```
+
+Résultat attendu :
+```json
+{"success": true, "message": "Paramètre saas_site_price_cache mis à jour"}
+```
 
 ---
 

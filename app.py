@@ -46,6 +46,11 @@ from database import (
 # --------------------------------
 # CONFIGURATION
 # --------------------------------
+
+# Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
+TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
+print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
+
 app = Flask(__name__)
 app.secret_key = 'secret_key'
 
@@ -3923,10 +3928,31 @@ def api_export_stats():
 
 
 @app.route('/api/export/settings/<key>', methods=['PUT'])
-@require_api_key
 def update_setting_api(key):
-    """Modifier un paramètre spécifique via l'API"""
+    """Modifier un paramètre spécifique via l'API (accepte clé maître dashboard)"""
     try:
+        api_key = request.headers.get('X-API-Key')
+        
+        # Vérification de la clé API
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API key manquante'}), 401
+        
+        # Accepter la clé maître du dashboard (priorité absolue)
+        if api_key == TEMPLATE_MASTER_API_KEY:
+            print(f'[API] 🔑 Clé maître acceptée - Configuration {key}')
+            # Skip la vérification normale - accès direct
+        else:
+            # Vérification normale pour les autres requêtes
+            stored_key = get_setting("export_api_key")
+            if not stored_key:
+                stored_key = secrets.token_urlsafe(32)
+                set_setting("export_api_key", stored_key)
+                print(f"🔑 Nouvelle clé API générée: {stored_key}")
+            
+            if api_key != stored_key:
+                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
+        
+        # Récupérer la valeur depuis le JSON
         data = request.get_json()
         new_value = data.get('value')
         
@@ -3936,16 +3962,26 @@ def update_setting_api(key):
         # Mettre à jour dans la base de données
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (new_value, key))
+        
+        # Vérifier si le paramètre existe
+        cursor.execute(adapt_query('SELECT COUNT(*) FROM settings WHERE key = ?'), (key,))
+        exists = cursor.fetchone()[0] > 0
+        
+        if exists:
+            # UPDATE
+            cursor.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (new_value, key))
+        else:
+            # INSERT
+            cursor.execute(adapt_query('INSERT INTO settings (key, value) VALUES (?, ?)'), (key, new_value))
+        
         conn.commit()
-        
-        if cursor.rowcount == 0:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Paramètre non trouvé'}), 404
-        
         conn.close()
+        
+        print(f"[API] ✅ Paramètre '{key}' mis à jour: {new_value}")
         return jsonify({'success': True, 'message': f'Paramètre {key} mis à jour'})
+        
     except Exception as e:
+        print(f"[API] ❌ Erreur mise à jour {key}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
