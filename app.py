@@ -4043,6 +4043,49 @@ def update_stripe_publishable_key():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/stripe-pk', methods=['GET'])
+def api_stripe_pk():
+    """Retourne la clé publishable Stripe au client.
+    Logique : 1) lire depuis settings (stripe_publishable_key)
+             2) fallback sur variable d'environnement STRIPE_PUBLISHABLE_KEY
+             3) fallback server->server : interroger le dashboard central si configuré
+    """
+    try:
+        # 1) lecture locale (BDD)
+        pk = get_setting('stripe_publishable_key')
+        if pk:
+            return jsonify({"success": True, "publishable_key": pk})
+
+        # 2) env var fallback
+        pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
+        if pk:
+            return jsonify({"success": True, "publishable_key": pk})
+
+        # 3) server->server fallback via dashboard
+        base_url = get_setting('dashboard_api_base') or os.getenv('DASHBOARD_URL') or 'https://admin.artworksdigital.fr'
+        site_id = get_setting('dashboard_id') or os.getenv('SITE_NAME')
+        if base_url and site_id:
+            try:
+                ep = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+                resp = requests.get(ep, timeout=6)
+                if resp.status_code == 200:
+                    data = resp.json() or {}
+                    # accept different key names
+                    key = data.get('publishable_key') or data.get('stripe_publishable_key') or data.get('stripe_key') or data.get('stripe_publishable')
+                    if not key:
+                        # older dashboard might return under 'stripe_secret_key' (we must NOT expose secret)
+                        key = data.get('publishableKey')
+                    if key:
+                        return jsonify({"success": True, "publishable_key": key})
+            except Exception as e:
+                print(f"[SAAS] Erreur fallback Stripe PK depuis dashboard: {e}")
+
+        return jsonify({"success": False, "message": "no_publishable_key"}), 404
+    except Exception as e:
+        print(f"[SAAS] Erreur endpoint /api/stripe-pk: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/upload/image', methods=['POST'])
 @require_api_key
 def upload_image():

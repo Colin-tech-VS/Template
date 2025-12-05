@@ -21,6 +21,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('dynamic_colors') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Stripe.js (v3) -->
+    <script src="https://js.stripe.com/v3/"></script>
+    <script src="{{ url_for('static', filename='js/stripe-init.js') }}" defer></script>
     <style>
         /* USER MENU / MEGA MENU */
         .user-menu {position: relative; cursor: pointer;}
