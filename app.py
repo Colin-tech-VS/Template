@@ -434,7 +434,11 @@ def fetch_dashboard_site_price():
     endpoints = [endpoint_site_price, endpoint_config, endpoint_config_alt]
     try:
         for ep in endpoints:
-            resp = requests.get(ep, timeout=8)
+            try:
+                resp = requests.get(ep, timeout=8)
+            except Exception:
+                # network error, try next endpoint
+                continue
             if resp.status_code != 200:
                 continue
             data = resp.json() or {}
@@ -442,15 +446,24 @@ def fetch_dashboard_site_price():
             if base_price > 0:
                 set_setting("saas_site_price_cache", str(base_price))
                 return base_price
-            print(f"[SAAS] Prix non disponible dans la réponse: {data}")
-        print(f"[SAAS] Aucun endpoint prix n'a retourné de valeur exploitable")
+            # Non-fatal: endpoint responded but did not contain a usable price
+            print(f"[SAAS] Prix non disponible dans la réponse depuis {ep}: {data}")
     except Exception as e:
         print(f"[SAAS] Erreur récupération prix dashboard: {e}")
+
+    # Fallback: use cached value if present
     cached = get_setting("saas_site_price_cache")
-    try:
-        return float(cached) if cached else None
-    except Exception:
-        return None
+    if cached:
+        try:
+            val = float(cached)
+            print(f"[SAAS] Utilisation du cache saas_site_price_cache: {val}")
+            return val
+        except Exception:
+            pass
+
+    # No price available
+    print(f"[SAAS] Aucun prix récupérable (endpoints et cache vides)")
+    return None
 
 # Fonction helper pour récupérer le nombre de notifications non lues
 def get_new_notifications_count():
