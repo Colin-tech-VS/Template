@@ -1583,6 +1583,7 @@ def checkout_success():
 def admin_settings_page():
     settings_keys = [
         "stripe_secret_key",
+        "stripe_publishable_key",
         "google_places_key",
         "smtp_password",
         "email_sender",
