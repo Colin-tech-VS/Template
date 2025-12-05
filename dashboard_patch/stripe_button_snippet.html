@@ -1,0 +1,20 @@
+<!-- Add this snippet in your dashboard admin UI where appropriate -->
+<button id="propagate-stripe">Propager la clé Stripe</button>
+<script>
+document.getElementById('propagate-stripe').addEventListener('click', async () => {
+  const pk = prompt('Entrez la publishable key (pk_test_...)');
+  if (!pk) return;
+
+  try {
+    const resp = await fetch('/admin/stripe/propagate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publishable_key: pk })
+    });
+    const json = await resp.json();
+    alert(JSON.stringify(json));
+  } catch (e) {
+    alert('Erreur propagation: ' + e.message);
+  }
+});
+</script>
