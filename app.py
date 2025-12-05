@@ -1,3 +1,19 @@
+# Fonction pour récupérer dynamiquement la clé Stripe depuis le dashboard central
+def get_stripe_secret_key():
+    try:
+        base_url = get_setting("dashboard_api_base") or "https://admin.artworksdigital.fr"
+        site_id = get_setting("dashboard_id")
+        if site_id:
+            url = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+            resp = requests.get(url, timeout=8)
+            if resp.status_code == 200:
+                data = resp.json()
+                key = data.get("stripe_secret_key")
+                if key:
+                    return key
+    except Exception as e:
+        print(f"[SAAS] Erreur récupération clé Stripe dashboard: {e}")
+    return get_setting("stripe_secret_key")
 # --------------------------------
 # IMPORTS
 # --------------------------------
@@ -415,11 +431,9 @@ def fetch_dashboard_site_price():
                 continue
             data = resp.json() or {}
             base_price = float(data.get("price") or data.get("site_price") or 0)
-            percent = float(data.get("percent") or data.get("commission") or 0)
-            final_price = base_price * (1 + (percent / 100)) if base_price > 0 else 0
-            if final_price > 0:
-                set_setting("saas_site_price_cache", str(final_price))
-                return final_price
+            if base_price > 0:
+                set_setting("saas_site_price_cache", str(base_price))
+                return base_price
             print(f"[SAAS] Prix non disponible dans la réponse: {data}")
         print(f"[SAAS] Aucun endpoint prix n'a retourné de valeur exploitable")
     except Exception as e:
@@ -1867,6 +1881,8 @@ def inject_cart():
         is_preview_host=is_preview_host,
         preview_price=preview_price,
         preview_data=preview_data
+        ,
+        stripe_publishable_key=get_setting('stripe_publishable_key')
     )
 
 
@@ -3979,6 +3995,54 @@ def update_setting_api(key):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/export/settings/stripe_publishable_key', methods=['PUT'])
+def update_stripe_publishable_key():
+    """Endpoint dédié pour persister la clé publishable Stripe via l'API export.
+    Auth: priorise TEMPLATE_MASTER_API_KEY, fallback sur export_api_key stockée en settings.
+    Corps JSON attendu: {"value": "pk_test_..."}
+    """
+    try:
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API key manquante'}), 401
+
+        # Priorité maître
+        if api_key == TEMPLATE_MASTER_API_KEY:
+            print('[API] 🔑 Clé maître acceptée - Configuration stripe_publishable_key')
+        else:
+            stored_key = get_setting('export_api_key')
+            if not stored_key:
+                stored_key = secrets.token_urlsafe(32)
+                set_setting('export_api_key', stored_key)
+                print(f"🔑 Nouvelle clé API générée: {stored_key}")
+            if api_key != stored_key:
+                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
+
+        data = request.get_json() or {}
+        value = data.get('value')
+        if not value:
+            return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
+
+        # Persister la clé publishable (non sensible côté template)
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query('SELECT COUNT(*) FROM settings WHERE key = ?'), ('stripe_publishable_key',))
+        exists = cur.fetchone()[0] > 0
+        if exists:
+            cur.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (value, 'stripe_publishable_key'))
+        else:
+            cur.execute(adapt_query('INSERT INTO settings (key, value) VALUES (?, ?)'), ('stripe_publishable_key', value))
+        conn.commit()
+        conn.close()
+
+        print(f"[API] ✅ stripe_publishable_key mis à jour: {value}")
+        return jsonify({'success': True, 'message': 'stripe_publishable_key mis à jour'})
+
+    except Exception as e:
+        print(f"[API] ❌ Erreur mise à jour stripe_publishable_key: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/upload/image', methods=['POST'])
 @require_api_key
 def upload_image():
@@ -4302,11 +4366,10 @@ def saas_launch_site():
         flash("Prix indisponible pour le lancement.")
         return redirect(url_for('home'))
 
-    stripe_secret = get_setting("stripe_secret_key")
+    stripe_secret = get_stripe_secret_key()
     if not stripe_secret:
         flash("Stripe n'est pas configuré.")
         return redirect(url_for('home'))
-
     stripe.api_key = stripe_secret
 
     success_url = url_for('saas_launch_success', _external=True)
