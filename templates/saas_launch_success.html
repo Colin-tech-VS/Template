@@ -240,7 +240,7 @@
 <div class="modal-overlay active" id="domainModal">
     <div class="modal">
         <h2>Configurez votre domaine</h2>
-        <p>Entrez le nom de domaine pour votre site personnel (nous l'hébergerons sur artworksdigital.fr)</p>
+        <p>Entrez le nom de domaine pour votre site (acceptable: lettres, chiffres, tirets et points)</p>
         
         <form id="domainForm" onsubmit="handleDomainSubmit(event)">
             <div class="form-group">
@@ -248,11 +248,11 @@
                 <input 
                     type="text" 
                     id="domainInput" 
-                    placeholder="exemple: mon-artiste" 
+                    placeholder="exemple: mon-artiste ou jean-baptiste.com" 
                     required
-                    pattern="[a-zA-Z0-9-]+"
+                    pattern="[a-zA-Z0-9\.\-]+"
                 >
-                <div class="domain-hint">Format: min-artiste.artworksdigital.fr</div>
+                <div class="domain-hint">Ex: "mon-artiste" → mon-artiste.artworksdigital.fr ou "jean.com" → jean.com.artworksdigital.fr</div>
             </div>
             
             <div class="loading" id="loadingIndicator">
@@ -300,13 +300,13 @@ function handleDomainSubmit(event) {
         return;
     }
     
-    // Nettoyer le domaine (enlever espaces, caractères spéciaux)
+    // Nettoyer le domaine (enlever espaces, caractères spéciaux sauf points et tirets)
     const cleanDomain = domain.toLowerCase()
-        .replace(/[^a-z0-9-]/g, '')
-        .replace(/^-+|-+$/g, '');
+        .replace(/[^a-z0-9\.\-]/g, '')
+        .replace(/^[\.\-]+|[\.\-]+$/g, '');
     
     if (!cleanDomain) {
-        showError("Domaine invalide. Utilisez uniquement des lettres, chiffres et tirets.");
+        showError("Domaine invalide. Utilisez lettres, chiffres, tirets et points.");
         return;
     }
     
