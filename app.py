@@ -252,7 +252,7 @@ def generate_email_html(title, content, button_text=None, button_url=None):
 
 TABLES = {
     "paintings": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "name": "TEXT NOT NULL",
         "image": "TEXT NOT NULL",
         "price": "REAL NOT NULL DEFAULT 0",
@@ -275,7 +275,7 @@ TABLES = {
         "display_order": "INTEGER DEFAULT 0"
     },
     "orders": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "customer_name": "TEXT NOT NULL",
         "email": "TEXT NOT NULL",
         "address": "TEXT NOT NULL DEFAULT ''",
@@ -285,25 +285,25 @@ TABLES = {
         "user_id": "INTEGER"
     },
     "order_items": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "order_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL",
         "price": "REAL NOT NULL"
     },
     "cart_items": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "cart_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL"
     },
     "carts": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "session_id": "TEXT NOT NULL UNIQUE",
         "user_id": "INTEGER"
     },
     "notifications": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "user_id": "INTEGER",
         "message": "TEXT NOT NULL",
         "type": "TEXT NOT NULL",
@@ -312,7 +312,7 @@ TABLES = {
         "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     },
     "exhibitions": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "title": "TEXT NOT NULL",
         "location": "TEXT NOT NULL",
         "date": "TEXT NOT NULL",
@@ -327,7 +327,7 @@ TABLES = {
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     },
     "custom_requests": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "client_name": "TEXT NOT NULL",
         "client_email": "TEXT NOT NULL",
         "client_phone": "TEXT",
@@ -343,13 +343,13 @@ TABLES = {
     },
     # Nouvelle table settings pour stocker toutes les clés API et configs
     "settings": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "key": "TEXT UNIQUE NOT NULL",
         "value": "TEXT NOT NULL"
     },
     # Table SAAS: suivi du cycle de vie des sites artistes
     "saas_sites": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "user_id": "INTEGER UNIQUE",
         "status": "TEXT NOT NULL DEFAULT 'pending_approval'",
         "sandbox_url": "TEXT",
@@ -790,13 +790,19 @@ def login():
         # Vérifier utilisateur
         c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
         user = c.fetchone()
-
-        if not user or not check_password_hash(user[1], password):
+        # Correction : vérifie le type et la présence des données
+        if not user:
             conn.close()
             flash("Email ou mot de passe incorrect")
             return redirect(url_for("login"))
-
-        user_id = user[0]
+        # user peut être tuple ou dict selon le curseur
+        # Par défaut psycopg2 retourne un tuple : (id, password)
+        user_id = user[0] if isinstance(user, (list, tuple)) else user['id']
+        user_password = user[1] if isinstance(user, (list, tuple)) else user['password']
+        if not check_password_hash(user_password, password):
+            conn.close()
+            flash("Email ou mot de passe incorrect")
+            return redirect(url_for("login"))
         session["user_id"] = user_id
 
         # Récupérer panier invité actuel
