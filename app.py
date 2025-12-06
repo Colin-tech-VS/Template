@@ -1870,7 +1870,7 @@ def inject_cart():
     # --- FAVORIS ---
     favorite_ids = []
     if user_id:
-        c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=%s"), (user_id,))
+        c.execute("SELECT painting_id FROM favorites WHERE user_id=%s", (user_id,))
         favorite_ids = [row[0] if isinstance(row, tuple) else row.get('painting_id') for row in c.fetchall()]
 
     # --- NOTIFICATIONS ADMIN ---
