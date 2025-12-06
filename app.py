@@ -71,6 +71,7 @@ from database import (
     create_table_if_not_exists,
     add_column_if_not_exists,
     adapt_query,
+    init_database,
     IS_POSTGRES,
     PARAM_PLACEHOLDER
 )
@@ -357,9 +358,15 @@ TABLES = {
     }
 }
 
+def get_user_id():
+    """Récupère le user_id depuis la session Flask"""
+    return session.get('user_id')
+
+
 # Fonction utilitaire pour récupérer une clé depuis settings
 def get_setting(key):
-    conn = get_db()
+    user_id = get_user_id()
+    conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("SELECT value FROM settings WHERE key = ?")
     cur.execute(query, (key,))
@@ -400,9 +407,17 @@ print("SMTP_PASSWORD défini :", bool(get_setting("smtp_password")))
 google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
-# Fonction utilitaire pour mettre à jour ou créer une clé
-def set_setting(key, value):
-    conn = get_db()
+def set_setting(key, value, user_id=None):
+    """
+    Met à jour ou crée une clé de paramètre
+    Args:
+        key: Clé du paramètre
+        value: Valeur du paramètre
+        user_id: ID de l'utilisateur/site. Si None, utilise la session
+    """
+    if user_id is None:
+        user_id = get_user_id()
+    conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("""
         INSERT INTO settings (key, value) VALUES (?, ?)
@@ -4586,6 +4601,13 @@ def api_register_site_saas():
         if response.status_code == 200:
             result = response.json()
             site_id = result.get("site_id", user_id)
+            
+            # Initialiser la base de données séparée du site
+            try:
+                init_database(user_id=user_id)
+                print(f"[SAAS] DB initialisée pour le site {user_id}")
+            except Exception as e:
+                print(f"[SAAS] Erreur initialisation DB site: {e}")
             
             # Mettre à jour le statut local
             _saas_upsert(user_id, status='active', final_domain=site_url)
