@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Paiement confirmé - Lancement du site{% endblock %}
+
+{% block content %}
+<style>
+    .success-container {
+        max-width: 600px;
+        margin: 60px auto;
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .success-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+    }
+    
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-overlay.active {
+        display: flex;
+    }
+    
+    .modal {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    
+    .modal h2 {
+        color: #1a1a1a;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+    
+    .modal p {
+        color: #666;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 600;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .domain-hint {
+        font-size: 13px;
+        color: #999;
+        margin-top: 5px;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+    }
+    
+    .btn {
+        flex: 1;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        opacity: 0.9;
+        transform: translateY(-2px);
+    }
+    
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-secondary {
+        background: #f0f0f0;
+        color: #333;
+    }
+    
+    .btn-secondary:hover {
+        background: #e0e0e0;
+    }
+    
+    .api-key-display {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        display: none;
+    }
+    
+    .api-key-display.active {
+        display: block;
+    }
+    
+    .api-key-label {
+        font-size: 12px;
+        color: #999;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+    
+    .api-key-value {
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .copy-btn {
+        background: #6366f1;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.3s;
+    }
+    
+    .copy-btn:hover {
+        background: #4f46e5;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        color: #666;
+    }
+    
+    .loading.active {
+        display: block;
+    }
+    
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f0f0f0;
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+        background: #fee;
+        color: #c00;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        display: none;
+    }
+    
+    .error-message.active {
+        display: block;
+    }
+    
+    .success-message {
+        background: #efe;
+        color: #060;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        display: none;
+    }
+    
+    .success-message.active {
+        display: block;
+    }
+</style>
+
+<section class="section">
+    <div class="success-container">
+        <div class="success-icon">✅</div>
+        <h2>Paiement confirmé !</h2>
+        <p>Nous configurons votre site avec votre nom de domaine personnel.</p>
+        <p style="color: #999; font-size: 14px;">Une popup va s'ouvrir pour que vous saisissiez votre domaine...</p>
+    </div>
+</section>
+
+<!-- Modal pour domaine -->
+<div class="modal-overlay active" id="domainModal">
+    <div class="modal">
+        <h2>Configurez votre domaine</h2>
+        <p>Entrez le nom de domaine pour votre site personnel (nous l'hébergerons sur artworksdigital.fr)</p>
+        
+        <form id="domainForm" onsubmit="handleDomainSubmit(event)">
+            <div class="form-group">
+                <label for="domainInput">Nom de domaine</label>
+                <input 
+                    type="text" 
+                    id="domainInput" 
+                    placeholder="exemple: mon-artiste" 
+                    required
+                    pattern="[a-zA-Z0-9-]+"
+                >
+                <div class="domain-hint">Format: min-artiste.artworksdigital.fr</div>
+            </div>
+            
+            <div class="loading" id="loadingIndicator">
+                <span class="spinner"></span>
+                Enregistrement en cours...
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            
+            <div class="api-key-display" id="apiKeyDisplay">
+                <div class="api-key-label">🔑 Votre clé API</div>
+                <div class="api-key-value" id="apiKeyValue">{{ api_key }}</div>
+                <button type="button" class="copy-btn" onclick="copyApiKey()">Copier la clé</button>
+                <p style="color: #666; font-size: 13px; margin-top: 10px;">
+                    Conservez cette clé en sécurité. Elle vous permet d'accéder à votre galerie via l'API.
+                </p>
+            </div>
+            
+            <div class="button-group" id="buttonGroup">
+                <button type="submit" class="btn btn-primary" id="submitBtn">Confirmer et activer</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+            </div>
+            
+            <div class="button-group" id="successButtonGroup" style="display: none;">
+                <button type="button" class="btn btn-primary" onclick="goToSite()">Aller sur mon site</button>
+                <button type="button" class="btn btn-secondary" onclick="goHome()">Retour à l'accueil</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const API_KEY = "{{ api_key }}";
+let successSiteUrl = null;
+
+function handleDomainSubmit(event) {
+    event.preventDefault();
+    
+    const domain = document.getElementById('domainInput').value.trim();
+    
+    if (!domain) {
+        showError("Veuillez entrer un domaine");
+        return;
+    }
+    
+    // Nettoyer le domaine (enlever espaces, caractères spéciaux)
+    const cleanDomain = domain.toLowerCase()
+        .replace(/[^a-z0-9-]/g, '')
+        .replace(/^-+|-+$/g, '');
+    
+    if (!cleanDomain) {
+        showError("Domaine invalide. Utilisez uniquement des lettres, chiffres et tirets.");
+        return;
+    }
+    
+    // Construire l'URL complète
+    const fullDomain = `${cleanDomain}.artworksdigital.fr`;
+    
+    // Afficher le chargement
+    document.getElementById('loadingIndicator').classList.add('active');
+    document.getElementById('buttonGroup').style.display = 'none';
+    document.getElementById('errorMessage').classList.remove('active');
+    document.getElementById('successMessage').classList.remove('active');
+    document.getElementById('submitBtn').disabled = true;
+    
+    // Appeler l'API
+    fetch('/api/saas/register-site', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            domain: fullDomain,
+            api_key: API_KEY
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingIndicator').classList.remove('active');
+        
+        if (data.ok) {
+            successSiteUrl = data.site_url;
+            
+            // Afficher le succès
+            document.getElementById('apiKeyDisplay').classList.add('active');
+            document.getElementById('successMessage').textContent = 
+                `✅ Site activé ! Votre domaine est ${fullDomain}`;
+            document.getElementById('successMessage').classList.add('active');
+            document.getElementById('buttonGroup').style.display = 'none';
+            document.getElementById('successButtonGroup').style.display = 'flex';
+            
+            // Désactiver l'input
+            document.getElementById('domainInput').disabled = true;
+        } else {
+            showError(data.error || "Erreur lors de l'enregistrement");
+            document.getElementById('buttonGroup').style.display = 'flex';
+            document.getElementById('submitBtn').disabled = false;
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingIndicator').classList.remove('active');
+        showError("Erreur réseau: " + error.message);
+        document.getElementById('buttonGroup').style.display = 'flex';
+        document.getElementById('submitBtn').disabled = false;
+    });
+}
+
+function showError(message) {
+    const errorEl = document.getElementById('errorMessage');
+    errorEl.textContent = message;
+    errorEl.classList.add('active');
+}
+
+function copyApiKey() {
+    const apiKeyEl = document.getElementById('apiKeyValue');
+    const text = apiKeyEl.textContent;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copié !';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#6366f1';
+        }, 2000);
+    }).catch(() => {
+        showError("Impossible de copier la clé");
+    });
+}
+
+function closeModal() {
+    if (confirm("Êtes-vous sûr ? Vous devrez refaire la configuration.")) {
+        window.location.href = '/';
+    }
+}
+
+function goToSite() {
+    if (successSiteUrl) {
+        window.open(successSiteUrl, '_blank');
+    }
+}
+
+function goHome() {
+    window.location.href = '/';
+}
+
+// Auto-ouvrir la modal
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('domainModal').classList.add('active');
+});
+</script>
+
+{% endblock %}

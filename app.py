@@ -4487,8 +4487,90 @@ def saas_launch_site():
 
 @app.route('/saas/launch/success')
 def saas_launch_success():
-    flash("Merci ! Paiement reçu, nous lançons votre site.")
-    return redirect(url_for('home'))
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Erreur: utilisateur non identifié.")
+        return redirect(url_for('home'))
+    
+    # Générer une clé API unique pour ce site
+    api_key = secrets.token_urlsafe(32)
+    set_setting("export_api_key", api_key)
+    
+    # Rendre le template avec popup pour domaine
+    return render_template('saas_launch_success.html', 
+                         api_key=api_key, 
+                         user_id=user_id)
+
+
+@app.route('/api/saas/register-site', methods=['POST'])
+def api_register_site_saas():
+    """Enregistre le site au dashboard et lance le déploiement"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    data = request.get_json() or {}
+    domain = data.get('domain', '').strip()
+    api_key = data.get('api_key', '').strip()
+    
+    if not domain or not api_key:
+        return jsonify({"error": "domain et api_key requis"}), 400
+    
+    try:
+        # Construire l'URL complète du domaine
+        if not domain.startswith('http'):
+            site_url = f"https://{domain}"
+        else:
+            site_url = domain
+        
+        # Récupérer le nom du site
+        site_name = get_setting("site_name") or "Site Artiste"
+        user_info = _get_user_info(user_id)
+        if user_info:
+            _, user_name, _ = user_info
+            site_name = user_name or site_name
+        
+        # Préparer les données pour le dashboard
+        dashboard_data = {
+            "site_name": site_name,
+            "site_url": site_url,
+            "api_key": api_key,
+            "auto_registered": True,
+            "artist_id": user_id
+        }
+        
+        # Envoyer au dashboard
+        dashboard_url = f"{get_dashboard_base_url()}/api/sites/register"
+        response = requests.post(dashboard_url, json=dashboard_data, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            site_id = result.get("site_id", user_id)
+            
+            # Mettre à jour le statut local
+            _saas_upsert(user_id, status='active', final_domain=site_url)
+            set_setting("dashboard_id", str(site_id))
+            
+            # Envoyer email de confirmation
+            _send_saas_step_email(user_id, 'active', 
+                                'Site activé !', 
+                                f"Votre site est maintenant actif sur {site_url}")
+            
+            return jsonify({
+                "ok": True,
+                "message": "Site enregistré et activé",
+                "site_url": site_url,
+                "api_key": api_key
+            }), 200
+        else:
+            return jsonify({
+                "error": f"Erreur dashboard: {response.status_code}",
+                "details": response.text
+            }), response.status_code
+    
+    except Exception as e:
+        print(f"[SAAS] Erreur enregistrement site: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ================================
