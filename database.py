@@ -179,17 +179,20 @@ def add_column_if_not_exists(table_name, column_name, column_type, user_id=None)
                 FROM information_schema.columns 
                 WHERE table_name=%s AND column_name=%s
             """, (table_name, column_name))
-            
             if not cursor.fetchone():
-                sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
-                cursor.execute(sql)
-                conn.commit()
-                print(f"Colonne '{column_name}' ajoutée à '{table_name}'")
+                # Adapter le type pour PostgreSQL
+                col_type_pg = column_type.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY').replace('AUTOINCREMENT', '')
+                sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {col_type_pg}"
+                try:
+                    cursor.execute(sql)
+                    conn.commit()
+                    print(f"Colonne '{column_name}' ajoutée à '{table_name}'")
+                except Exception as e:
+                    print(f"Erreur ajout colonne '{column_name}' à '{table_name}': {e}")
         else:
             # SQLite: PRAGMA table_info
             cursor.execute(f"PRAGMA table_info({table_name})")
             existing_cols = [col[1] for col in cursor.fetchall()]
-            
             if column_name not in existing_cols:
                 sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
                 cursor.execute(sql)
