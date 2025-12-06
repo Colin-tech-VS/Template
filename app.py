@@ -4543,6 +4543,13 @@ def saas_launch_success():
         flash("Erreur: utilisateur non identifié.")
         return redirect(url_for('home'))
     
+    # Initialiser la DB du site si elle n'existe pas
+    try:
+        init_database(user_id=user_id)
+        print(f"[SAAS] DB initialisée pour le site {user_id}")
+    except Exception as e:
+        print(f"[SAAS] Erreur initialisation DB site: {e}")
+    
     # Générer une clé API unique pour ce site
     api_key = secrets.token_urlsafe(32)
     set_setting("export_api_key", api_key, user_id=user_id)
