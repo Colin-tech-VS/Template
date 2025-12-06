@@ -18,9 +18,8 @@ def get_stripe_secret_key():
     # 3) dashboard server->server fallback (only if dashboard exposes it)
     try:
         base_url = get_setting("dashboard_api_base") or os.getenv('DASHBOARD_URL') or "https://admin.artworksdigital.fr"
-        site_id = get_setting("dashboard_id") or os.getenv('SITE_NAME')
-        if base_url and site_id:
-            url = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+        if base_url:
+            url = f"{base_url.rstrip('/')}/api/export/settings/stripe_secret_key"
             resp = requests.get(url, timeout=8)
             if resp.status_code == 200:
                 data = resp.json()
