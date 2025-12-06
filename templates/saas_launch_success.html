@@ -252,7 +252,7 @@
                     required
                     pattern="[a-zA-Z0-9\.\-]+"
                 >
-                <div class="domain-hint">Ex: "mon-artiste" → mon-artiste.artworksdigital.fr ou "jean.com" → jean.com.artworksdigital.fr</div>
+                <div class="domain-hint">Ex: "mon-artiste" → mon-artiste.artworksdigital.fr ou "jean.com" → jean.com</div>
             </div>
             
             <div class="loading" id="loadingIndicator">
@@ -311,7 +311,11 @@ function handleDomainSubmit(event) {
     }
     
     // Construire l'URL complète
-    const fullDomain = `${cleanDomain}.artworksdigital.fr`;
+    // Si le domaine contient un point, c'est un domaine acheté → l'utiliser tel quel
+    // Sinon, ajouter .artworksdigital.fr
+    const fullDomain = cleanDomain.includes('.') 
+        ? cleanDomain 
+        : `${cleanDomain}.artworksdigital.fr`;
     
     // Afficher le chargement
     document.getElementById('loadingIndicator').classList.add('active');
