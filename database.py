@@ -147,7 +147,16 @@ def create_table_if_not_exists(table_name, columns, user_id=None):
     """
     col_defs = ", ".join([f"{name} {ctype}" for name, ctype in columns.items()])
     query = f"CREATE TABLE IF NOT EXISTS {table_name} ({col_defs})"
-    execute_query(query, user_id=user_id)
+    try:
+        execute_query(query, user_id=user_id)
+    except Exception as e:
+        # Ignore DuplicateTable error for PostgreSQL
+        if hasattr(e, 'pgcode') and e.pgcode == '42P07':
+            print(f"Table '{table_name}' existe déjà, on continue.")
+        elif 'already exists' in str(e):
+            print(f"Table '{table_name}' existe déjà, on continue.")
+        else:
+            raise
 
 
 def add_column_if_not_exists(table_name, column_name, column_type, user_id=None):
