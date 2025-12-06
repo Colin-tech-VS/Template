@@ -2297,11 +2297,11 @@ def download_invoice(order_id):
     # --- Infos client ---
     c.setFont("Helvetica", 12)
     c.setFillColor(grey_color)
-    c.drawString(50, height - 120, f"Nom : {order[1]}")
-    c.drawString(50, height - 140, f"Email : {order[2]}")
-    c.drawString(50, height - 160, f"Adresse : {order[3]}")
-    c.drawString(50, height - 180, f"Date : {order[5]}")
-    c.drawString(50, height - 200, f"Statut : {order[6]}")
+    c.drawString(50, height - 120, f"Nom: {order[1]}")
+    c.drawString(50, height - 140, f"Email: {order[2]}")
+    c.drawString(50, height - 160, f"Adresse: {order[3]}")
+    c.drawString(50, height - 180, f"Date: {order[5]}")
+    c.drawString(50, height - 200, f"Statut: {order[6]}")
 
     # --- Tableau des articles ---
     y = height - 230
@@ -2639,7 +2639,7 @@ def delete_painting(painting_id):
 @app.route('/admin/orders')
 @require_admin
 def admin_orders():
-    """Gestion des commandes"""
+    """Gestion des commandes avec recherche et filtre par rôle"""
     q = request.args.get('q', '').strip().lower()  # récupération du terme de recherche
     conn = get_db()
     c = conn.cursor()
@@ -3116,6 +3116,29 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
         print("Email envoyé avec succès !")
     except Exception as e:
         print(f"Erreur lors de l'envoi de l'email : {e}")
+
+@app.route('/dynamic-colors.css')
+def dynamic_colors():
+    """Génère dynamiquement le CSS des couleurs du site"""
+    try:
+        color_primary = get_setting("color_primary") or "#6366f1"
+        color_secondary = get_setting("color_secondary") or "#8b5cf6"
+        accent_color = get_setting("accent_color") or "#ff5722"
+        
+        # Générer le CSS
+        css = f"""
+        :root {{
+            --color-primary: {color_primary};
+            --color-secondary: {color_secondary};
+            --color-accent: {accent_color};
+        }}
+        """
+        response = make_response(css)
+        response.mimetype = 'text/css'
+        return response
+    except Exception as e:
+        print(f"[SAAS] Erreur génération CSS couleurs: {e}")
+        return "", 500
 
 # Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
 from functools import wraps
