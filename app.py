@@ -363,9 +363,13 @@ def get_user_id():
     return session.get('user_id')
 
 
-# Fonction utilitaire pour récupérer une clé depuis settings
-def get_setting(key):
-    user_id = get_user_id()
+def get_setting(key, user_id=None):
+    """
+    Récupère une clé de paramètre
+    Args:
+        key: Clé du paramètre
+        user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
+    """
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("SELECT value FROM settings WHERE key = ?")
@@ -413,10 +417,8 @@ def set_setting(key, value, user_id=None):
     Args:
         key: Clé du paramètre
         value: Valeur du paramètre
-        user_id: ID de l'utilisateur/site. Si None, utilise la session
+        user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
     """
-    if user_id is None:
-        user_id = get_user_id()
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("""
@@ -4543,7 +4545,7 @@ def saas_launch_success():
     
     # Générer une clé API unique pour ce site
     api_key = secrets.token_urlsafe(32)
-    set_setting("export_api_key", api_key)
+    set_setting("export_api_key", api_key, user_id=user_id)
     
     # Rendre le template avec popup pour domaine
     return render_template('saas_launch_success.html', 
@@ -4611,7 +4613,8 @@ def api_register_site_saas():
             
             # Mettre à jour le statut local
             _saas_upsert(user_id, status='active', final_domain=site_url)
-            set_setting("dashboard_id", str(site_id))
+            set_setting("dashboard_id", str(site_id), user_id=user_id)
+            set_setting("export_api_key", api_key, user_id=user_id)
             
             # Envoyer email de confirmation
             _send_saas_step_email(user_id, 'active', 
