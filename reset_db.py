@@ -9,7 +9,7 @@ def reset_database():
     c = conn.cursor()
 
     # Supprimer toutes les tables si elles existent
-    tables = ["order_items", "orders", "cart_items", "carts", "users", "paintings"]
+    tables = ["order_items", "orders", "cart_items", "carts", "users", "paintings", "settings", "favorites"]
     for table in tables:
         c.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
 
@@ -31,7 +31,23 @@ def reset_database():
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
             create_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE settings (
+            id SERIAL PRIMARY KEY,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT
+        )
+    ''')
+
+    c.execute('''
+        CREATE TABLE favorites (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            painting_id INTEGER NOT NULL
         )
     ''')
 
