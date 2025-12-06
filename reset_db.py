@@ -1,4 +1,3 @@
-def reset_database():
 import os
 import psycopg2
 
@@ -8,10 +7,6 @@ def reset_database():
         raise RuntimeError("DATABASE_URL n'est pas défini.")
     conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
-
-    # Sauvegarder le compte admin s'il existe (par défaut email admin@admin.com)
-    c.execute("SELECT name, email, password, create_date FROM users WHERE email = %s", ("admin@admin.com",))
-    admin_user = c.fetchone()
 
     # Supprimer toutes les tables si elles existent
     tables = ["order_items", "orders", "cart_items", "carts", "users", "paintings"]
@@ -39,10 +34,6 @@ def reset_database():
             create_date TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-
-    # Réinsérer le compte admin si sauvegardé
-    if admin_user:
-        c.execute("INSERT INTO users (name, email, password, create_date) VALUES (%s, %s, %s, %s)", admin_user)
 
     c.execute('''
         CREATE TABLE orders (
@@ -86,16 +77,18 @@ def reset_database():
         )
     ''')
 
-    conn.commit()
-    conn.close()
+    # Sauvegarder le compte admin s'il existe (par défaut email admin@admin.com)
+    # (après création de la table users)
+    try:
+        c.execute("SELECT name, email, password, create_date FROM users WHERE email = %s", ("admin@admin.com",))
+        admin_user = c.fetchone()
+        if admin_user:
+            c.execute("INSERT INTO users (name, email, password, create_date) VALUES (%s, %s, %s, %s)", admin_user)
+    except Exception as e:
+        print(f"Aucun admin à réinsérer ou erreur : {e}")
 
     conn.commit()
     conn.close()
-    print("Base de données réinitialisée avec succès ! (compte admin conservé si existant)")
 
 if __name__ == "__main__":
-    confirm = input("ATTENTION : Toutes les données seront supprimées ! Tapez 'OUI' pour continuer : ")
-    if confirm == "OUI":
-        reset_database()
-    else:
-        print("Annulé.")
+    reset_database()
