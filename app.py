@@ -4444,6 +4444,12 @@ def saas_activate(user_id):
 @app.route('/saas/launch-site')
 def saas_launch_site():
     """Crée une session Stripe pour lancer le site depuis le mode preview."""
+    # Vérifier l'authentification
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Vous devez être connecté pour lancer votre site.")
+        return redirect(url_for('login'))
+    
     price = fetch_dashboard_site_price()
     if not price or price <= 0:
         flash("Prix indisponible pour le lancement.")
@@ -4473,14 +4479,17 @@ def saas_launch_site():
             success_url=success_url + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=cancel_url,
             metadata={
-                'site_id': get_setting('dashboard_id') or '',
-                'user_id': session.get('user_id') or '',
+                'site_id': str(get_setting('dashboard_id') or ''),
+                'user_id': str(user_id),
                 'context': 'saas_launch'
             }
         )
+        print(f"[SAAS] Session Stripe créée | user_id: {user_id} | session_id: {session_obj.id}")
         return redirect(session_obj.url, code=303)
     except Exception as e:
         print(f"[SAAS] Erreur création session Stripe: {e}")
+        import traceback
+        traceback.print_exc()
         flash("Impossible de lancer la session de paiement pour le moment.")
         return redirect(url_for('home'))
 
@@ -4489,21 +4498,30 @@ def saas_launch_site():
 def saas_launch_success():
     # Récupérer l'user_id depuis la session ou la métadonnée Stripe
     user_id = session.get('user_id')
+    print(f"[SAAS] DEBUG 1 - user_id from session: {user_id}")
     
     # Si pas en session, récupérer depuis la session Stripe
     if not user_id:
         session_id = request.args.get('session_id')
+        print(f"[SAAS] DEBUG 2 - session_id from URL: {session_id}")
         if session_id:
             try:
                 stripe_secret = get_stripe_secret_key()
+                print(f"[SAAS] DEBUG 3 - stripe_secret available: {bool(stripe_secret)}")
                 if stripe_secret:
                     stripe.api_key = stripe_secret
                     session_obj = stripe.checkout.Session.retrieve(session_id)
+                    print(f"[SAAS] DEBUG 4 - session_obj metadata: {session_obj.metadata}")
                     user_id = session_obj.metadata.get('user_id') if session_obj.metadata else None
-                    user_id = int(user_id) if user_id and user_id.isdigit() else None
+                    print(f"[SAAS] DEBUG 5 - user_id from metadata: {user_id}")
+                    user_id = int(user_id) if user_id and str(user_id).isdigit() else None
+                    print(f"[SAAS] DEBUG 6 - user_id converted to int: {user_id}")
             except Exception as e:
                 print(f"[SAAS] Erreur récupération metadata Stripe: {e}")
+                import traceback
+                traceback.print_exc()
     
+    print(f"[SAAS] DEBUG 7 - final user_id: {user_id}")
     if not user_id:
         flash("Erreur: utilisateur non identifié.")
         return redirect(url_for('home'))
