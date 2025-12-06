@@ -2143,7 +2143,7 @@ def contact():
             body = f"""
             <html>
             <body style="font-family: 'Poppins', sans-serif; background:#f0f4f8; padding:20px;">
-                <div style="max-width:600px; margin:auto; background:white; border-radius:15px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.1);">
+                <div style="max-width:600px; margin:auto; background:white; border-radius:15px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
                     <h2 style="color:#1E3A8A; text-align:center;">Nouveau message depuis le formulaire de contact</h2>
                     <hr style="border:none; border-top:2px solid #1E3A8A; margin:20px 0;">
                     <p><strong>Nom :</strong> {name}</p>
@@ -2305,55 +2305,17 @@ def download_invoice(order_id):
 
     # --- Tableau des articles ---
     y = height - 230
-    c.setFont("Helvetica-Bold", 12)
-    c.setFillColor(primary_color)
-
-    # En-tête du tableau
-    c.rect(50, y-4, 530, 20, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.drawString(55, y, "Nom")
-    c.drawRightString(420, y, "Prix (€)")
-    c.drawRightString(490, y, "Quantité")
-    c.drawRightString(580, y, "Sous-total (€)")
-
+    c.drawString(50, y, "Articles:")
     y -= 20
-    c.setFont("Helvetica", 12)
-    for idx, item in enumerate(items):
-        # Fond alterné
-        if idx % 2 == 0:
-            c.setFillColor(light_grey)
-            c.rect(50, y-4, 530, 20, fill=1, stroke=0)
-        c.setFillColor(grey_color)
-
-        name = str(item[1])
-        price = float(item[3])   # Prix unitaire
-        qty = int(item[4])       # Quantité
-        subtotal = price * qty
-
-        c.drawString(55, y, name)
-        c.drawRightString(490, y, f"{price:.2f}")   # Prix
-        c.drawRightString(420, y, str(qty))         # Quantité
-        c.drawRightString(580, y, f"{subtotal:.2f}")# Sous-total
+    for item in items:
+        c.drawString(60, y, f"{item[1]} x {item[4]} - {item[3]} €")
         y -= 20
 
-    # --- Total ---
-    y -= 10
+    # Total
     c.setFont("Helvetica-Bold", 14)
-    c.setFillColor(primary_color)
-    c.rect(450, y-4, 130, 20, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.drawRightString(580, y, f"Total : {total_price:.2f} €")
+    c.drawString(50, y-20, f"Total: {total_price} €")
 
-    # --- Footer ---
-    c.setFont("Helvetica-Oblique", 10)
-    c.setFillColor(primary_color)
-    c.drawString(50, 50, "Merci pour votre achat chez JB Art !")
-    c.drawString(50, 35, "www.jbart.com")
-
-    c.showPage()
     c.save()
-
-    pdf_buffer.seek(0)
     return send_file(
         pdf_buffer,
         as_attachment=True,
@@ -2691,10 +2653,11 @@ def admin_orders():
             LEFT JOIN paintings p ON oi.painting_id = p.id
             WHERE o.id LIKE ? 
                OR LOWER(o.customer_name) LIKE ?
+               OR LOWER(o.email) LIKE ?
                OR LOWER(p.name) LIKE ?
             GROUP BY o.id
             ORDER BY o.order_date DESC
-        """, (f"%{q}%", f"%{q}%", f"%{q}%"))
+        """, (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"))
     else:
         # Si pas de recherche, tout afficher
         c.execute("""
@@ -2730,7 +2693,7 @@ def order_status(order_id):
     c = conn.cursor()
 
     # Récupérer la commande
-    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, status FROM orders WHERE id=?"), (order_id,))
+    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?"), (order_id,))
     order = c.fetchone()
     if not order:
         conn.close()
@@ -2832,7 +2795,7 @@ def admin_users():
             OR LOWER(role) LIKE ?
             OR LOWER(create_date) LIKE ?
         )""")
-        params.extend([f"%{q}%"] * 5)
+        params.extend([f"%{q}%" ] * 5)
 
     # Filtre rôle
     if role:
@@ -3262,7 +3225,7 @@ body, p, span, li, td {{
 
 /* PROFILE BUY BUTTON */
 .buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    background: linear-gradient(90deg, var(--primary_color), var(--secondary_color)) !important;
     color: var(--button-text-color) !important;
 }}
 
@@ -3314,17 +3277,7 @@ body, p, span, li, td {{
 
 /* PROFILE BUY BUTTON */
 .buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.buy-btn:hover {{
-    background: var(--button-hover-color) !important;
-}}
-
-/* PROFILE BUY BUTTON */
-.buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
+    background: linear-gradient(90deg, var(--primary_color), var(--secondary_color)) !important;
     color: var(--button-text-color) !important;
 }}
 
@@ -3785,135 +3738,105 @@ def api_export_full():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/export/paintings', methods=['GET'])
-@require_api_key
-def api_export_paintings():
-    """Exporte uniquement les peintures"""
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM paintings ORDER BY display_order, id"))
-        rows = cur.fetchall()
-        
-        columns = [description[0] for description in cur.description]
-        paintings = [dict(zip(columns, row)) for row in rows]
-        
-        conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(paintings),
-            "data": paintings
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
-def api_export_orders():
-    """Exporte les commandes avec leurs items"""
+def api_orders():
+    """Récupère toutes les commandes au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        
-        # Récupérer toutes les commandes
-        cur.execute(adapt_query("SELECT * FROM orders ORDER BY order_date DESC"))
+        cur.execute(adapt_query("SELECT id, customer_name, email, total_price, order_date, status FROM orders ORDER BY order_date DESC"))
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
-        
-        # Pour chaque commande, récupérer les items
         for order in orders:
-            cur.execute(adapt_query("""
-                SELECT oi.*, p.name, p.image 
-                FROM order_items oi
-                LEFT JOIN paintings p ON oi.painting_id = p.id
-                WHERE oi.order_id = ?
-            """), (order['id'],))
+            cur.execute(adapt_query("SELECT painting_id, name, image, price, quantity FROM order_items LEFT JOIN paintings ON order_items.painting_id = paintings.id WHERE order_items.order_id = ?"), (order['id'],))
             items_rows = cur.fetchall()
-            items_columns = [description[0] for description in cur.description]
+            items_columns = [desc[0] for desc in cur.description]
             order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
-        
+            order['site_name'] = get_setting("site_name") or "Site Artiste"
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(orders),
-            "data": orders
-        })
+        return jsonify({"orders": orders})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/users', methods=['GET'])
 @require_api_key
-def api_export_users():
-    """Exporte les utilisateurs (sans mots de passe)"""
+def api_users():
+    """Récupère tous les utilisateurs au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, name, email, role, create_date, phone, address, city, postal_code, country, birth_date, accepts_marketing FROM users"))
+        cur.execute(adapt_query("SELECT id, name, email, create_date FROM users"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         users = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for user in users:
+            user["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(users),
-            "data": users
-        })
+        return jsonify({"users": users})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/paintings', methods=['GET'])
+@require_api_key
+def api_paintings():
+    """Récupère toutes les peintures au format dashboard"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT id, name, price, category, technique, year, quantity, status, image FROM paintings ORDER BY display_order, id"))
+        rows = cur.fetchall()
+        columns = [description[0] for description in cur.description]
+        paintings = [dict(zip(columns, row)) for row in rows]
+        site_name = get_setting("site_name") or "Site Artiste"
+        for painting in paintings:
+            painting["site_name"] = site_name
+        conn.close()
+        return jsonify({"paintings": paintings})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/exhibitions', methods=['GET'])
 @require_api_key
-def api_export_exhibitions():
-    """Exporte les expositions"""
+def api_exhibitions():
+    """Récupère toutes les expositions au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM exhibitions ORDER BY date DESC"))
+        cur.execute(adapt_query("SELECT id, name, start_date, end_date, location FROM exhibitions ORDER BY date DESC"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         exhibitions = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for exhibition in exhibitions:
+            exhibition["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(exhibitions),
-            "data": exhibitions
-        })
+        return jsonify({"exhibitions": exhibitions})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/custom-requests', methods=['GET'])
 @require_api_key
-def api_export_custom_requests():
-    """Exporte les demandes personnalisées"""
+def api_custom_requests():
+    """Récupère toutes les demandes personnalisées au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM custom_requests ORDER BY created_at DESC"))
+        cur.execute(adapt_query("SELECT id, customer_name, description, status, created_at FROM custom_requests ORDER BY created_at DESC"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         requests_data = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for req in requests_data:
+            req["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(requests_data),
-            "data": requests_data
-        })
+        return jsonify({"custom_requests": requests_data})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -4015,7 +3938,6 @@ def update_setting_api(key):
                 stored_key = secrets.token_urlsafe(32)
                 set_setting("export_api_key", stored_key)
                 print(f"🔑 Nouvelle clé API générée: {stored_key}")
-            
             if api_key != stored_key:
                 return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
         
@@ -4185,7 +4107,7 @@ def upload_image():
 @require_admin
 def get_export_api_key():
     """
-    Récupère ou génère la clé API pour l'export
+    Récupère ougénère la clé API pour l'export
     Accessible uniquement aux administrateurs connectés
     """
     api_key = get_setting("export_api_key")
@@ -4213,118 +4135,6 @@ def regenerate_export_api_key():
         "message": "Nouvelle clé API générée"
     })
 
-
-# ================================
-# FIN API EXPORT
-# ================================
-
-# ================================
-# SYSTÈME AUTO-REGISTRATION AU DASHBOARD CENTRAL
-# ================================
-
-def auto_generate_api_key():
-    """Génère automatiquement une clé API si elle n'existe pas"""
-    api_key = get_setting("export_api_key")
-    if not api_key:
-        api_key = secrets.token_urlsafe(32)
-        set_setting("export_api_key", api_key)
-        print(f"✅ Clé API générée automatiquement: {api_key[:10]}...")
-    return api_key
-
-def register_site_to_dashboard():
-    """Enregistre automatiquement ce site sur le dashboard central"""
-    import requests
-    
-    # Vérifier si déjà enregistré
-    if get_setting("dashboard_registered") == "true":
-        print("[AUTO-REG] Site déjà enregistré sur le dashboard")
-        return
-    
-    # Vérifier si l'enregistrement est activé (avec override par variable d'environnement)
-    env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
-    enabled_setting = get_setting("enable_auto_registration")
-    is_enabled = env_override or (enabled_setting == "true")
-    if not is_enabled:
-        print("[AUTO-REG] Auto-registration désactivé. Génération de l'API key uniquement.")
-        auto_generate_api_key()
-        return
-    
-    try:
-        # Générer l'API key
-        api_key = auto_generate_api_key()
-        
-        # Récupérer les infos du site
-        site_name = get_setting("site_name") or "Site Artiste"
-        
-        # Détecter l'URL du site (compatible Render)
-        site_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("SITE_URL")
-        if not site_url:
-            render_service = os.getenv("RENDER_SERVICE_NAME")
-            if render_service:
-                site_url = f"https://{render_service}.onrender.com"
-            else:
-                print("[AUTO-REG] ⚠️ Impossible de déterminer l'URL - skip registration")
-                return
-        
-        site_url = site_url.rstrip('/')
-        
-        # Données à envoyer (minimales, alignées avec un schéma classique)
-        # Certains dashboards attendent des clés génériques: name, url, api_key
-        # On évite tout champ non indispensable pour contourner des migrations manquantes côté dashboard.
-        data = {
-            "name": site_name,
-            "url": site_url,
-            "api_key": api_key
-        }
-        
-        # URL du dashboard central
-        dashboard_url = "https://mydashboard-v39e.onrender.com/api/sites/register"
-        
-        print(f"[AUTO-REG] 📤 Enregistrement sur le dashboard central...")
-        print(f"[AUTO-REG]    Nom: {site_name}")
-        print(f"[AUTO-REG]    URL: {site_url}")
-        print(f"[AUTO-REG]    Dashboard: {dashboard_url}")
-        
-        # Envoyer les données
-        response = requests.post(dashboard_url, json=data, timeout=15)
-        
-        if response.status_code == 200:
-            result = response.json()
-            site_id = result.get("site_id")
-            set_setting("dashboard_registered", "true")
-            set_setting("dashboard_id", str(site_id))
-            print(f"[AUTO-REG] ✅ {result.get('message', 'Site enregistré')} - Site ID: {site_id}")
-        elif response.status_code == 404:
-            print(f"[AUTO-REG] ⚠️ Erreur 404: L'endpoint /api/sites/register n'existe pas encore")
-            print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-        else:
-            print(f"[AUTO-REG] ⚠️ Erreur {response.status_code}: {response.text}")
-    
-    except requests.exceptions.Timeout:
-        print(f"[AUTO-REG] ⚠️ Timeout: Le dashboard ne répond pas")
-        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-    except Exception as e:
-        print(f"[AUTO-REG] ⚠️ Erreur: {e}")
-        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-        # S'assurer que l'API key est générée même en cas d'erreur
-        auto_generate_api_key()
-
-@app.route('/api/sync-dashboard', methods=['POST'])
-def sync_dashboard():
-    """Endpoint manuel pour forcer la synchronisation avec le dashboard"""
-    try:
-        # Réinitialiser le flag
-        set_setting("dashboard_registered", "false")
-        
-        # Relancer l'enregistrement
-        register_site_to_dashboard()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Sync triggered'
-        }), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ================================
 # SAAS ARTISTES – WORKFLOW
