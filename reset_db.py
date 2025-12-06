@@ -1,26 +1,27 @@
-import sqlite3
-
-DB_PATH = 'paintings.db'
+def reset_database():
+import os
+import psycopg2
 
 def reset_database():
-    conn = sqlite3.connect(DB_PATH)
+    DATABASE_URL = os.getenv('DATABASE_URL')
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL n'est pas défini.")
+    conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
 
     # Sauvegarder le compte admin s'il existe (par défaut email admin@admin.com)
-    c.execute("SELECT name, email, password, create_date FROM users WHERE email = ?", ("admin@admin.com",))
+    c.execute("SELECT name, email, password, create_date FROM users WHERE email = %s", ("admin@admin.com",))
     admin_user = c.fetchone()
 
     # Supprimer toutes les tables si elles existent
     tables = ["order_items", "orders", "cart_items", "carts", "users", "paintings"]
     for table in tables:
-        c.execute(f"DROP TABLE IF EXISTS {table}")
+        c.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
 
     # Recréation des tables
-
-    # Peintures
     c.execute('''
         CREATE TABLE paintings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             image TEXT NOT NULL,
             price REAL NOT NULL DEFAULT 0,
@@ -29,10 +30,9 @@ def reset_database():
         )
     ''')
 
-    # Utilisateurs
     c.execute('''
         CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
@@ -42,12 +42,11 @@ def reset_database():
 
     # Réinsérer le compte admin si sauvegardé
     if admin_user:
-        c.execute("INSERT INTO users (name, email, password, create_date) VALUES (?, ?, ?, ?)", admin_user)
+        c.execute("INSERT INTO users (name, email, password, create_date) VALUES (%s, %s, %s, %s)", admin_user)
 
-    # Commandes
     c.execute('''
         CREATE TABLE orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             customer_name TEXT NOT NULL,
             email TEXT NOT NULL,
             address TEXT NOT NULL,
@@ -58,10 +57,9 @@ def reset_database():
         )
     ''')
 
-    # Articles de commande
     c.execute('''
         CREATE TABLE order_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             order_id INTEGER NOT NULL,
             painting_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
@@ -70,10 +68,9 @@ def reset_database():
         )
     ''')
 
-    # Panier persistant
     c.execute('''
         CREATE TABLE carts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             session_id TEXT NOT NULL UNIQUE,
             user_id INTEGER
         )
@@ -81,13 +78,16 @@ def reset_database():
 
     c.execute('''
         CREATE TABLE cart_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             cart_id INTEGER NOT NULL,
             painting_id INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
             FOREIGN KEY(cart_id) REFERENCES carts(id)
         )
     ''')
+
+    conn.commit()
+    conn.close()
 
     conn.commit()
     conn.close()
