@@ -287,6 +287,7 @@
 
 <script>
 const API_KEY = "{{ api_key }}";
+const USER_ID = "{{ user_id }}";
 let successSiteUrl = null;
 
 function handleDomainSubmit(event) {
@@ -326,6 +327,7 @@ function handleDomainSubmit(event) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            user_id: USER_ID,
             domain: fullDomain,
             api_key: API_KEY
         })

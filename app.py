@@ -4487,7 +4487,23 @@ def saas_launch_site():
 
 @app.route('/saas/launch/success')
 def saas_launch_success():
+    # Récupérer l'user_id depuis la session ou la métadonnée Stripe
     user_id = session.get('user_id')
+    
+    # Si pas en session, récupérer depuis la session Stripe
+    if not user_id:
+        session_id = request.args.get('session_id')
+        if session_id:
+            try:
+                stripe_secret = get_stripe_secret_key()
+                if stripe_secret:
+                    stripe.api_key = stripe_secret
+                    session_obj = stripe.checkout.Session.retrieve(session_id)
+                    user_id = session_obj.metadata.get('user_id') if session_obj.metadata else None
+                    user_id = int(user_id) if user_id and user_id.isdigit() else None
+            except Exception as e:
+                print(f"[SAAS] Erreur récupération metadata Stripe: {e}")
+    
     if not user_id:
         flash("Erreur: utilisateur non identifié.")
         return redirect(url_for('home'))
@@ -4505,11 +4521,17 @@ def saas_launch_success():
 @app.route('/api/saas/register-site', methods=['POST'])
 def api_register_site_saas():
     """Enregistre le site au dashboard et lance le déploiement"""
-    user_id = session.get('user_id')
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    
     if not user_id:
         return jsonify({"error": "unauthorized"}), 401
     
-    data = request.get_json() or {}
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return jsonify({"error": "user_id invalide"}), 400
+    
     domain = data.get('domain', '').strip()
     api_key = data.get('api_key', '').strip()
     
