@@ -1843,13 +1843,13 @@ def inject_cart():
     # --- PANIER ---
     cart_id = None
     if user_id:
-        c.execute(adapt_query("SELECT id FROM carts WHERE user_id=%s"), (user_id,))
+        c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
         row = c.fetchone()
         if row:
             # psycopg2 returns tuple by default, but can be dict if cursor_factory is set
             cart_id = row[0] if isinstance(row, tuple) else row.get('id')
     elif session_id:
-        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=%s"), (session_id,))
+        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
         row = c.fetchone()
         if row:
             cart_id = row[0] if isinstance(row, tuple) else row.get('id')
@@ -1857,12 +1857,12 @@ def inject_cart():
     cart_items = []
     total_qty = 0
     if cart_id:
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT ci.painting_id, p.name, p.image, p.price, ci.quantity
             FROM cart_items ci
             JOIN paintings p ON ci.painting_id = p.id
-            WHERE ci.cart_id=%s
-        """, (cart_id,))
+            WHERE ci.cart_id=?
+        """), (cart_id,))
         cart_items = c.fetchall()
         # psycopg2 returns tuples by default
         total_qty = sum(item[4] if isinstance(item, tuple) else item.get('quantity', 0) for item in cart_items)
@@ -1870,7 +1870,7 @@ def inject_cart():
     # --- FAVORIS ---
     favorite_ids = []
     if user_id:
-        c.execute("SELECT painting_id FROM favorites WHERE user_id=%s", (user_id,))
+        c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=?"), (user_id,))
         favorite_ids = [row[0] if isinstance(row, tuple) else row.get('painting_id') for row in c.fetchall()]
 
     # --- NOTIFICATIONS ADMIN ---
