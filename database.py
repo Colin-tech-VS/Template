@@ -85,6 +85,7 @@ def adapt_query(query):
     Adapte une requête SQLite pour PostgreSQL
     - AUTOINCREMENT -> SERIAL
     - ? -> %s (paramètres)
+    - RANDOM() -> RANDOM() (compatible)
     - CURRENT_TIMESTAMP reste identique
     """
     if not IS_POSTGRES:
@@ -219,6 +220,47 @@ PARAM_PLACEHOLDER = '%s' if IS_POSTGRES else '?'
 AUTOINCREMENT = 'SERIAL' if IS_POSTGRES else 'INTEGER PRIMARY KEY AUTOINCREMENT'
 
 
+def create_indexes_if_not_exists(user_id=None):
+    """
+    Crée des index sur les colonnes fréquemment requêtées pour améliorer les performances
+    Args:
+        user_id: Si fourni, crée les index pour la DB d'un site spécifique
+    """
+    indexes = [
+        # Index sur les colonnes fréquemment utilisées dans les requêtes
+        ("idx_paintings_category", "paintings", "category"),
+        ("idx_paintings_status", "paintings", "status"),
+        ("idx_paintings_display_order", "paintings", "display_order"),
+        ("idx_paintings_quantity", "paintings", "quantity"),
+        ("idx_orders_user_id", "orders", "user_id"),
+        ("idx_orders_status", "orders", "status"),
+        ("idx_order_items_order_id", "order_items", "order_id"),
+        ("idx_order_items_painting_id", "order_items", "painting_id"),
+        ("idx_cart_items_cart_id", "cart_items", "cart_id"),
+        ("idx_cart_items_painting_id", "cart_items", "painting_id"),
+        ("idx_carts_user_id", "carts", "user_id"),
+        ("idx_carts_session_id", "carts", "session_id"),
+        ("idx_favorites_user_id", "favorites", "user_id"),
+        ("idx_favorites_painting_id", "favorites", "painting_id"),
+    ]
+    
+    conn = get_db(user_id=user_id)
+    cursor = conn.cursor()
+    
+    for index_name, table_name, column_name in indexes:
+        try:
+            # CREATE INDEX IF NOT EXISTS est compatible SQLite et PostgreSQL
+            sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}({column_name})"
+            cursor.execute(sql)
+            conn.commit()
+        except Exception as e:
+            # L'index peut déjà exister ou la table peut ne pas exister
+            print(f"Info: Index {index_name} non créé - {e}")
+    
+    conn.close()
+    print(f"Index de performance créés/vérifiés")
+
+
 def init_database(user_id=None):
     """
     Initialise les tables de la base de données
@@ -229,6 +271,9 @@ def init_database(user_id=None):
     
     for table_name, columns in TABLES.items():
         create_table_if_not_exists(table_name, columns, user_id=user_id)
+    
+    # Créer les index de performance
+    create_indexes_if_not_exists(user_id=user_id)
     
     db_type = 'PostgreSQL' if IS_POSTGRES else 'SQLite'
     if user_id:

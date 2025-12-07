@@ -370,15 +370,19 @@ def get_setting(key, user_id=None):
         key: Clé du paramètre
         user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
     """
-    conn = get_db(user_id=user_id)
-    cur = conn.cursor()
-    query = adapt_query("SELECT value FROM settings WHERE key = ?")
-    cur.execute(query, (key,))
-    row = cur.fetchone()
-    conn.close()
-    if row:
-        return row['value'] if IS_POSTGRES else row["value"]
-    return None
+    try:
+        conn = get_db(user_id=user_id)
+        cur = conn.cursor()
+        query = adapt_query("SELECT value FROM settings WHERE key = ?")
+        cur.execute(query, (key,))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return row['value'] if IS_POSTGRES else row["value"]
+        return None
+    except Exception as e:
+        # La table settings n'existe peut-être pas encore lors du premier démarrage
+        return None
 
 try:
     stripe_key = get_stripe_secret_key()
@@ -526,6 +530,10 @@ def migrate_db():
     for table_name, cols in TABLES.items():
         for col_name, col_type in cols.items():
             add_column_if_not_exists(table_name, col_name, col_type)
+    
+    # --- Créer les index de performance ---
+    from database import create_indexes_if_not_exists
+    create_indexes_if_not_exists()
     
     print("Migration terminée ✅")
     
@@ -720,13 +728,12 @@ def home():
     conn = get_db()
     c = conn.cursor()
 
-    # Sélection explicite pour latest_paintings
-    c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC LIMIT 4")
-    latest_paintings = c.fetchall()
-
-    # Sélection explicite pour all_paintings
+    # Une seule requête pour récupérer toutes les peintures nécessaires
     c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC")
     all_paintings = c.fetchall()
+    
+    # Les 4 dernières peintures sont les premières du résultat
+    latest_paintings = all_paintings[:4]
 
     conn.close()
     return render_template("index.html", latest_paintings=latest_paintings, paintings=all_paintings)

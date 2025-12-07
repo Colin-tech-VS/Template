@@ -178,7 +178,8 @@ body {
 <header class="hero">
     <img src="{{ url_for('static', filename='Images/Test.jpg') }}" 
          alt="Œuvre d'art visuelle" 
-         class="hero-media">
+         class="hero-media"
+         loading="eager">
     <div class="hero-overlay">
         <div class="hero-text">
             <h1 data-shop-name>{{ site_settings.home_title }}</h1>
@@ -197,7 +198,8 @@ body {
                 <span class="badge" aria-label="Nouvelle œuvre">Nouveau</span>
                 <div class="artwork-image-wrapper">
                     <img src="{{ url_for('static', filename=painting[2]) }}" 
-                         alt="Peinture '{{ painting[1] }}' par l'artiste">
+                         alt="Peinture '{{ painting[1] }}' par l'artiste"
+                         loading="lazy">
                     {% if painting[0] in favorite_ids %}
                         <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
                     {% else %}
@@ -233,7 +235,8 @@ body {
             {% endif %}
             <div class="artwork-image-wrapper">
                 <img src="{{ url_for('static', filename=painting[2]) }}" 
-                     alt="Peinture '{{ painting[1] }}' disponible en boutique">
+                     alt="Peinture '{{ painting[1] }}' disponible en boutique"
+                     loading="lazy">
                 {% if painting[0] in favorite_ids %}
                     <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
                 {% else %}
