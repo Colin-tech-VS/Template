@@ -1,4 +1,20 @@
 # Fonction pour récupérer dynamiquement la clé Stripe depuis le dashboard central
+# --- CACHE DASHBOARD ---
+import time
+
+# Simple cache dict: {key: (value, timestamp)}
+DASHBOARD_CACHE = {}
+def get_dashboard_cache(key, max_age=900):
+    entry = DASHBOARD_CACHE.get(key)
+    if entry:
+        value, ts = entry
+        if time.time() - ts < max_age:
+            return value
+    return None
+
+def set_dashboard_cache(key, value):
+    DASHBOARD_CACHE[key] = (value, time.time())
+
 def get_stripe_secret_key():
     # 1) env var (highest priority)
     env_key = os.getenv('STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
@@ -16,6 +32,11 @@ def get_stripe_secret_key():
         print(f"[SAAS] Erreur lecture clé Stripe BDD: {e}")
 
     # 3) dashboard server->server fallback (only if dashboard exposes it)
+    cache_key = 'stripe_secret_key'
+    cached = get_dashboard_cache(cache_key)
+    if cached:
+        print('[SAAS] Stripe secret key loaded from cache')
+        return cached
     try:
         base_url = get_setting("dashboard_api_base") or os.getenv('DASHBOARD_URL') or "https://admin.artworksdigital.fr"
         if base_url:
@@ -25,6 +46,7 @@ def get_stripe_secret_key():
                 data = resp.json()
                 key = data.get("stripe_secret_key") or data.get('secret_key') or data.get('sk')
                 if key:
+                    set_dashboard_cache(cache_key, key)
                     print('[SAAS] Stripe secret key retrieved from dashboard endpoint')
                     return key
     except Exception as e:
@@ -460,6 +482,11 @@ def fetch_dashboard_site_price():
         pass
 
     # Priorité 1: endpoint price dédié au site
+    cache_key = f"site_price_{site_id}"
+    cached = get_dashboard_cache(cache_key)
+    if cached:
+        print('[SAAS] Site price loaded from cache')
+        return cached
     endpoint_site_price = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
     # Priorité 2: endpoint config (prix affiché dans l'input config artwork)
     endpoint_config = f"{base_url}/api/config/artworks"
@@ -479,6 +506,7 @@ def fetch_dashboard_site_price():
             base_price = float(data.get("price") or data.get("site_price") or 0)
             if base_price > 0:
                 set_setting("saas_site_price_cache", str(base_price))
+                set_dashboard_cache(cache_key, base_price)
                 return base_price
             # Non-fatal: endpoint responded but did not contain a usable price
             print(f"[SAAS] Prix non disponible dans la réponse depuis {ep}: {data}")
