@@ -433,8 +433,8 @@ else:
 # Vérifier les valeurs SMTP
 smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
 smtp_port = int(get_setting("smtp_port") or 587)
-smtp_user = get_setting("email_sender") or "coco.cayre@gmail.com"
-smtp_password = get_setting("smtp_password") or "motdepassepardefaut"
+smtp_user = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+smtp_password = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
 print("SMTP_SERVER :", smtp_server)
 print("SMTP_PORT   :", smtp_port)
@@ -2208,10 +2208,10 @@ def contact():
             return redirect(url_for('contact'))
 
         # Configuration email
-        SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-        SMTP_PORT = int(get_setting("smtp_port") or 587)
-        SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-        SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+        SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+        SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
+        SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+        SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
         try:
             msg = MIMEMultipart()
@@ -2965,11 +2965,12 @@ def update_user_role(user_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Ne pas laisser supprimer l'admin principal
+    # Ne pas laisser supprimer l'admin principal (défini via ADMIN_EMAIL)
     c.execute(adapt_query("SELECT email FROM users WHERE id=?"), (user_id,))
     user = c.fetchone()
     
-    if user and user[0] == 'coco.cayre@gmail.com' and role != 'admin':
+    admin_email = os.getenv('ADMIN_EMAIL', 'coco.cayre@gmail.com')
+    if user and user[0] == admin_email and role != 'admin':
         flash("Impossible de retirer le rôle admin à l'administrateur principal.")
         conn.close()
         return redirect(url_for('admin_users'))
@@ -3008,11 +3009,11 @@ def send_email_role():
         flash(f"Aucun {role} trouvé pour l'envoi.")
         return redirect(url_for('admin_users'))
 
-    # --- Configuration SMTP Gmail ---
-    SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-    SMTP_PORT = int(get_setting("smtp_port") or 587)
-    SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-    SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+    # --- Configuration SMTP ---
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
+    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+    SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
     # HTML du mail
     # HTML du mail avec design similaire à ton site
@@ -3084,10 +3085,10 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
     Envoie un email de confirmation de commande au client avec design moderne du site.
     """
     # --- CONFIGURATION SMTP DYNAMIQUE ---
-    SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-    SMTP_PORT = int(get_setting("smtp_port") or 587)
-    SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-    SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
+    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+    SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
     color_primary = get_setting("color_primary") or "#6366f1"
     
     # --- CONSTRUCTION DU MESSAGE ---
