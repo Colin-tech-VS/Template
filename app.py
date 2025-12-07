@@ -1846,13 +1846,13 @@ def inject_cart():
         c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
         row = c.fetchone()
         if row:
-            # psycopg2 returns tuple by default, but can be dict if cursor_factory is set
-            cart_id = row[0] if isinstance(row, tuple) else row.get('id')
+            # psycopg2 and sqlite3.Row both support index access, not .get()
+            cart_id = row[0]
     elif session_id:
         c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
         row = c.fetchone()
         if row:
-            cart_id = row[0] if isinstance(row, tuple) else row.get('id')
+            cart_id = row[0]
 
     cart_items = []
     total_qty = 0
@@ -2842,11 +2842,9 @@ def export_users():
         query += """ AND (
             CAST(id AS TEXT) LIKE ? OR
             LOWER(name) LIKE ? OR
-            LOWER(email) LIKE ? OR
-            LOWER(role) LIKE ? OR
-            LOWER(create_date) LIKE ?
+            LOWER(email) LIKE ?
         )"""
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
 
     if role_filter:
         query += " AND role = ?"
@@ -3928,58 +3926,3 @@ def api_register_site_saas():
     except Exception as e:
         print(f"[SAAS] Erreur enregistrement site: {e}")
         return jsonify({"error": str(e)}), 500
-
-
-# ================================
-# AUTO-REGISTRATION AU CHARGEMENT DU MODULE
-# (Compatible avec Gunicorn)
-# ================================
-
-def init_auto_registration():
-    """
-    Initialise l'auto-registration au chargement du module.
-    S'exécute avec Flask dev server ET avec Gunicorn.
-    """
-    import threading
-    import time
-    
-    # Sécuriser l'activation au démarrage: activer si variable d'env présente
-    try:
-        env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
-        current = get_setting("enable_auto_registration")
-        if env_override:
-            set_setting("enable_auto_registration", "true")
-            print("[AUTO-REG] ✅ Activation via ENABLE_AUTO_REGISTRATION=true")
-        elif current is None:
-            # Défaut sûr: activer si le paramètre n'existe pas
-            set_setting("enable_auto_registration", "true")
-            print("[AUTO-REG] ✅ Activation par défaut de enable_auto_registration (paramètre manquant)")
-    except Exception as e:
-        print(f"[AUTO-REG] ⚠️ Impossible de forcer l'activation: {e}")
-    
-    def register_async():
-        """Enregistrement asynchrone pour ne pas bloquer le démarrage"""
-        time.sleep(2)  # Attendre que l'app soit prête
-        
-        with app.app_context():
-            try:
-                print("[AUTO-REG] 🚀 Démarrage auto-registration...")
-                register_site_to_dashboard()
-            except Exception as e:
-                print(f"[AUTO-REG] ⚠️ Erreur globale: {e}")
-    
-    # Lancer dans un thread daemon pour ne pas bloquer
-    thread = threading.Thread(target=register_async, daemon=True)
-    thread.start()
-    print("[AUTO-REG] Thread de registration lancé")
-
-# Exécuter l'auto-registration au chargement du module
-# (fonctionne avec 'python app.py' ET 'gunicorn app:app')
-init_auto_registration()
-
-# --------------------------------
-# LANCEMENT DE L'APPLICATION
-# --------------------------------
-if __name__ == "__main__":
-    # Mode développement local uniquement
-    app.run(debug=True)
