@@ -244,20 +244,21 @@ def create_indexes_if_not_exists(user_id=None):
         ("idx_favorites_painting_id", "favorites", "painting_id"),
     ]
     
-    conn = get_db(user_id=user_id)
-    cursor = conn.cursor()
+    with get_db_connection(user_id=user_id) as conn:
+        cursor = conn.cursor()
+        
+        for index_name, table_name, column_name in indexes:
+            try:
+                # CREATE INDEX IF NOT EXISTS est compatible SQLite et PostgreSQL
+                sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}({column_name})"
+                cursor.execute(sql)
+            except Exception as e:
+                # L'index peut déjà exister ou la table peut ne pas exister
+                print(f"Info: Index {index_name} non créé - {e}")
+        
+        # Un seul commit pour toutes les créations d'index
+        conn.commit()
     
-    for index_name, table_name, column_name in indexes:
-        try:
-            # CREATE INDEX IF NOT EXISTS est compatible SQLite et PostgreSQL
-            sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {table_name}({column_name})"
-            cursor.execute(sql)
-            conn.commit()
-        except Exception as e:
-            # L'index peut déjà exister ou la table peut ne pas exister
-            print(f"Info: Index {index_name} non créé - {e}")
-    
-    conn.close()
     print(f"Index de performance créés/vérifiés")
 
 

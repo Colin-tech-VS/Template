@@ -689,7 +689,9 @@
             {% for similar in similar_paintings %}
             <a href="{{ url_for('painting_detail', painting_id=similar[0]) }}" class="similar-card">
                 <div class="similar-image">
-                    <img src="{{ url_for('static', filename=similar[2]) }}" alt="{{ similar[1] }}">
+                    <img src="{{ url_for('static', filename=similar[2]) }}" 
+                         alt="{{ similar[1] }}"
+                         loading="lazy">
                 </div>
                 <div class="similar-info">
                     <div class="similar-name">{{ similar[1] }}</div>
