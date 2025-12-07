@@ -110,12 +110,23 @@ print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{
 app = Flask(__name__)
 
 # Sécuriser la secret_key en priorité depuis l'environnement
-app.secret_key = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
-print(f"🔐 Flask secret_key configurée (source: {'environnement' if os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') else 'générée'})")
+flask_secret = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY')
+if flask_secret:
+    app.secret_key = flask_secret
+    print(f"🔐 Flask secret_key configurée depuis l'environnement")
+else:
+    app.secret_key = secrets.token_urlsafe(32)
+    print("⚠️  Flask secret_key générée aléatoirement - Les sessions seront réinitialisées au redémarrage!")
+    print("   Pour éviter cela, définissez FLASK_SECRET ou SECRET_KEY dans vos variables d'environnement")
+
+# Configuration SMTP par défaut (constantes)
+DEFAULT_SMTP_SERVER = "smtp.gmail.com"
+DEFAULT_SMTP_PORT = 587
+DEFAULT_SMTP_USER = "admin@example.com"
 
 # Config Flask-Mail - lecture depuis l'environnement ou settings DB
-mail_server = os.getenv('MAIL_SERVER') or get_setting("smtp_server") or "smtp.gmail.com"
-mail_port = int(os.getenv('MAIL_PORT') or get_setting("smtp_port") or 587)
+mail_server = os.getenv('MAIL_SERVER') or get_setting("smtp_server") or DEFAULT_SMTP_SERVER
+mail_port = int(os.getenv('MAIL_PORT') or get_setting("smtp_port") or DEFAULT_SMTP_PORT)
 mail_username = os.getenv('MAIL_USERNAME') or get_setting("email_sender") or None
 mail_password = os.getenv('MAIL_PASSWORD') or get_setting("smtp_password") or None
 
@@ -431,9 +442,9 @@ else:
     print("Stripe non configuré: aucune clé fournie")
 
 # Vérifier les valeurs SMTP
-smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
-smtp_port = int(get_setting("smtp_port") or 587)
-smtp_user = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+smtp_server = get_setting("smtp_server") or DEFAULT_SMTP_SERVER
+smtp_port = int(get_setting("smtp_port") or DEFAULT_SMTP_PORT)
+smtp_user = get_setting("email_sender") or os.getenv('MAIL_USERNAME', DEFAULT_SMTP_USER)
 smtp_password = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
 print("SMTP_SERVER :", smtp_server)
@@ -478,7 +489,7 @@ def is_preview_request():
         or ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
-        or preview_param in ['true', '1', 'yes']
+        or preview_param in ['true', '1', 'on']  # Standard boolean values
     )
     
     if is_preview:
@@ -2208,9 +2219,9 @@ def contact():
             return redirect(url_for('contact'))
 
         # Configuration email
-        SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-        SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
-        SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+        SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', DEFAULT_SMTP_SERVER)
+        SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', DEFAULT_SMTP_PORT))
+        SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', DEFAULT_SMTP_USER)
         SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
         try:
@@ -3010,9 +3021,9 @@ def send_email_role():
         return redirect(url_for('admin_users'))
 
     # --- Configuration SMTP ---
-    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
-    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', DEFAULT_SMTP_SERVER)
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', DEFAULT_SMTP_PORT))
+    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', DEFAULT_SMTP_USER)
     SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
 
     # HTML du mail
@@ -3085,9 +3096,9 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
     Envoie un email de confirmation de commande au client avec design moderne du site.
     """
     # --- CONFIGURATION SMTP DYNAMIQUE ---
-    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', 587))
-    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', 'admin@example.com')
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv('MAIL_SERVER', DEFAULT_SMTP_SERVER)
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv('MAIL_PORT', DEFAULT_SMTP_PORT))
+    SMTP_USER = get_setting("email_sender") or os.getenv('MAIL_USERNAME', DEFAULT_SMTP_USER)
     SMTP_PASSWORD = get_setting("smtp_password") or os.getenv('MAIL_PASSWORD', '')
     color_primary = get_setting("color_primary") or "#6366f1"
     
@@ -3302,24 +3313,37 @@ def api_export_full():
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
 def api_orders():
-    """Récupère toutes les commandes au format dashboard"""
+    """Récupère toutes les commandes au format dashboard avec pagination optionnelle"""
     conn = None
     try:
         print("[DEBUG] /api/export/orders - Début récupération des commandes")
+        
+        # Paramètres de pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        per_page = min(per_page, 500)  # Limiter à 500 max pour éviter les surcharges
+        
+        offset = (page - 1) * per_page
+        
         conn = get_db()
         cur = conn.cursor()
         
-        # Récupérer les commandes avec tous les champs nécessaires
+        # Compter le total de commandes
+        cur.execute(adapt_query("SELECT COUNT(*) FROM orders"))
+        total_orders = cur.fetchone()[0]
+        
+        # Récupérer les commandes avec pagination
         cur.execute(adapt_query("""
             SELECT id, customer_name, email, total_price, order_date, status 
             FROM orders 
             ORDER BY order_date DESC
-        """))
+            LIMIT ? OFFSET ?
+        """), (per_page, offset))
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
         
-        print(f"[DEBUG] /api/export/orders - {len(orders)} commandes récupérées")
+        print(f"[DEBUG] /api/export/orders - {len(orders)} commandes récupérées (page {page}/{(total_orders + per_page - 1) // per_page})")
         
         # Pour chaque commande, récupérer ses items avec les infos des peintures
         for order in orders:
@@ -3338,7 +3362,16 @@ def api_orders():
             order['site_name'] = get_setting("site_name") or "Site Artiste"
             
         print(f"[DEBUG] /api/export/orders - Items ajoutés pour toutes les commandes")
-        return jsonify({"orders": orders})
+        
+        return jsonify({
+            "orders": orders,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total_orders,
+                "pages": (total_orders + per_page - 1) // per_page
+            }
+        })
         
     except Exception as e:
         print(f"[ERROR] /api/export/orders - Erreur: {e}")
@@ -3651,9 +3684,9 @@ def api_stripe_pk():
                            data.get('stripe_key') or 
                            data.get('stripe_publishable'))
                     
-                    # Vérifier que ce n'est pas une clé secrète (sécurité)
-                    if key and key.startswith('sk_'):
-                        print(f"[SECURITY] /api/stripe-pk - ERREUR: Tentative d'exposition d'une clé secrète bloquée!")
+                    # Vérifier que ce n'est pas une clé secrète ou restreinte (sécurité)
+                    if key and (key.startswith('sk_') or key.startswith('rk_')):
+                        print(f"[SECURITY] /api/stripe-pk - ERREUR: Tentative d'exposition d'une clé secrète/restreinte bloquée!")
                         return jsonify({"success": False, "message": "security_error"}), 500
                     
                     if key:
