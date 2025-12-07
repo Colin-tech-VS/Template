@@ -115,7 +115,18 @@ print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{
 
 app = Flask(__name__)
 # Sécuriser la clé secrète Flask depuis l'environnement
-app.secret_key = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
+flask_secret = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY')
+if not flask_secret:
+    # En développement, générer une clé aléatoire
+    if os.getenv('FLASK_ENV') == 'production':
+        raise RuntimeError(
+            "FLASK_SECRET ou SECRET_KEY doit être défini en production! "
+            "Générez une clé avec: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
+    flask_secret = secrets.token_urlsafe(32)
+    print("⚠️  WARNING: Using random secret key. This will invalidate sessions on restart.")
+    print("⚠️  Set FLASK_SECRET or SECRET_KEY environment variable for production.")
+app.secret_key = flask_secret
 
 # Config Flask-Mail depuis l'environnement ou settings
 mail_server = os.getenv('MAIL_SERVER') or 'smtp.gmail.com'
@@ -439,9 +450,10 @@ smtp_port = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
 smtp_user = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
 smtp_password = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
 
+# Log configuration (masquant les valeurs sensibles)
 print("SMTP_SERVER :", smtp_server)
 print("SMTP_PORT   :", smtp_port)
-print("SMTP_USER   :", smtp_user if smtp_user else "Non défini")
+print("SMTP_USER   :", smtp_user[:3] + "***" + smtp_user[-3:] if smtp_user and len(smtp_user) > 6 else ("Défini" if smtp_user else "Non défini"))
 print("SMTP_PASSWORD défini :", bool(smtp_password))
 
 google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
@@ -3250,13 +3262,13 @@ def require_api_key(f):
             # Générer une nouvelle clé si elle n'existe pas
             stored_key = secrets.token_urlsafe(32)
             set_setting('export_api_key', stored_key)
-            print(f"[DEBUG] require_api_key: Nouvelle clé export générée: {stored_key[:10]}...")
+            print("[DEBUG] require_api_key: Nouvelle clé export générée")
         
         if api_key == stored_key:
             print("[DEBUG] require_api_key: Clé export validée")
             return f(*args, **kwargs)
         
-        print(f"[DEBUG] require_api_key: Clé API invalide: {api_key[:10]}...")
+        print("[DEBUG] require_api_key: Clé API invalide")
         return jsonify({'error': 'API key invalide'}), 403
     
     return decorated_function
@@ -3350,11 +3362,17 @@ def api_orders():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
-        # Gestion propre des curseurs et connexions
+        # Gestion propre des curseurs et connexions avec gestion d'erreur
         if cur:
-            cur.close()
+            try:
+                cur.close()
+            except Exception as e:
+                print(f"[ERROR] Erreur fermeture curseur: {e}")
         if conn:
-            conn.close()
+            try:
+                conn.close()
+            except Exception as e:
+                print(f"[ERROR] Erreur fermeture connexion: {e}")
 
 
 @app.route('/api/export/users', methods=['GET'])
@@ -3657,12 +3675,12 @@ def api_stripe_pk():
                            data.get('publishableKey') or 
                            data.get('stripe_key'))
                     
-                    # Ne JAMAIS exposer une clé secrète (commence par sk_)
-                    if key and not key.startswith('sk_'):
+                    # Ne JAMAIS exposer une clé secrète (commence par sk_) ou restreinte (rk_)
+                    if key and not key.startswith(('sk_', 'rk_')):
                         print(f"[DEBUG] /api/stripe-pk: Clé trouvée dans dashboard: {key[:15]}...")
                         return jsonify({"success": True, "publishable_key": key})
-                    elif key and key.startswith('sk_'):
-                        print("[ERROR] /api/stripe-pk: Le dashboard a retourné une clé secrète (sk_), ignorée")
+                    elif key and key.startswith(('sk_', 'rk_')):
+                        print("[ERROR] /api/stripe-pk: Le dashboard a retourné une clé sensible (sk_/rk_), ignorée")
                 else:
                     print(f"[DEBUG] /api/stripe-pk: Dashboard retourné {resp.status_code}")
             except Exception as e:
