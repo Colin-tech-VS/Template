@@ -16,42 +16,48 @@ def set_dashboard_cache(key, value):
     DASHBOARD_CACHE[key] = (value, time.time())
 
 def get_stripe_secret_key():
+    """Récupère la clé secrète Stripe (usage serveur uniquement)"""
     # 1) env var (highest priority)
     env_key = os.getenv('STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
     if env_key:
-        print('[SAAS] Stripe secret key loaded from environment')
+        print('[DEBUG] get_stripe_secret_key: Clé trouvée dans env variables')
         return env_key
 
     # 2) local DB setting
     try:
         db_key = get_setting('stripe_secret_key')
         if db_key:
-            print('[SAAS] Stripe secret key loaded from local settings (DB)')
+            print('[DEBUG] get_stripe_secret_key: Clé trouvée dans settings DB')
             return db_key
     except Exception as e:
-        print(f"[SAAS] Erreur lecture clé Stripe BDD: {e}")
+        print(f"[ERROR] get_stripe_secret_key: Erreur lecture BDD: {e}")
 
     # 3) dashboard server->server fallback (only if dashboard exposes it)
     cache_key = 'stripe_secret_key'
     cached = get_dashboard_cache(cache_key)
     if cached:
-        print('[SAAS] Stripe secret key loaded from cache')
+        print('[DEBUG] get_stripe_secret_key: Clé trouvée dans cache')
         return cached
+    
     try:
         base_url = get_setting("dashboard_api_base") or os.getenv('DASHBOARD_URL') or "https://admin.artworksdigital.fr"
         if base_url:
             url = f"{base_url.rstrip('/')}/api/export/settings/stripe_secret_key"
+            print(f"[DEBUG] get_stripe_secret_key: Tentative récupération depuis {url}")
             resp = requests.get(url, timeout=8)
             if resp.status_code == 200:
                 data = resp.json()
                 key = data.get("stripe_secret_key") or data.get('secret_key') or data.get('sk')
                 if key:
                     set_dashboard_cache(cache_key, key)
-                    print('[SAAS] Stripe secret key retrieved from dashboard endpoint')
+                    print('[DEBUG] get_stripe_secret_key: Clé récupérée depuis dashboard')
                     return key
+            else:
+                print(f"[DEBUG] get_stripe_secret_key: Dashboard retourné {resp.status_code}")
     except Exception as e:
-        print(f"[SAAS] Erreur récupération clé Stripe dashboard: {e}")
+        print(f"[ERROR] get_stripe_secret_key: Erreur dashboard: {e}")
 
+    print("[DEBUG] get_stripe_secret_key: Aucune clé trouvée")
     return None
 # --------------------------------
 # IMPORTS
@@ -108,15 +114,23 @@ TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-
 print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
 
 app = Flask(__name__)
-app.secret_key = 'secret_key'
+# Sécuriser la clé secrète Flask depuis l'environnement
+app.secret_key = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
 
-# Config Flask-Mail
+# Config Flask-Mail depuis l'environnement ou settings
+mail_server = os.getenv('MAIL_SERVER') or 'smtp.gmail.com'
+mail_port = int(os.getenv('MAIL_PORT', 587))
+mail_use_tls = os.getenv('MAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+mail_username = os.getenv('MAIL_USERNAME')
+mail_password = os.getenv('MAIL_PASSWORD')
+
+# Configuration SMTP sécurisée
 app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USERNAME='coco.cayre@example.com',
-    MAIL_PASSWORD='psgk wjhd wbdj gduo'
+    MAIL_SERVER=mail_server,
+    MAIL_PORT=mail_port,
+    MAIL_USE_TLS=mail_use_tls,
+    MAIL_USERNAME=mail_username,
+    MAIL_PASSWORD=mail_password
 )
 mail = Mail(app)
 
@@ -419,16 +433,16 @@ if stripe_key:
 else:
     print("Stripe non configuré: aucune clé fournie")
 
-# Vérifier les valeurs SMTP
-smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
-smtp_port = int(get_setting("smtp_port") or 587)
-smtp_user = get_setting("email_sender") or "coco.cayre@gmail.com"
-smtp_password = get_setting("smtp_password") or "motdepassepardefaut"
+# Vérifier les valeurs SMTP (avec fallback sur env puis valeur par défaut)
+smtp_server = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+smtp_port = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
+smtp_user = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+smtp_password = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
 
 print("SMTP_SERVER :", smtp_server)
 print("SMTP_PORT   :", smtp_port)
-print("SMTP_USER   :", smtp_user)
-print("SMTP_PASSWORD défini :", bool(get_setting("smtp_password")))
+print("SMTP_USER   :", smtp_user if smtp_user else "Non défini")
+print("SMTP_PASSWORD défini :", bool(smtp_password))
 
 google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
@@ -458,18 +472,34 @@ def get_dashboard_base_url():
 
 
 def is_preview_request():
+    """Détermine si la requête actuelle est en mode preview"""
     host = (request.host or "").lower()
-    return (
+    preview_param = request.args.get('preview', '').lower()
+    
+    # Vérifier le paramètre preview
+    is_preview_param = preview_param in ('1', 'true', 'yes', 'on')
+    
+    # Vérifier le hostname
+    is_preview_host = (
         host.endswith(".artworksdigital.fr")
         or ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
     )
+    
+    result = is_preview_param or is_preview_host
+    
+    print(f"[DEBUG] is_preview_request: host={host}, preview_param={preview_param}, result={result}")
+    
+    return result
 
 
 def fetch_dashboard_site_price():
+    """Récupère le prix du site depuis le dashboard avec fallbacks multiples"""
     base_url = get_dashboard_base_url()
     site_id = get_setting("dashboard_id")
+
+    print(f"[DEBUG] fetch_dashboard_site_price: base_url={base_url}, site_id={site_id}")
 
     # Priorité 0: override manuel (settings)
     manual = get_setting("saas_site_price_override")
@@ -477,54 +507,70 @@ def fetch_dashboard_site_price():
         if manual:
             val = float(manual)
             if val > 0:
+                print(f"[DEBUG] fetch_dashboard_site_price: Prix manuel override = {val}")
                 return val
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[DEBUG] fetch_dashboard_site_price: Erreur parsing override manuel: {e}")
 
-    # Priorité 1: endpoint price dédié au site
+    # Priorité 1: endpoint price dédié au site (avec cache)
     cache_key = f"site_price_{site_id}"
     cached = get_dashboard_cache(cache_key)
     if cached:
-        print('[SAAS] Site price loaded from cache')
+        print(f'[DEBUG] fetch_dashboard_site_price: Prix depuis cache = {cached}')
         return cached
+    
     endpoint_site_price = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
     # Priorité 2: endpoint config (prix affiché dans l'input config artwork)
     endpoint_config = f"{base_url}/api/config/artworks"
     endpoint_config_alt = f"{base_url}/api/config/artwork"
 
     endpoints = [endpoint_site_price, endpoint_config, endpoint_config_alt]
-    try:
-        for ep in endpoints:
-            try:
-                resp = requests.get(ep, timeout=8)
-            except Exception:
-                # network error, try next endpoint
-                continue
+    
+    for ep in endpoints:
+        try:
+            print(f"[DEBUG] fetch_dashboard_site_price: Tentative endpoint {ep}")
+            resp = requests.get(ep, timeout=8)
+            
             if resp.status_code != 200:
+                print(f"[DEBUG] fetch_dashboard_site_price: {ep} retourné {resp.status_code}")
                 continue
+            
             data = resp.json() or {}
-            base_price = float(data.get("price") or data.get("site_price") or 0)
-            if base_price > 0:
-                set_setting("saas_site_price_cache", str(base_price))
-                set_dashboard_cache(cache_key, base_price)
-                return base_price
-            # Non-fatal: endpoint responded but did not contain a usable price
-            print(f"[SAAS] Prix non disponible dans la réponse depuis {ep}: {data}")
-    except Exception as e:
-        print(f"[SAAS] Erreur récupération prix dashboard: {e}")
+            print(f"[DEBUG] fetch_dashboard_site_price: Réponse de {ep}: {data}")
+            
+            # Accepter différents noms de champs pour le prix
+            base_price = None
+            for key in ['price', 'site_price', 'basePrice', 'base_price']:
+                if key in data:
+                    try:
+                        base_price = float(data[key])
+                        if base_price > 0:
+                            print(f"[DEBUG] fetch_dashboard_site_price: Prix trouvé ({key}) = {base_price}")
+                            set_setting("saas_site_price_cache", str(base_price))
+                            set_dashboard_cache(cache_key, base_price)
+                            return base_price
+                    except (ValueError, TypeError) as e:
+                        print(f"[DEBUG] fetch_dashboard_site_price: Erreur conversion {key}: {e}")
+            
+            # Si aucun prix trouvé dans cette réponse
+            print(f"[DEBUG] fetch_dashboard_site_price: Aucun prix valide dans {ep}")
+        except requests.exceptions.RequestException as e:
+            print(f"[DEBUG] fetch_dashboard_site_price: Erreur réseau {ep}: {e}")
+        except Exception as e:
+            print(f"[ERROR] fetch_dashboard_site_price: Exception {ep}: {e}")
 
     # Fallback: use cached value if present
     cached = get_setting("saas_site_price_cache")
     if cached:
         try:
             val = float(cached)
-            print(f"[SAAS] Utilisation du cache saas_site_price_cache: {val}")
+            print(f"[DEBUG] fetch_dashboard_site_price: Utilisation cache DB = {val}")
             return val
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[DEBUG] fetch_dashboard_site_price: Erreur parsing cache: {e}")
 
     # No price available
-    print(f"[SAAS] Aucun prix récupérable (endpoints et cache vides)")
+    print(f"[DEBUG] fetch_dashboard_site_price: Aucun prix disponible")
     return None
 
 # Fonction helper pour récupérer le nombre de notifications non lues
@@ -702,8 +748,9 @@ def merge_carts(user_id, session_id):
 # Initialisation de la base de données (une seule fonction suffit maintenant)
 migrate_db()
 
-# Définir l'administrateur
-set_admin_user('coco.cayre@gmail.com')
+# Définir l'administrateur (depuis env ou valeur par défaut)
+admin_email = os.getenv('ADMIN_EMAIL', 'coco.cayre@gmail.com')
+set_admin_user(admin_email)
 
 # --------------------------------
 # UTILITAIRES
@@ -976,10 +1023,10 @@ def submit_custom_request():
     
     # Envoyer un email de confirmation au client
     try:
-        email_sender = get_setting("email_sender") or "contact@example.com"
-        smtp_password = get_setting("smtp_password")
-        smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
-        smtp_port = int(get_setting("smtp_port") or 587)
+        email_sender = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+        smtp_password = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
+        smtp_server = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+        smtp_port = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
         
         if smtp_password:
             msg = MIMEMultipart()
@@ -2163,11 +2210,11 @@ def contact():
             flash("Tous les champs sont obligatoires.")
             return redirect(url_for('contact'))
 
-        # Configuration email
-        SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-        SMTP_PORT = int(get_setting("smtp_port") or 587)
-        SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-        SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+        # Configuration email avec fallback env
+        SMTP_SERVER = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+        SMTP_PORT = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
+        SMTP_USER = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+        SMTP_PASSWORD = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
 
         try:
             msg = MIMEMultipart()
@@ -2921,11 +2968,12 @@ def update_user_role(user_id):
     conn = get_db()
     c = conn.cursor()
     
-    # Ne pas laisser supprimer l'admin principal
+    # Ne pas laisser supprimer l'admin principal (depuis env ou défaut)
+    admin_email = os.getenv('ADMIN_EMAIL', 'coco.cayre@gmail.com')
     c.execute(adapt_query("SELECT email FROM users WHERE id=?"), (user_id,))
     user = c.fetchone()
     
-    if user and user[0] == 'coco.cayre@gmail.com' and role != 'admin':
+    if user and user[0] == admin_email and role != 'admin':
         flash("Impossible de retirer le rôle admin à l'administrateur principal.")
         conn.close()
         return redirect(url_for('admin_users'))
@@ -2964,11 +3012,11 @@ def send_email_role():
         flash(f"Aucun {role} trouvé pour l'envoi.")
         return redirect(url_for('admin_users'))
 
-    # --- Configuration SMTP Gmail ---
-    SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-    SMTP_PORT = int(get_setting("smtp_port") or 587)
-    SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-    SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+    # --- Configuration SMTP avec fallback env ---
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
+    SMTP_USER = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+    SMTP_PASSWORD = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
 
     # HTML du mail
     # HTML du mail avec design similaire à ton site
@@ -3039,11 +3087,11 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
     """
     Envoie un email de confirmation de commande au client avec design moderne du site.
     """
-    # --- CONFIGURATION SMTP DYNAMIQUE ---
-    SMTP_SERVER = get_setting("smtp_server") or "smtp.gmail.com"
-    SMTP_PORT = int(get_setting("smtp_port") or 587)
-    SMTP_USER = get_setting("email_sender") or "coco.cayre@gmail.com"
-    SMTP_PASSWORD = get_setting("smtp_password") or "motdepassepardefaut"
+    # --- CONFIGURATION SMTP DYNAMIQUE avec fallback env ---
+    SMTP_SERVER = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+    SMTP_PORT = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
+    SMTP_USER = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+    SMTP_PASSWORD = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
     color_primary = get_setting("color_primary") or "#6366f1"
     
     # --- CONSTRUCTION DU MESSAGE ---
@@ -3178,21 +3226,39 @@ def dynamic_colors():
 from functools import wraps
 
 def require_api_key(f):
+    """Décorateur pour vérifier l'API key (header X-API-Key ou param api_key)
+    Priorité: 1) TEMPLATE_MASTER_API_KEY depuis env, 2) export_api_key depuis settings
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Récupérer la clé API depuis le header ou les paramètres
         api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        
         if not api_key:
+            print("[DEBUG] require_api_key: Aucune clé API fournie")
             return jsonify({'error': 'API key manquante'}), 401
-        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
+        
+        # Priorité 1: Vérifier la clé maître depuis l'environnement
+        master_key = os.getenv('TEMPLATE_MASTER_API_KEY') or TEMPLATE_MASTER_API_KEY
         if master_key and api_key == master_key:
+            print("[DEBUG] require_api_key: Clé maître validée")
             return f(*args, **kwargs)
+        
+        # Priorité 2: Vérifier la clé stockée en settings (export_api_key)
         stored_key = get_setting('export_api_key')
         if not stored_key:
+            # Générer une nouvelle clé si elle n'existe pas
             stored_key = secrets.token_urlsafe(32)
             set_setting('export_api_key', stored_key)
-        if api_key != stored_key:
-            return jsonify({'error': 'API key invalide'}), 403
-        return f(*args, **kwargs)
+            print(f"[DEBUG] require_api_key: Nouvelle clé export générée: {stored_key[:10]}...")
+        
+        if api_key == stored_key:
+            print("[DEBUG] require_api_key: Clé export validée")
+            return f(*args, **kwargs)
+        
+        print(f"[DEBUG] require_api_key: Clé API invalide: {api_key[:10]}...")
+        return jsonify({'error': 'API key invalide'}), 403
+    
     return decorated_function
 
 
@@ -3242,24 +3308,53 @@ def api_export_full():
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
 def api_orders():
-    """Récupère toutes les commandes au format dashboard"""
+    """Récupère toutes les commandes au format dashboard avec leurs items"""
+    conn = None
+    cur = None
     try:
+        print("[DEBUG] /api/export/orders: Début récupération des commandes")
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, customer_name, email, total_price, order_date, status FROM orders ORDER BY order_date DESC"))
+        
+        # Récupérer toutes les commandes triées par date décroissante
+        query_orders = adapt_query(
+            "SELECT id, customer_name, email, total_price, order_date, status "
+            "FROM orders ORDER BY order_date DESC"
+        )
+        cur.execute(query_orders)
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
+        
+        print(f"[DEBUG] /api/export/orders: {len(orders)} commandes récupérées")
+        
+        # Pour chaque commande, récupérer ses items avec JOIN sur paintings
         for order in orders:
-            cur.execute(adapt_query("SELECT painting_id, name, image, price, quantity FROM order_items LEFT JOIN paintings ON order_items.painting_id = paintings.id WHERE order_items.order_id = ?"), (order['id'],))
+            query_items = adapt_query(
+                "SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity "
+                "FROM order_items oi "
+                "LEFT JOIN paintings p ON oi.painting_id = p.id "
+                "WHERE oi.order_id = ?"
+            )
+            cur.execute(query_items, (order['id'],))
             items_rows = cur.fetchall()
             items_columns = [desc[0] for desc in cur.description]
             order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
             order['site_name'] = get_setting("site_name") or "Site Artiste"
-        conn.close()
+        
+        print(f"[DEBUG] /api/export/orders: Succès, retour de {len(orders)} commandes")
         return jsonify({"orders": orders})
     except Exception as e:
+        print(f"[ERROR] /api/export/orders: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Gestion propre des curseurs et connexions
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/export/users', methods=['GET'])
@@ -3531,38 +3626,54 @@ def api_stripe_pk():
              3) fallback server->server : interroger le dashboard central si configuré
     """
     try:
+        print("[DEBUG] /api/stripe-pk: Recherche de la clé publishable Stripe")
+        
         # 1) lecture locale (BDD)
         pk = get_setting('stripe_publishable_key')
         if pk:
+            print(f"[DEBUG] /api/stripe-pk: Clé trouvée dans settings: {pk[:15]}...")
             return jsonify({"success": True, "publishable_key": pk})
 
         # 2) env var fallback
         pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
         if pk:
+            print(f"[DEBUG] /api/stripe-pk: Clé trouvée dans env: {pk[:15]}...")
             return jsonify({"success": True, "publishable_key": pk})
 
         # 3) server->server fallback via dashboard
+        print("[DEBUG] /api/stripe-pk: Tentative de récupération depuis le dashboard")
         base_url = get_setting('dashboard_api_base') or os.getenv('DASHBOARD_URL') or 'https://admin.artworksdigital.fr'
         site_id = get_setting('dashboard_id') or os.getenv('SITE_NAME')
         if base_url and site_id:
             try:
                 ep = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+                print(f"[DEBUG] /api/stripe-pk: Appel endpoint dashboard: {ep}")
                 resp = requests.get(ep, timeout=6)
                 if resp.status_code == 200:
                     data = resp.json() or {}
-                    # accept different key names
-                    key = data.get('publishable_key') or data.get('stripe_publishable_key') or data.get('stripe_key') or data.get('stripe_publishable')
-                    if not key:
-                        # older dashboard might return under 'stripe_secret_key' (we must NOT expose secret)
-                        key = data.get('publishableKey')
-                    if key:
+                    # Accepter différents noms de champs depuis le dashboard
+                    key = (data.get('publishable_key') or 
+                           data.get('stripe_publishable_key') or 
+                           data.get('publishableKey') or 
+                           data.get('stripe_key'))
+                    
+                    # Ne JAMAIS exposer une clé secrète (commence par sk_)
+                    if key and not key.startswith('sk_'):
+                        print(f"[DEBUG] /api/stripe-pk: Clé trouvée dans dashboard: {key[:15]}...")
                         return jsonify({"success": True, "publishable_key": key})
+                    elif key and key.startswith('sk_'):
+                        print("[ERROR] /api/stripe-pk: Le dashboard a retourné une clé secrète (sk_), ignorée")
+                else:
+                    print(f"[DEBUG] /api/stripe-pk: Dashboard retourné {resp.status_code}")
             except Exception as e:
-                print(f"[SAAS] Erreur fallback Stripe PK depuis dashboard: {e}")
+                print(f"[ERROR] /api/stripe-pk: Erreur fallback dashboard: {e}")
 
+        print("[DEBUG] /api/stripe-pk: Aucune clé publishable trouvée")
         return jsonify({"success": False, "message": "no_publishable_key"}), 404
     except Exception as e:
-        print(f"[SAAS] Erreur endpoint /api/stripe-pk: {e}")
+        print(f"[ERROR] /api/stripe-pk: Exception: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -3676,10 +3787,10 @@ def _send_saas_step_email(user_id, step_name, subject, content):
             print(f"[DEBUG] Step: Email SKIP | UserID: {user_id} | Reason: user_not_found")
             return
         _, user_name, user_email = user
-        email_sender = get_setting("email_sender") or "contact@example.com"
-        smtp_password = get_setting("smtp_password")
-        smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
-        smtp_port = int(get_setting("smtp_port") or 587)
+        email_sender = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
+        smtp_password = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
+        smtp_server = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
+        smtp_port = int(get_setting("smtp_port") or os.getenv("SMTP_PORT") or 587)
 
         html_body = generate_email_html(
             title=subject,
