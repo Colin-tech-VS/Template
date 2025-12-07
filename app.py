@@ -108,16 +108,27 @@ TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-
 print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
 
 app = Flask(__name__)
-app.secret_key = 'secret_key'
 
-# Config Flask-Mail
+# Sécuriser la secret_key en priorité depuis l'environnement
+app.secret_key = os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
+print(f"🔐 Flask secret_key configurée (source: {'environnement' if os.getenv('FLASK_SECRET') or os.getenv('SECRET_KEY') else 'générée'})")
+
+# Config Flask-Mail - lecture depuis l'environnement ou settings DB
+mail_server = os.getenv('MAIL_SERVER') or get_setting("smtp_server") or "smtp.gmail.com"
+mail_port = int(os.getenv('MAIL_PORT') or get_setting("smtp_port") or 587)
+mail_username = os.getenv('MAIL_USERNAME') or get_setting("email_sender") or None
+mail_password = os.getenv('MAIL_PASSWORD') or get_setting("smtp_password") or None
+
 app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
+    MAIL_SERVER=mail_server,
+    MAIL_PORT=mail_port,
     MAIL_USE_TLS=True,
-    MAIL_USERNAME='coco.cayre@example.com',
-    MAIL_PASSWORD='psgk wjhd wbdj gduo'
+    MAIL_USERNAME=mail_username,
+    MAIL_PASSWORD=mail_password
 )
+
+print(f"📧 SMTP configuré: {mail_server}:{mail_port} (user: {'✓' if mail_username else '✗'}, pass: {'✓' if mail_password else '✗'})")
+
 mail = Mail(app)
 
 # Dossiers de stockage
@@ -458,18 +469,30 @@ def get_dashboard_base_url():
 
 
 def is_preview_request():
+    """Détecte si la requête provient d'un mode preview/sandbox"""
     host = (request.host or "").lower()
-    return (
+    preview_param = request.args.get('preview', '').lower()
+    
+    is_preview = (
         host.endswith(".artworksdigital.fr")
         or ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
+        or preview_param in ['true', '1', 'yes']
     )
+    
+    if is_preview:
+        print(f"[DEBUG] is_preview_request - Mode preview détecté (host: {host}, param: {preview_param})")
+    
+    return is_preview
 
 
 def fetch_dashboard_site_price():
+    """Récupère le prix du site depuis le dashboard central avec gestion des différents noms de champs"""
     base_url = get_dashboard_base_url()
     site_id = get_setting("dashboard_id")
+    
+    print(f"[DEBUG] fetch_dashboard_site_price - base_url: {base_url}, site_id: {site_id}")
 
     # Priorité 0: override manuel (settings)
     manual = get_setting("saas_site_price_override")
@@ -477,54 +500,73 @@ def fetch_dashboard_site_price():
         if manual:
             val = float(manual)
             if val > 0:
+                print(f"[DEBUG] fetch_dashboard_site_price - Prix manuel override: {val}")
                 return val
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] fetch_dashboard_site_price - Erreur parsing override: {e}")
         pass
 
     # Priorité 1: endpoint price dédié au site
     cache_key = f"site_price_{site_id}"
     cached = get_dashboard_cache(cache_key)
     if cached:
-        print('[SAAS] Site price loaded from cache')
+        print(f'[DEBUG] fetch_dashboard_site_price - Prix depuis cache: {cached}')
         return cached
+    
     endpoint_site_price = f"{base_url}/api/sites/{site_id}/price" if site_id else f"{base_url}/api/sites/price"
     # Priorité 2: endpoint config (prix affiché dans l'input config artwork)
     endpoint_config = f"{base_url}/api/config/artworks"
     endpoint_config_alt = f"{base_url}/api/config/artwork"
 
     endpoints = [endpoint_site_price, endpoint_config, endpoint_config_alt]
-    try:
-        for ep in endpoints:
-            try:
-                resp = requests.get(ep, timeout=8)
-            except Exception:
-                # network error, try next endpoint
-                continue
+    
+    for ep in endpoints:
+        try:
+            print(f"[DEBUG] fetch_dashboard_site_price - Tentative endpoint: {ep}")
+            resp = requests.get(ep, timeout=8)
+            
             if resp.status_code != 200:
+                print(f"[DEBUG] fetch_dashboard_site_price - Endpoint {ep} a répondu {resp.status_code}")
                 continue
+            
             data = resp.json() or {}
-            base_price = float(data.get("price") or data.get("site_price") or 0)
-            if base_price > 0:
-                set_setting("saas_site_price_cache", str(base_price))
-                set_dashboard_cache(cache_key, base_price)
-                return base_price
-            # Non-fatal: endpoint responded but did not contain a usable price
-            print(f"[SAAS] Prix non disponible dans la réponse depuis {ep}: {data}")
-    except Exception as e:
-        print(f"[SAAS] Erreur récupération prix dashboard: {e}")
+            # Accepter différents noms de champs pour le prix
+            base_price = None
+            for field in ['price', 'site_price', 'artwork_price', 'basePrice', 'base_price']:
+                if field in data:
+                    try:
+                        base_price = float(data[field])
+                        if base_price > 0:
+                            print(f"[DEBUG] fetch_dashboard_site_price - Prix trouvé dans champ '{field}': {base_price}")
+                            set_setting("saas_site_price_cache", str(base_price))
+                            set_dashboard_cache(cache_key, base_price)
+                            return base_price
+                    except (ValueError, TypeError) as e:
+                        print(f"[DEBUG] fetch_dashboard_site_price - Erreur conversion champ '{field}': {e}")
+                        continue
+            
+            # Si aucun champ valide trouvé dans la réponse
+            print(f"[DEBUG] fetch_dashboard_site_price - Aucun prix valide dans la réponse depuis {ep}: {data}")
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[DEBUG] fetch_dashboard_site_price - Erreur réseau pour {ep}: {e}")
+            continue
+        except Exception as e:
+            print(f"[ERROR] fetch_dashboard_site_price - Erreur inattendue pour {ep}: {e}")
+            continue
 
     # Fallback: use cached value if present
     cached = get_setting("saas_site_price_cache")
     if cached:
         try:
             val = float(cached)
-            print(f"[SAAS] Utilisation du cache saas_site_price_cache: {val}")
+            print(f"[DEBUG] fetch_dashboard_site_price - Utilisation du cache saas_site_price_cache: {val}")
             return val
         except Exception:
             pass
 
     # No price available
-    print(f"[SAAS] Aucun prix récupérable (endpoints et cache vides)")
+    print(f"[DEBUG] fetch_dashboard_site_price - Aucun prix récupérable (tous endpoints échoués)")
     return None
 
 # Fonction helper pour récupérer le nombre de notifications non lues
@@ -702,8 +744,10 @@ def merge_carts(user_id, session_id):
 # Initialisation de la base de données (une seule fonction suffit maintenant)
 migrate_db()
 
-# Définir l'administrateur
-set_admin_user('coco.cayre@gmail.com')
+# Définir l'administrateur depuis l'environnement ou utiliser une valeur par défaut
+admin_email = os.getenv('ADMIN_EMAIL', 'coco.cayre@gmail.com')
+set_admin_user(admin_email)
+print(f"✅ Administrateur configuré: {admin_email}")
 
 # --------------------------------
 # UTILITAIRES
@@ -3180,19 +3224,34 @@ from functools import wraps
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Accepter la clé depuis le header ou le paramètre GET
         api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
+        
         if not api_key:
+            print("[DEBUG] require_api_key - API key manquante")
             return jsonify({'error': 'API key manquante'}), 401
-        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
+        
+        # Priorité 1 : Clé maître TEMPLATE_MASTER_API_KEY (environnement ou constante)
+        master_key = TEMPLATE_MASTER_API_KEY
         if master_key and api_key == master_key:
+            print(f"[DEBUG] require_api_key - Clé maître acceptée (TEMPLATE_MASTER_API_KEY)")
             return f(*args, **kwargs)
+        
+        # Priorité 2 : Clé stockée dans settings (export_api_key)
         stored_key = get_setting('export_api_key')
         if not stored_key:
+            # Générer une nouvelle clé si elle n'existe pas
             stored_key = secrets.token_urlsafe(32)
             set_setting('export_api_key', stored_key)
-        if api_key != stored_key:
-            return jsonify({'error': 'API key invalide'}), 403
-        return f(*args, **kwargs)
+            print(f"[DEBUG] require_api_key - Nouvelle clé générée: {stored_key[:10]}...{stored_key[-5:]}")
+        
+        if api_key == stored_key:
+            print(f"[DEBUG] require_api_key - Clé export_api_key acceptée")
+            return f(*args, **kwargs)
+        
+        print(f"[DEBUG] require_api_key - API key invalide")
+        return jsonify({'error': 'API key invalide'}), 403
+    
     return decorated_function
 
 
@@ -3243,23 +3302,52 @@ def api_export_full():
 @require_api_key
 def api_orders():
     """Récupère toutes les commandes au format dashboard"""
+    conn = None
     try:
+        print("[DEBUG] /api/export/orders - Début récupération des commandes")
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, customer_name, email, total_price, order_date, status FROM orders ORDER BY order_date DESC"))
+        
+        # Récupérer les commandes avec tous les champs nécessaires
+        cur.execute(adapt_query("""
+            SELECT id, customer_name, email, total_price, order_date, status 
+            FROM orders 
+            ORDER BY order_date DESC
+        """))
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
+        
+        print(f"[DEBUG] /api/export/orders - {len(orders)} commandes récupérées")
+        
+        # Pour chaque commande, récupérer ses items avec les infos des peintures
         for order in orders:
-            cur.execute(adapt_query("SELECT painting_id, name, image, price, quantity FROM order_items LEFT JOIN paintings ON order_items.painting_id = paintings.id WHERE order_items.order_id = ?"), (order['id'],))
+            order_id = order['id']
+            cur.execute(adapt_query("""
+                SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
+                FROM order_items oi
+                LEFT JOIN paintings p ON oi.painting_id = p.id
+                WHERE oi.order_id = ?
+            """), (order_id,))
             items_rows = cur.fetchall()
             items_columns = [desc[0] for desc in cur.description]
             order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
+            
+            # Ajouter le nom du site
             order['site_name'] = get_setting("site_name") or "Site Artiste"
-        conn.close()
+            
+        print(f"[DEBUG] /api/export/orders - Items ajoutés pour toutes les commandes")
         return jsonify({"orders": orders})
+        
     except Exception as e:
+        print(f"[ERROR] /api/export/orders - Erreur: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+            print("[DEBUG] /api/export/orders - Connexion fermée")
 
 
 @app.route('/api/export/users', methods=['GET'])
@@ -3531,14 +3619,18 @@ def api_stripe_pk():
              3) fallback server->server : interroger le dashboard central si configuré
     """
     try:
+        print("[DEBUG] /api/stripe-pk - Début récupération clé publishable")
+        
         # 1) lecture locale (BDD)
         pk = get_setting('stripe_publishable_key')
         if pk:
+            print(f"[DEBUG] /api/stripe-pk - Clé trouvée dans settings DB: {pk[:10]}...")
             return jsonify({"success": True, "publishable_key": pk})
 
         # 2) env var fallback
         pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
         if pk:
+            print(f"[DEBUG] /api/stripe-pk - Clé trouvée dans environnement: {pk[:10]}...")
             return jsonify({"success": True, "publishable_key": pk})
 
         # 3) server->server fallback via dashboard
@@ -3547,22 +3639,36 @@ def api_stripe_pk():
         if base_url and site_id:
             try:
                 ep = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+                print(f"[DEBUG] /api/stripe-pk - Tentative récupération depuis dashboard: {ep}")
                 resp = requests.get(ep, timeout=6)
                 if resp.status_code == 200:
                     data = resp.json() or {}
-                    # accept different key names
-                    key = data.get('publishable_key') or data.get('stripe_publishable_key') or data.get('stripe_key') or data.get('stripe_publishable')
-                    if not key:
-                        # older dashboard might return under 'stripe_secret_key' (we must NOT expose secret)
-                        key = data.get('publishableKey')
+                    # Accepter différents noms de champs (publishable uniquement, jamais secret)
+                    key = (data.get('publishable_key') or 
+                           data.get('stripe_publishable_key') or 
+                           data.get('publishableKey') or
+                           data.get('stripe_key') or 
+                           data.get('stripe_publishable'))
+                    
+                    # Vérifier que ce n'est pas une clé secrète (sécurité)
+                    if key and key.startswith('sk_'):
+                        print(f"[SECURITY] /api/stripe-pk - ERREUR: Tentative d'exposition d'une clé secrète bloquée!")
+                        return jsonify({"success": False, "message": "security_error"}), 500
+                    
                     if key:
+                        print(f"[DEBUG] /api/stripe-pk - Clé récupérée depuis dashboard: {key[:10]}...")
                         return jsonify({"success": True, "publishable_key": key})
+                else:
+                    print(f"[DEBUG] /api/stripe-pk - Dashboard a répondu {resp.status_code}")
             except Exception as e:
-                print(f"[SAAS] Erreur fallback Stripe PK depuis dashboard: {e}")
+                print(f"[ERROR] /api/stripe-pk - Erreur fallback dashboard: {e}")
 
+        print("[DEBUG] /api/stripe-pk - Aucune clé publishable disponible")
         return jsonify({"success": False, "message": "no_publishable_key"}), 404
     except Exception as e:
-        print(f"[SAAS] Erreur endpoint /api/stripe-pk: {e}")
+        print(f"[ERROR] /api/stripe-pk - Erreur endpoint: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
