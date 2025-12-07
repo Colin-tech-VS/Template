@@ -730,10 +730,12 @@ def merge_carts(user_id, session_id):
     session_cart = c.fetchone()
 
     if session_cart:
-        session_cart_id = session_cart[0]
+        # session_cart peut être tuple (SQLite) ou dict (PostgreSQL)
+        session_cart_id = session_cart[0] if isinstance(session_cart, (list, tuple)) else session_cart['id']
 
         if user_cart:
-            user_cart_id = user_cart[0]
+            # user_cart peut être tuple (SQLite) ou dict (PostgreSQL)
+            user_cart_id = user_cart[0] if isinstance(user_cart, (list, tuple)) else user_cart['id']
             # Fusion des articles
             c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
             items = c.fetchall()
@@ -742,8 +744,10 @@ def merge_carts(user_id, session_id):
                           (user_cart_id, painting_id))
                 row = c.fetchone()
                 if row:
+                    # row peut être tuple (SQLite) ou dict (PostgreSQL)
+                    current_qty = row[0] if isinstance(row, (list, tuple)) else row['quantity']
                     c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"),
-                              (row[0]+qty, user_cart_id, painting_id))
+                              (current_qty+qty, user_cart_id, painting_id))
                 else:
                     c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"),
                               (user_cart_id, painting_id, qty))
@@ -901,7 +905,8 @@ def login():
 
         if user_cart:
             # Panier utilisateur existant → récupérer session_id
-            user_cart_session = user_cart[1]
+            # user_cart peut être tuple (SQLite) ou dict (PostgreSQL)
+            user_cart_session = user_cart[1] if isinstance(user_cart, (list, tuple)) else user_cart['session_id']
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
@@ -3804,7 +3809,12 @@ def _send_saas_step_email(user_id, step_name, subject, content):
         if not user:
             print(f"[DEBUG] Step: Email SKIP | UserID: {user_id} | Reason: user_not_found")
             return
-        _, user_name, user_email = user
+        # user peut être tuple (SQLite) ou dict (PostgreSQL)
+        if isinstance(user, (list, tuple)):
+            _, user_name, user_email = user
+        else:
+            user_name = user['name']
+            user_email = user['email']
         email_sender = get_setting("email_sender") or os.getenv("SMTP_USER") or os.getenv("MAIL_USERNAME")
         smtp_password = get_setting("smtp_password") or os.getenv("SMTP_PASSWORD") or os.getenv("MAIL_PASSWORD")
         smtp_server = get_setting("smtp_server") or os.getenv("SMTP_SERVER") or "smtp.gmail.com"
@@ -4031,7 +4041,11 @@ def api_register_site_saas():
         site_name = get_setting("site_name") or "Site Artiste"
         user_info = _get_user_info(user_id)
         if user_info:
-            _, user_name, _ = user_info
+            # user_info peut être tuple (SQLite) ou dict (PostgreSQL)
+            if isinstance(user_info, (list, tuple)):
+                _, user_name, _ = user_info
+            else:
+                user_name = user_info['name']
             site_name = user_name or site_name
         
         # Préparer les données pour le dashboard
