@@ -536,9 +536,30 @@ def fetch_dashboard_site_price():
 def require_api_key(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
-        if not api_key or api_key != TEMPLATE_MASTER_API_KEY:
-            return jsonify({"error": "Unauthorized"}), 401
+        import hmac
+        api_key = request.headers.get('X-API-Key') or ''
+        expected_master = TEMPLATE_MASTER_API_KEY or ''
+
+        # allow either master key or stored export_api_key (if set)
+        stored = None
+        try:
+            stored = get_setting('export_api_key') or ''
+        except Exception:
+            stored = ''
+
+        ok_master = False
+        ok_stored = False
+        try:
+            ok_master = hmac.compare_digest(api_key, expected_master)
+        except Exception:
+            ok_master = False
+        try:
+            ok_stored = bool(stored) and hmac.compare_digest(api_key, stored)
+        except Exception:
+            ok_stored = False
+
+        if not (ok_master or ok_stored):
+            return jsonify({"error": "invalid_api_key", "success": False}), 401
         return f(*args, **kwargs)
     return decorated
 
@@ -3577,28 +3598,12 @@ def api_export_stats():
 
 
 @app.route('/api/export/settings/<key>', methods=['PUT'])
+@require_api_key
 def update_setting_api(key):
-    """Modifier un paramètre spécifique via l'API (accepte clé maître dashboard)"""
+    """Modifier un paramètre spécifique via l'API (accepte clé maître dashboard).
+    Auth handled by `require_api_key` decorator (constant-time compare).
+    """
     try:
-        api_key = request.headers.get('X-API-Key')
-        
-        # Vérification de la clé API
-        if not api_key:
-            return jsonify({'success': False, 'error': 'API key manquante'}), 401
-        
-        # Accepter la clé maître du dashboard (priorité absolue)
-        if api_key == TEMPLATE_MASTER_API_KEY:
-            print(f'[API] 🔑 Clé maître acceptée - Configuration {key}')
-            # Skip la vérification normale - accès direct
-        else:
-            # Vérification normale pour les autres requêtes
-            stored_key = get_setting("export_api_key")
-            if not stored_key:
-                stored_key = secrets.token_urlsafe(32)
-                set_setting("export_api_key", stored_key)
-                print(f"🔑 Nouvelle clé API générée: {stored_key}")
-            if api_key != stored_key:
-                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
         
         # Récupérer la valeur depuis le JSON
         data = request.get_json()
@@ -3625,11 +3630,17 @@ def update_setting_api(key):
         conn.commit()
         conn.close()
         
-        print(f"[API] ✅ Paramètre '{key}' mis à jour: {new_value}")
+        try:
+            print(f"[API] Paramètre '{key}' mis à jour: {new_value}")
+        except UnicodeEncodeError:
+            print("[API] Paramètre '%s' mis à jour: %s" % (key, new_value))
         return jsonify({'success': True, 'message': f'Paramètre {key} mis à jour'})
         
     except Exception as e:
-        print(f"[API] ❌ Erreur mise à jour {key}: {e}")
+        try:
+            print(f"[API] Erreur mise à jour {key}: {e}")
+        except UnicodeEncodeError:
+            print("[API] Erreur mise à jour %s: %s" % (key, str(e)))
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3646,13 +3657,19 @@ def update_stripe_publishable_key():
 
         # Priorité maître
         if api_key == TEMPLATE_MASTER_API_KEY:
-            print('[API] 🔑 Clé maître acceptée - Configuration stripe_publishable_key')
+            try:
+                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
+            except UnicodeEncodeError:
+                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
         else:
             stored_key = get_setting('export_api_key')
             if not stored_key:
                 stored_key = secrets.token_urlsafe(32)
                 set_setting('export_api_key', stored_key)
-                print(f"🔑 Nouvelle clé API générée: {stored_key}")
+                try:
+                    print(f"Nouvelle clé API générée: {stored_key}")
+                except UnicodeEncodeError:
+                    print("Nouvelle clé API générée: %s" % stored_key)
             if api_key != stored_key:
                 return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
 
@@ -3660,6 +3677,11 @@ def update_stripe_publishable_key():
         value = data.get('value')
         if not value:
             return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
+
+        # Validate publishable key format
+        import re
+        if not re.match(r'^pk_(test|live)_[A-Za-z0-9]+$', value):
+            return jsonify({'success': False, 'error': 'invalid_publishable_format'}), 400
 
         # Persister la clé publishable (non sensible côté template)
         conn = get_db()
@@ -3673,7 +3695,14 @@ def update_stripe_publishable_key():
         conn.commit()
         conn.close()
 
-        print(f"[API] ✅ stripe_publishable_key mis à jour: {value}")
+        # Log with origin info
+        try:
+            ip = request.remote_addr or 'unknown'
+            ua = request.headers.get('User-Agent', '')
+            app.logger.info(f"[API] stripe_publishable_key updated from {ip} - UA:{ua}")
+        except Exception:
+            pass
+
         return jsonify({'success': True, 'message': 'stripe_publishable_key mis à jour'})
 
     except Exception as e:
@@ -3779,6 +3808,36 @@ def api_stripe_pk():
     except Exception as e:
         print(f"[SAAS] Erreur endpoint /api/stripe-pk: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/export/settings/stripe_publishable_key', methods=['GET'])
+def get_stripe_publishable_key():
+    """Public endpoint returning only the publishable key for client usage.
+    Allows CORS for browser clients. Never returns secret keys.
+    """
+    try:
+        pk = get_setting('stripe_publishable_key')
+        if not pk:
+            pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
+        if not pk:
+            return jsonify({'error': 'not_found'}), 404
+
+        # Log request origin
+        try:
+            ip = request.remote_addr or 'unknown'
+            ua = request.headers.get('User-Agent', '')
+            app.logger.info(f"[API] GET stripe_publishable_key from {ip} - UA:{ua}")
+        except Exception:
+            pass
+
+        # Return with permissive CORS (adjust in production as needed)
+        resp = jsonify({'publishable_key': pk})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET'
+        return resp, 200
+    except Exception as e:
+        app.logger.exception('Error in get_stripe_publishable_key')
+        return jsonify({'error': 'internal'}), 500
 
 
 @app.route('/api/upload/image', methods=['POST'])
