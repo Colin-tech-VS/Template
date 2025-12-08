@@ -34,6 +34,9 @@ Thumbs.db
 temp/
 tmp/
 
+# Test files (internal use only)
+test_fixes.py
+
 # Scripts de migration (optionnel, décommenter si besoin)
 # replace_sqlite.py
 # adapt_queries.py
