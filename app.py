@@ -3724,11 +3724,17 @@ def update_stripe_secret_key():
 
         # Masked logging
         masked = value[:6] + '...' + value[-4:]
-        print(f"[API] ✅ stripe_secret_key saved: {masked}")
+        try:
+            print(f"[API] stripe_secret_key saved: {masked}")
+        except UnicodeEncodeError:
+            print("[API] stripe_secret_key saved: %s" % masked)
 
         return jsonify({'success': True, 'message': 'secret_saved'}), 200
     except Exception as e:
-        print(f"[API] ❌ Erreur mise à jour stripe_secret_key: {e}")
+        try:
+            print(f"[API] Erreur mise à jour stripe_secret_key: {e}")
+        except UnicodeEncodeError:
+            print("[API] Erreur mise à jour stripe_secret_key: %s" % str(e))
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
