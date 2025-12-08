@@ -352,6 +352,10 @@ TABLES = {
         "key": "TEXT UNIQUE NOT NULL",
         "value": "TEXT NOT NULL"
     },
+    "stripe_events": {
+        "id": "TEXT PRIMARY KEY",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    },
     # Table SAAS: suivi du cycle de vie des sites artistes
     "saas_sites": {
         "id": "SERIAL PRIMARY KEY",
@@ -573,7 +577,11 @@ def api_get_settings():
         result[k] = v
     conn.close()
 
-    # Filter secrets unless correct API key provided
+    # Ensure stripe_secret_key is never exposed via this endpoint
+    if 'stripe_secret_key' in result:
+        result.pop('stripe_secret_key')
+
+    # Filter other sensitive values unless correct API key provided
     api_key = request.headers.get('X-API-Key')
     if api_key != TEMPLATE_MASTER_API_KEY:
         filtered = {k: v for k, v in result.items() if not (k.lower().startswith('stripe') and ('secret' in k.lower() or 'sk_' in str(v)))}
@@ -3670,6 +3678,57 @@ def update_stripe_publishable_key():
 
     except Exception as e:
         print(f"[API] ❌ Erreur mise à jour stripe_publishable_key: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/export/settings/stripe_secret_key', methods=['PUT'])
+def update_stripe_secret_key():
+    """Endpoint dédié pour persister la clé secrète Stripe via l'API export.
+    Exige header `X-API-Key` égal à `TEMPLATE_MASTER_API_KEY` (ou export_api_key fallback).
+    Body JSON attendu: {"value": "sk_test_..."}
+    Réponses:
+      - 200 {"success": true, "message": "secret_saved"}
+      - 401 {"success": false, "error": "invalid_api_key"}
+      - 400 {"success": false, "error": "invalid_secret_format"}
+    """
+    try:
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
+
+        # accept master key or previously provisioned export_api_key
+        if api_key == TEMPLATE_MASTER_API_KEY:
+            pass
+        else:
+            stored_key = get_setting('export_api_key')
+            if not stored_key:
+                # provision a random export key if none exists (keeps backward compatibility)
+                stored_key = secrets.token_urlsafe(32)
+                set_setting('export_api_key', stored_key)
+                print(f"New export_api_key provisioned")
+            if api_key != stored_key:
+                return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
+
+        data = request.get_json(silent=True) or {}
+        value = data.get('value')
+        if not value or not isinstance(value, str):
+            return jsonify({'success': False, 'error': 'invalid_secret_format'}), 400
+
+        import re
+        if not re.match(r'^sk_(test|live)_[A-Za-z0-9]+$', value):
+            return jsonify({'success': False, 'error': 'invalid_secret_format'}), 400
+
+        # Persist secret server-side only
+        # Store under key 'stripe_secret_key' in settings (never exposed via GET)
+        set_setting('stripe_secret_key', value)
+
+        # Masked logging
+        masked = value[:6] + '...' + value[-4:]
+        print(f"[API] ✅ stripe_secret_key saved: {masked}")
+
+        return jsonify({'success': True, 'message': 'secret_saved'}), 200
+    except Exception as e:
+        print(f"[API] ❌ Erreur mise à jour stripe_secret_key: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
