@@ -18,9 +18,8 @@ def get_stripe_secret_key():
     # 3) dashboard server->server fallback (only if dashboard exposes it)
     try:
         base_url = get_setting("dashboard_api_base") or os.getenv('DASHBOARD_URL') or "https://admin.artworksdigital.fr"
-        site_id = get_setting("dashboard_id") or os.getenv('SITE_NAME')
-        if base_url and site_id:
-            url = f"{base_url.rstrip('/')}/api/sites/{site_id}/stripe-key"
+        if base_url:
+            url = f"{base_url.rstrip('/')}/api/export/settings/stripe_secret_key"
             resp = requests.get(url, timeout=8)
             if resp.status_code == 200:
                 data = resp.json()
@@ -72,6 +71,7 @@ from database import (
     create_table_if_not_exists,
     add_column_if_not_exists,
     adapt_query,
+    init_database,
     IS_POSTGRES,
     PARAM_PLACEHOLDER
 )
@@ -252,7 +252,7 @@ def generate_email_html(title, content, button_text=None, button_url=None):
 
 TABLES = {
     "paintings": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "name": "TEXT NOT NULL",
         "image": "TEXT NOT NULL",
         "price": "REAL NOT NULL DEFAULT 0",
@@ -275,7 +275,7 @@ TABLES = {
         "display_order": "INTEGER DEFAULT 0"
     },
     "orders": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "customer_name": "TEXT NOT NULL",
         "email": "TEXT NOT NULL",
         "address": "TEXT NOT NULL DEFAULT ''",
@@ -285,25 +285,25 @@ TABLES = {
         "user_id": "INTEGER"
     },
     "order_items": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "order_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL",
         "price": "REAL NOT NULL"
     },
     "cart_items": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "cart_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL"
     },
     "carts": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "session_id": "TEXT NOT NULL UNIQUE",
         "user_id": "INTEGER"
     },
     "notifications": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "user_id": "INTEGER",
         "message": "TEXT NOT NULL",
         "type": "TEXT NOT NULL",
@@ -312,7 +312,7 @@ TABLES = {
         "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     },
     "exhibitions": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "title": "TEXT NOT NULL",
         "location": "TEXT NOT NULL",
         "date": "TEXT NOT NULL",
@@ -327,7 +327,7 @@ TABLES = {
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
     },
     "custom_requests": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "client_name": "TEXT NOT NULL",
         "client_email": "TEXT NOT NULL",
         "client_phone": "TEXT",
@@ -343,13 +343,13 @@ TABLES = {
     },
     # Nouvelle table settings pour stocker toutes les clés API et configs
     "settings": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "key": "TEXT UNIQUE NOT NULL",
         "value": "TEXT NOT NULL"
     },
     # Table SAAS: suivi du cycle de vie des sites artistes
     "saas_sites": {
-        "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+        "id": "SERIAL PRIMARY KEY",
         "user_id": "INTEGER UNIQUE",
         "status": "TEXT NOT NULL DEFAULT 'pending_approval'",
         "sandbox_url": "TEXT",
@@ -358,17 +358,31 @@ TABLES = {
     }
 }
 
-# Fonction utilitaire pour récupérer une clé depuis settings
-def get_setting(key):
-    conn = get_db()
-    cur = conn.cursor()
-    query = adapt_query("SELECT value FROM settings WHERE key = ?")
-    cur.execute(query, (key,))
-    row = cur.fetchone()
-    conn.close()
-    if row:
-        return row['value'] if IS_POSTGRES else row["value"]
-    return None
+def get_user_id():
+    """Récupère le user_id depuis la session Flask"""
+    return session.get('user_id')
+
+
+def get_setting(key, user_id=None):
+    """
+    Récupère une clé de paramètre
+    Args:
+        key: Clé du paramètre
+        user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
+    """
+    try:
+        conn = get_db(user_id=user_id)
+        cur = conn.cursor()
+        query = adapt_query("SELECT value FROM settings WHERE key = ?")
+        cur.execute(query, (key,))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return row['value'] if IS_POSTGRES else row["value"]
+        return None
+    except Exception as e:
+        # La table settings n'existe peut-être pas encore lors du premier démarrage
+        return None
 
 try:
     stripe_key = get_stripe_secret_key()
@@ -401,9 +415,15 @@ print("SMTP_PASSWORD défini :", bool(get_setting("smtp_password")))
 google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
-# Fonction utilitaire pour mettre à jour ou créer une clé
-def set_setting(key, value):
-    conn = get_db()
+def set_setting(key, value, user_id=None):
+    """
+    Met à jour ou crée une clé de paramètre
+    Args:
+        key: Clé du paramètre
+        value: Valeur du paramètre
+        user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
+    """
+    conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("""
         INSERT INTO settings (key, value) VALUES (?, ?)
@@ -510,6 +530,10 @@ def migrate_db():
     for table_name, cols in TABLES.items():
         for col_name, col_type in cols.items():
             add_column_if_not_exists(table_name, col_name, col_type)
+    
+    # --- Créer les index de performance ---
+    from database import create_indexes_if_not_exists
+    create_indexes_if_not_exists()
     
     print("Migration terminée ✅")
     
@@ -704,13 +728,12 @@ def home():
     conn = get_db()
     c = conn.cursor()
 
-    # Sélection explicite pour latest_paintings
-    c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC LIMIT 4")
-    latest_paintings = c.fetchall()
-
-    # Sélection explicite pour all_paintings
+    # Une seule requête pour récupérer toutes les peintures nécessaires
     c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC")
     all_paintings = c.fetchall()
+    
+    # Les 4 dernières peintures sont les premières du résultat
+    latest_paintings = all_paintings[:4]
 
     conn.close()
     return render_template("index.html", latest_paintings=latest_paintings, paintings=all_paintings)
@@ -774,13 +797,19 @@ def login():
         # Vérifier utilisateur
         c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
         user = c.fetchone()
-
-        if not user or not check_password_hash(user[1], password):
+        # Correction : vérifie le type et la présence des données
+        if not user:
             conn.close()
             flash("Email ou mot de passe incorrect")
             return redirect(url_for("login"))
-
-        user_id = user[0]
+        # user peut être tuple ou dict selon le curseur
+        # Par défaut psycopg2 retourne un tuple : (id, password)
+        user_id = user[0] if isinstance(user, (list, tuple)) else user['id']
+        user_password = user[1] if isinstance(user, (list, tuple)) else user['password']
+        if not check_password_hash(user_password, password):
+            conn.close()
+            flash("Email ou mot de passe incorrect")
+            return redirect(url_for("login"))
         session["user_id"] = user_id
 
         # Récupérer panier invité actuel
@@ -1819,35 +1848,37 @@ def inject_cart():
     c = conn.cursor()
 
     # --- PANIER ---
+    cart_id = None
     if user_id:
         c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
         row = c.fetchone()
-        cart_id = row[0] if row else None
-    else:
-        if session_id:
-            c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
-            row = c.fetchone()
-            cart_id = row[0] if row else None
-        else:
-            cart_id = None
+        if row:
+            # psycopg2 and sqlite3.Row both support index access, not .get()
+            cart_id = row[0]
+    elif session_id:
+        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
+        row = c.fetchone()
+        if row:
+            cart_id = row[0]
 
     cart_items = []
     total_qty = 0
     if cart_id:
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT ci.painting_id, p.name, p.image, p.price, ci.quantity
             FROM cart_items ci
             JOIN paintings p ON ci.painting_id = p.id
             WHERE ci.cart_id=?
-        """, (cart_id,))
+        """), (cart_id,))
         cart_items = c.fetchall()
-        total_qty = sum(item[4] for item in cart_items)
+        # psycopg2 returns tuples by default
+        total_qty = sum(item[4] if isinstance(item, tuple) else item.get('quantity', 0) for item in cart_items)
 
     # --- FAVORIS ---
     favorite_ids = []
     if user_id:
         c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=?"), (user_id,))
-        favorite_ids = [row[0] for row in c.fetchall()]
+        favorite_ids = [row[0] if isinstance(row, tuple) else row.get('painting_id') for row in c.fetchall()]
 
     # --- NOTIFICATIONS ADMIN ---
     new_notifications_count = 0
@@ -2127,7 +2158,7 @@ def contact():
             body = f"""
             <html>
             <body style="font-family: 'Poppins', sans-serif; background:#f0f4f8; padding:20px;">
-                <div style="max-width:600px; margin:auto; background:white; border-radius:15px; padding:20px; box-shadow:0 5px 15px rgba(0,0,0,0.1);">
+                <div style="max-width:600px; margin:auto; background:white; border-radius:15px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
                     <h2 style="color:#1E3A8A; text-align:center;">Nouveau message depuis le formulaire de contact</h2>
                     <hr style="border:none; border-top:2px solid #1E3A8A; margin:20px 0;">
                     <p><strong>Nom :</strong> {name}</p>
@@ -2281,63 +2312,25 @@ def download_invoice(order_id):
     # --- Infos client ---
     c.setFont("Helvetica", 12)
     c.setFillColor(grey_color)
-    c.drawString(50, height - 120, f"Nom : {order[1]}")
-    c.drawString(50, height - 140, f"Email : {order[2]}")
-    c.drawString(50, height - 160, f"Adresse : {order[3]}")
-    c.drawString(50, height - 180, f"Date : {order[5]}")
-    c.drawString(50, height - 200, f"Statut : {order[6]}")
+    c.drawString(50, height - 120, f"Nom: {order[1]}")
+    c.drawString(50, height - 140, f"Email: {order[2]}")
+    c.drawString(50, height - 160, f"Adresse: {order[3]}")
+    c.drawString(50, height - 180, f"Date: {order[5]}")
+    c.drawString(50, height - 200, f"Statut: {order[6]}")
 
     # --- Tableau des articles ---
     y = height - 230
-    c.setFont("Helvetica-Bold", 12)
-    c.setFillColor(primary_color)
-
-    # En-tête du tableau
-    c.rect(50, y-4, 530, 20, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.drawString(55, y, "Nom")
-    c.drawRightString(420, y, "Prix (€)")
-    c.drawRightString(490, y, "Quantité")
-    c.drawRightString(580, y, "Sous-total (€)")
-
+    c.drawString(50, y, "Articles:")
     y -= 20
-    c.setFont("Helvetica", 12)
-    for idx, item in enumerate(items):
-        # Fond alterné
-        if idx % 2 == 0:
-            c.setFillColor(light_grey)
-            c.rect(50, y-4, 530, 20, fill=1, stroke=0)
-        c.setFillColor(grey_color)
-
-        name = str(item[1])
-        price = float(item[3])   # Prix unitaire
-        qty = int(item[4])       # Quantité
-        subtotal = price * qty
-
-        c.drawString(55, y, name)
-        c.drawRightString(490, y, f"{price:.2f}")   # Prix
-        c.drawRightString(420, y, str(qty))         # Quantité
-        c.drawRightString(580, y, f"{subtotal:.2f}")# Sous-total
+    for item in items:
+        c.drawString(60, y, f"{item[1]} x {item[4]} - {item[3]} €")
         y -= 20
 
-    # --- Total ---
-    y -= 10
+    # Total
     c.setFont("Helvetica-Bold", 14)
-    c.setFillColor(primary_color)
-    c.rect(450, y-4, 130, 20, fill=1, stroke=0)
-    c.setFillColor(colors.white)
-    c.drawRightString(580, y, f"Total : {total_price:.2f} €")
+    c.drawString(50, y-20, f"Total: {total_price} €")
 
-    # --- Footer ---
-    c.setFont("Helvetica-Oblique", 10)
-    c.setFillColor(primary_color)
-    c.drawString(50, 50, "Merci pour votre achat chez JB Art !")
-    c.drawString(50, 35, "www.jbart.com")
-
-    c.showPage()
     c.save()
-
-    pdf_buffer.seek(0)
     return send_file(
         pdf_buffer,
         as_attachment=True,
@@ -2661,7 +2654,7 @@ def delete_painting(painting_id):
 @app.route('/admin/orders')
 @require_admin
 def admin_orders():
-    """Gestion des commandes"""
+    """Gestion des commandes avec recherche et filtre par rôle"""
     q = request.args.get('q', '').strip().lower()  # récupération du terme de recherche
     conn = get_db()
     c = conn.cursor()
@@ -2675,10 +2668,11 @@ def admin_orders():
             LEFT JOIN paintings p ON oi.painting_id = p.id
             WHERE o.id LIKE ? 
                OR LOWER(o.customer_name) LIKE ?
+               OR LOWER(o.email) LIKE ?
                OR LOWER(p.name) LIKE ?
             GROUP BY o.id
             ORDER BY o.order_date DESC
-        """, (f"%{q}%", f"%{q}%", f"%{q}%"))
+        """, (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"))
     else:
         # Si pas de recherche, tout afficher
         c.execute("""
@@ -2714,7 +2708,7 @@ def order_status(order_id):
     c = conn.cursor()
 
     # Récupérer la commande
-    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, status FROM orders WHERE id=?"), (order_id,))
+    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?"), (order_id,))
     order = c.fetchone()
     if not order:
         conn.close()
@@ -2816,7 +2810,7 @@ def admin_users():
             OR LOWER(role) LIKE ?
             OR LOWER(create_date) LIKE ?
         )""")
-        params.extend([f"%{q}%"] * 5)
+        params.extend([f"%{q}%" ] * 5)
 
     # Filtre rôle
     if role:
@@ -2855,11 +2849,9 @@ def export_users():
         query += """ AND (
             CAST(id AS TEXT) LIKE ? OR
             LOWER(name) LIKE ? OR
-            LOWER(email) LIKE ? OR
-            LOWER(role) LIKE ? OR
-            LOWER(create_date) LIKE ?
+            LOWER(email) LIKE ?
         )"""
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
 
     if role_filter:
         query += " AND role = ?"
@@ -3138,590 +3130,47 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
     except Exception as e:
         print(f"Erreur lors de l'envoi de l'email : {e}")
 
-# --------------------------------
-# KEYS
-# --------------------------------
-stripe.api_key = get_setting("stripe_secret_key")
-
-# --------------------------------
-# ROUTE CSS DYNAMIQUE (COULEURS)
-# --------------------------------
-def get_luminance(hex_color):
-    hex_color = hex_color.lstrip('#')
-    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
 @app.route('/dynamic-colors.css')
 def dynamic_colors():
-    primary_color = get_setting("primary_color") or "#1E3A8A"
-    secondary_color = get_setting("secondary_color") or "#3B65C4"
-    accent_color = get_setting("accent_color") or "#FF7F50"
-    button_text_color = get_setting("button_text_color") or "#FFFFFF"
-    content_text_color = get_setting("content_text_color") or "#000000"
-    button_hover_color = get_setting("button_hover_color") or "#9C27B0"
-
-    css = f"""
-:root {{
-    --primary-color: {primary_color};
-    --secondary-color: {secondary_color};
-    --accent-color: {accent_color};
-    --button-text-color: {button_text_color};
-    --content-text-color: {content_text_color};
-    --button-hover-color: {button_hover_color};
-}}
-
-/* GLOBAL TEXT COLOR - CONTENT BY DEFAULT */
-* {{
-    color: var(--content-text-color) !important;
-}}
-
-html, body {{
-    color: var(--content-text-color) !important;
-}}
-
-/* NAVIGATION */
-nav {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-}}
-
-nav .logo,
-nav a {{
-    color: var(--button-text-color) !important;
-}}
-
-nav a:hover {{
-    background: rgba(255, 255, 255, 0.2) !important;
-}}
-
-/* RESPONSIVE NAV MENU */
-@media (max-width: 768px) {{
-    nav ul {{
-        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    }}
-}}
-
-/* HERO */
-.hero-overlay {{
-    background: linear-gradient(to bottom, rgba(0,0,50,0.2), rgba({int(primary_color[1:3], 16)},{int(primary_color[3:5], 16)},{int(primary_color[5:7], 16)},0.6)) !important;
-}}
-
-/* SECTIONS & TEXT */
-.section h2,
-h1, h2, h3 {{
-    color: var(--content-text-color) !important;
-}}
-
-a {{
-    color: var(--content-text-color) !important;
-}}
-
-a:hover {{
-    color: var(--primary-color) !important;
-}}
-
-body, p, span, li, td {{
-    color: var(--content-text-color) !important;
-}}
-
-/* PROFILE HEADER */
-.profile-header {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.profile-header h1,
-.profile-email,
-.profile-meta {{
-    color: var(--button-text-color) !important;
-}}
-
-.action-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.action-btn:hover {{
-    background: var(--button-hover-color) !important;
-}}
-
-/* PROFILE BUY BUTTON */
-.buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.buy-btn:hover {{
-    background: var(--button-hover-color) !important;
-}}
-
-/* ORDERS TABLE */
-.orders-table thead {{
-    background: var(--primary-color) !important;
-}}
-
-.orders-table th {{
-    color: var(--button-text-color) !important;
-}}
-
-/* MEGA MENU (fond blanc, toujours texte noir) */
-.user-menu-links a,
-.user-menu-section-title,
-.cart-preview,
-.cart-item-details p {{
-    color: #000000 !important;
-}}
-
-.user-menu-links a:hover {{
-    background: var(--button-hover-color) !important;
-    color: white !important;
-    border-radius: 6px !important;
-    transform: translateX(4px) !important;
-}}
-
-.cart-item:hover {{
-    background: rgba(156, 39, 176, 0.1) !important;
-    border-color: var(--button-hover-color) !important;
-    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.2) !important;
-}}
-
-.mega-menu-cart-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.mega-menu-cart-btn:hover {{
-    background: var(--button-hover-color) !important;
-    color: var(--button-text-color) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}}
-
-/* PROFILE BUY BUTTON */
-.buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.buy-btn:hover {{
-    background: var(--button-hover-color) !important;
-}}
-
-/* PROFILE BUY BUTTON */
-.buy-btn {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.buy-btn:hover {{
-    background: var(--button-hover-color) !important;
-}}
-
-/* ORDERS TABLE */
-.orders-table thead {{
-    background: var(--primary-color) !important;
-}}
-
-.orders-table th {{
-    color: var(--button-text-color) !important;
-}}
-
-/* BUTTONS & BADGES */
-.latest-artwork .badge {{
-    background: linear-gradient(90deg, var(--accent-color), #FF4500) !important;
-    color: var(--button-text-color) !important;
-}}
-
-button,
-.btn-primary,
-.latest-artwork button,
-.add-painting-form button,
-.validate-btn,
-.qty-btn,
-[class*="btn"] {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-    color: var(--button-text-color) !important;
-    border: none !important;
-}}
-
-button:hover,
-.btn-primary:hover,
-.latest-artwork button:hover,
-.add-painting-form button:hover,
-.validate-btn:hover,
-.qty-btn:hover,
-[class*="btn"]:hover {{
-    background: var(--button-hover-color) !important;
-    color: var(--button-text-color) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}}
-
-/* FORMS */
-input:focus,
-textarea:focus,
-select:focus {{
-    border-color: var(--primary-color) !important;
-    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1) !important;
-    outline: none !important;
-}}
-
-input {{
-    border-color: var(--primary-color) !important;
-}}
-
-/* FOOTER */
-footer {{
-    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)) !important;
-}}
-
-footer,
-footer p,
-footer a,
-.footer-links ul li a {{
-    color: var(--button-text-color) !important;
-}}
-
-footer a:hover {{
-    color: var(--accent-color) !important;
-}}
-
-/* LINKS IN FOOTER */
-.footer-links ul li a:hover {{
-    color: var(--accent-color) !important;
-}}
-
-/* BORDERS & ACCENTS */
-.form-group input,
-.form-group textarea {{
-    border-color: var(--primary-color) !important;
-}}
-
-.form-group input:focus,
-.form-group textarea:focus {{
-    border-color: var(--primary-color) !important;
-    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1) !important;
-}}
-
-/* ADMIN HEADER */
-.admin-header {{
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.admin-header h1 {{
-    color: var(--button-text-color) !important;
-}}
-
-/* ADMIN ELEMENTS */
-.admin-form {{
-    border-left: 4px solid var(--primary-color) !important;
-}}
-
-.admin-nav {{
-    background: transparent !important;
-}}
-
-.admin-nav .nav-btn {{
-    background: rgba(255, 255, 255, 0.2) !important;
-    color: var(--button-text-color) !important;
-    border: none !important;
-    padding: 10px 16px !important;
-    border-radius: 6px !important;
-    text-decoration: none !important;
-    transition: all 0.3s ease !important;
-    cursor: pointer !important;
-}}
-
-.admin-nav .nav-btn:hover {{
-    background: var(--button-hover-color) !important;
-    color: var(--button-text-color) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}}
-
-.status-badge {{
-    background: var(--primary-color) !important;
-    color: var(--button-text-color) !important;
-}}
-
-/* ALERTS */
-.alert-success {{
-    border-left: 4px solid var(--primary-color) !important;
-}}
-
-/* GALLERY & CARDS */
-.latest-artwork {{
-    border: 2px solid var(--primary-color) !important;
-}}
-
-.product-card {{
-    border: 2px solid var(--primary-color) !important;
-}}
-
-.cart-item {{
-    border-left: 4px solid var(--primary-color) !important;
-}}
-
-/* ACCENT ELEMENTS */
-.badge {{
-    background: var(--accent-color) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.highlight {{
-    color: var(--accent-color) !important;
-}}
-
-/* FOCUS STATES */
-:focus {{
-    outline-color: var(--primary-color) !important;
-}}
-
-::placeholder {{
-    color: var(--primary-color) !important;
-    opacity: 0.6;
-}}
-
-/* TABS & ACTIVE STATES */
-.nav-btn.active {{
-    background: var(--accent-color) !important;
-    color: var(--button-text-color) !important;
-}}
-
-.tab-active {{
-    border-bottom-color: var(--primary-color) !important;
-    color: var(--primary-color) !important;
-}}
-
-/* HOVER EFFECTS */
-.latest-artwork:hover {{
-    box-shadow: 0 10px 25px rgba({int(primary_color[1:3], 16)},{int(primary_color[3:5], 16)},{int(primary_color[5:7], 16)},0.2) !important;
-    border-color: var(--secondary-color) !important;
-}}
-
-/* TOTAL PRICE & IMPORTANT TEXT */
-.total-price {{
-    color: var(--primary-color) !important;
-    font-weight: 700 !important;
-}}
-
-/* SECTION BACKGROUNDS */
-.admin-section {{
-    background: linear-gradient(135deg, rgba({int(primary_color[1:3], 16)},{int(primary_color[3:5], 16)},{int(primary_color[5:7], 16)},0.02), rgba({int(secondary_color[1:3], 16)},{int(secondary_color[3:5], 16)},{int(secondary_color[5:7], 16)},0.02)) !important;
-}}
-
-.stats-grid .stat-card {{
-    border-left: 4px solid var(--primary-color) !important;
-}}
-
-/* CARDS & CONTAINERS WITH TEXT */
-.stat-card,
-.painting-card,
-.product-card,
-.artwork-card,
-.form-group,
-.modal,
-.modal-content,
-.panel,
-.box,
-.card {{
-    background: white !important;
-}}
-
-.stat-card h3,
-.stat-card p,
-.stat-card .stat-number,
-.stat-card .stat-info,
-.painting-card h3,
-.painting-card p,
-.product-card h3,
-.product-card p,
-.product-card .info,
-.artwork-card h3,
-.artwork-card p,
-.form-group label,
-.modal h1,
-.modal h2,
-.modal h3,
-.modal p,
-.panel h3,
-.panel p,
-.box p,
-.card p,
-.card h3 {{
-    color: var(--content-text-color) !important;
-}}
-
-/* INPUTS & TEXTAREAS */
-input,
-textarea,
-select {{
-    background: white !important;
-    color: var(--content-text-color) !important;
-}}
-
-input::placeholder,
-textarea::placeholder,
-select {{
-    color: var(--content-text-color) !important;
-    opacity: 0.6;
-}}
-
-/* SECTIONS */
-.section,
-.section-content,
-.page-section,
-.content-section {{
-    background: transparent !important;
-}}
-
-.section p,
-.section-content p,
-.page-section p,
-.content-section p {{
-    color: var(--content-text-color) !important;
-}}
-
-/* LISTS & ITEMS */
-ul, ol {{
-    color: var(--content-text-color) !important;
-}}
-
-ul li,
-ol li,
-li {{
-    color: var(--content-text-color) !important;
-}}
-
-/* TABLES */
-table,
-th,
-td {{
-    color: var(--content-text-color) !important;
-    border-color: var(--primary-color) !important;
-}}
-
-th {{
-    background: rgba(30, 58, 138, 0.1) !important;
-}}
-
-/* ALERT & SUCCESS MESSAGES */
-.alert,
-.alert-success,
-.alert-error,
-.alert-warning,
-.alert-info {{
-    color: var(--content-text-color) !important;
-}}
-
-/* ADMIN & FORMS */
-.admin-form,
-.admin-section,
-.form-section,
-.form-row,
-.form-container,
-.table-container,
-.data-table,
-.admin-table {{
-    background: white !important;
-}}
-
-.admin-form h3,
-.admin-form p,
-.admin-form label,
-.admin-section h3,
-.admin-section p,
-.form-section h3,
-.form-section p,
-.table-container h3,
-.data-table td,
-.admin-table td,
-.admin-table th {{
-    color: var(--content-text-color) !important;
-}}
-
-/* GENERAL TEXT ELEMENTS */
-dt, dd,
-blockquote,
-.text-content,
-.description,
-.metadata,
-.info-box,
-.note {{
-    color: var(--content-text-color) !important;
-}}
-
-/* GRID ITEMS */
-.grid-item,
-.item,
-.row,
-.col {{
-    color: var(--content-text-color) !important;
-}}
-
-/* RESPONSIVE & TRANSITIONS */
-button,
-a,
-input,
-.latest-artwork,
-.product-card,
-.btn-primary {{
-    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
-}}
-
-/* UNIFORM HOVER EFFECT FOR ALL INTERACTIVE ELEMENTS */
-a[href]:not(.user-menu-section-title):hover {{
-    opacity: 0.8 !important;
-}}
-
-input[type="button"]:hover,
-input[type="submit"]:hover,
-input[type="reset"]:hover {{
-    background: var(--button-hover-color) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}}
-
-.latest-artwork:hover,
-.product-card:hover {{
-    transform: translateY(-4px) !important;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
-}}
-"""
-    response = make_response(css)
-    response.headers["Content-Type"] = "text/css"
-    return response
-
-
-# ================================
-# API EXPORT DE DONNÉES
-# ================================
+    """Génère dynamiquement le CSS des couleurs du site"""
+    try:
+        color_primary = get_setting("color_primary") or "#6366f1"
+        color_secondary = get_setting("color_secondary") or "#8b5cf6"
+        accent_color = get_setting("accent_color") or "#ff5722"
+        
+        # Générer le CSS
+        css = f"""
+        :root {{
+            --color-primary: {color_primary};
+            --color-secondary: {color_secondary};
+            --color-accent: {accent_color};
+        }}
+        """
+        response = make_response(css)
+        response.mimetype = 'text/css'
+        return response
+    except Exception as e:
+        print(f"[SAAS] Erreur génération CSS couleurs: {e}")
+        return "", 500
+
+# Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
+from functools import wraps
 
 def require_api_key(f):
-    """Décorateur pour vérifier la clé API (supporte clé maître du dashboard)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
+        api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
         if not api_key:
-            return jsonify({"error": "API key manquante"}), 401
-        
-        # Vérifier d'abord la clé maître du dashboard (depuis .env)
+            return jsonify({'error': 'API key manquante'}), 401
         master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
         if master_key and api_key == master_key:
-            print(f"🔓 Accès autorisé via clé maître dashboard")
             return f(*args, **kwargs)
-        
-        # Sinon, vérifier la clé API du site dans les settings
-        stored_key = get_setting("export_api_key")
+        stored_key = get_setting('export_api_key')
         if not stored_key:
-            # Générer une clé si elle n'existe pas
             stored_key = secrets.token_urlsafe(32)
-            set_setting("export_api_key", stored_key)
-            print(f"🔑 Nouvelle clé API générée: {stored_key}")
-        
+            set_setting('export_api_key', stored_key)
         if api_key != stored_key:
-            return jsonify({"error": "Clé API invalide"}), 403
-        
+            return jsonify({'error': 'API key invalide'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -3769,135 +3218,105 @@ def api_export_full():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/export/paintings', methods=['GET'])
-@require_api_key
-def api_export_paintings():
-    """Exporte uniquement les peintures"""
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM paintings ORDER BY display_order, id"))
-        rows = cur.fetchall()
-        
-        columns = [description[0] for description in cur.description]
-        paintings = [dict(zip(columns, row)) for row in rows]
-        
-        conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(paintings),
-            "data": paintings
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
-def api_export_orders():
-    """Exporte les commandes avec leurs items"""
+def api_orders():
+    """Récupère toutes les commandes au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        
-        # Récupérer toutes les commandes
-        cur.execute(adapt_query("SELECT * FROM orders ORDER BY order_date DESC"))
+        cur.execute(adapt_query("SELECT id, customer_name, email, total_price, order_date, status FROM orders ORDER BY order_date DESC"))
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
-        
-        # Pour chaque commande, récupérer les items
         for order in orders:
-            cur.execute(adapt_query("""
-                SELECT oi.*, p.name, p.image 
-                FROM order_items oi
-                LEFT JOIN paintings p ON oi.painting_id = p.id
-                WHERE oi.order_id = ?
-            """), (order['id'],))
+            cur.execute(adapt_query("SELECT painting_id, name, image, price, quantity FROM order_items LEFT JOIN paintings ON order_items.painting_id = paintings.id WHERE order_items.order_id = ?"), (order['id'],))
             items_rows = cur.fetchall()
-            items_columns = [description[0] for description in cur.description]
+            items_columns = [desc[0] for desc in cur.description]
             order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
-        
+            order['site_name'] = get_setting("site_name") or "Site Artiste"
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(orders),
-            "data": orders
-        })
+        return jsonify({"orders": orders})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/users', methods=['GET'])
 @require_api_key
-def api_export_users():
-    """Exporte les utilisateurs (sans mots de passe)"""
+def api_users():
+    """Récupère tous les utilisateurs au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, name, email, role, create_date, phone, address, city, postal_code, country, birth_date, accepts_marketing FROM users"))
+        cur.execute(adapt_query("SELECT id, name, email, create_date FROM users"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         users = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for user in users:
+            user["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(users),
-            "data": users
-        })
+        return jsonify({"users": users})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/paintings', methods=['GET'])
+@require_api_key
+def api_paintings():
+    """Récupère toutes les peintures au format dashboard"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT id, name, price, category, technique, year, quantity, status, image FROM paintings ORDER BY display_order, id"))
+        rows = cur.fetchall()
+        columns = [description[0] for description in cur.description]
+        paintings = [dict(zip(columns, row)) for row in rows]
+        site_name = get_setting("site_name") or "Site Artiste"
+        for painting in paintings:
+            painting["site_name"] = site_name
+        conn.close()
+        return jsonify({"paintings": paintings})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/exhibitions', methods=['GET'])
 @require_api_key
-def api_export_exhibitions():
-    """Exporte les expositions"""
+def api_exhibitions():
+    """Récupère toutes les expositions au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM exhibitions ORDER BY date DESC"))
+        cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions ORDER BY date DESC"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         exhibitions = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for exhibition in exhibitions:
+            exhibition["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(exhibitions),
-            "data": exhibitions
-        })
+        return jsonify({"exhibitions": exhibitions})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/export/custom-requests', methods=['GET'])
 @require_api_key
-def api_export_custom_requests():
-    """Exporte les demandes personnalisées"""
+def api_custom_requests():
+    """Récupère toutes les demandes personnalisées au format dashboard"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM custom_requests ORDER BY created_at DESC"))
+        cur.execute(adapt_query("SELECT id, client_name, description, status, created_at FROM custom_requests ORDER BY created_at DESC"))
         rows = cur.fetchall()
-        
         columns = [description[0] for description in cur.description]
         requests_data = [dict(zip(columns, row)) for row in rows]
-        
+        site_name = get_setting("site_name") or "Site Artiste"
+        for req in requests_data:
+            req["site_name"] = site_name
         conn.close()
-        
-        return jsonify({
-            "success": True,
-            "count": len(requests_data),
-            "data": requests_data
-        })
+        return jsonify({"custom_requests": requests_data})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3999,7 +3418,6 @@ def update_setting_api(key):
                 stored_key = secrets.token_urlsafe(32)
                 set_setting("export_api_key", stored_key)
                 print(f"🔑 Nouvelle clé API générée: {stored_key}")
-            
             if api_key != stored_key:
                 return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
         
@@ -4169,7 +3587,7 @@ def upload_image():
 @require_admin
 def get_export_api_key():
     """
-    Récupère ou génère la clé API pour l'export
+    Récupère ougénère la clé API pour l'export
     Accessible uniquement aux administrateurs connectés
     """
     api_key = get_setting("export_api_key")
@@ -4197,118 +3615,6 @@ def regenerate_export_api_key():
         "message": "Nouvelle clé API générée"
     })
 
-
-# ================================
-# FIN API EXPORT
-# ================================
-
-# ================================
-# SYSTÈME AUTO-REGISTRATION AU DASHBOARD CENTRAL
-# ================================
-
-def auto_generate_api_key():
-    """Génère automatiquement une clé API si elle n'existe pas"""
-    api_key = get_setting("export_api_key")
-    if not api_key:
-        api_key = secrets.token_urlsafe(32)
-        set_setting("export_api_key", api_key)
-        print(f"✅ Clé API générée automatiquement: {api_key[:10]}...")
-    return api_key
-
-def register_site_to_dashboard():
-    """Enregistre automatiquement ce site sur le dashboard central"""
-    import requests
-    
-    # Vérifier si déjà enregistré
-    if get_setting("dashboard_registered") == "true":
-        print("[AUTO-REG] Site déjà enregistré sur le dashboard")
-        return
-    
-    # Vérifier si l'enregistrement est activé (avec override par variable d'environnement)
-    env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
-    enabled_setting = get_setting("enable_auto_registration")
-    is_enabled = env_override or (enabled_setting == "true")
-    if not is_enabled:
-        print("[AUTO-REG] Auto-registration désactivé. Génération de l'API key uniquement.")
-        auto_generate_api_key()
-        return
-    
-    try:
-        # Générer l'API key
-        api_key = auto_generate_api_key()
-        
-        # Récupérer les infos du site
-        site_name = get_setting("site_name") or "Site Artiste"
-        
-        # Détecter l'URL du site (compatible Render)
-        site_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("SITE_URL")
-        if not site_url:
-            render_service = os.getenv("RENDER_SERVICE_NAME")
-            if render_service:
-                site_url = f"https://{render_service}.onrender.com"
-            else:
-                print("[AUTO-REG] ⚠️ Impossible de déterminer l'URL - skip registration")
-                return
-        
-        site_url = site_url.rstrip('/')
-        
-        # Données à envoyer (minimales, alignées avec un schéma classique)
-        # Certains dashboards attendent des clés génériques: name, url, api_key
-        # On évite tout champ non indispensable pour contourner des migrations manquantes côté dashboard.
-        data = {
-            "name": site_name,
-            "url": site_url,
-            "api_key": api_key
-        }
-        
-        # URL du dashboard central
-        dashboard_url = "https://mydashboard-v39e.onrender.com/api/sites/register"
-        
-        print(f"[AUTO-REG] 📤 Enregistrement sur le dashboard central...")
-        print(f"[AUTO-REG]    Nom: {site_name}")
-        print(f"[AUTO-REG]    URL: {site_url}")
-        print(f"[AUTO-REG]    Dashboard: {dashboard_url}")
-        
-        # Envoyer les données
-        response = requests.post(dashboard_url, json=data, timeout=15)
-        
-        if response.status_code == 200:
-            result = response.json()
-            site_id = result.get("site_id")
-            set_setting("dashboard_registered", "true")
-            set_setting("dashboard_id", str(site_id))
-            print(f"[AUTO-REG] ✅ {result.get('message', 'Site enregistré')} - Site ID: {site_id}")
-        elif response.status_code == 404:
-            print(f"[AUTO-REG] ⚠️ Erreur 404: L'endpoint /api/sites/register n'existe pas encore")
-            print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-        else:
-            print(f"[AUTO-REG] ⚠️ Erreur {response.status_code}: {response.text}")
-    
-    except requests.exceptions.Timeout:
-        print(f"[AUTO-REG] ⚠️ Timeout: Le dashboard ne répond pas")
-        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-    except Exception as e:
-        print(f"[AUTO-REG] ⚠️ Erreur: {e}")
-        print(f"[AUTO-REG]    L'API key est générée localement et reste fonctionnelle.")
-        # S'assurer que l'API key est générée même en cas d'erreur
-        auto_generate_api_key()
-
-@app.route('/api/sync-dashboard', methods=['POST'])
-def sync_dashboard():
-    """Endpoint manuel pour forcer la synchronisation avec le dashboard"""
-    try:
-        # Réinitialiser le flag
-        set_setting("dashboard_registered", "false")
-        
-        # Relancer l'enregistrement
-        register_site_to_dashboard()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Sync triggered'
-        }), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ================================
 # SAAS ARTISTES – WORKFLOW
@@ -4445,6 +3751,12 @@ def saas_activate(user_id):
 @app.route('/saas/launch-site')
 def saas_launch_site():
     """Crée une session Stripe pour lancer le site depuis le mode preview."""
+    # Vérifier l'authentification
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Vous devez être connecté pour lancer votre site.")
+        return redirect(url_for('login'))
+    
     price = fetch_dashboard_site_price()
     if not price or price <= 0:
         flash("Prix indisponible pour le lancement.")
@@ -4474,74 +3786,150 @@ def saas_launch_site():
             success_url=success_url + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=cancel_url,
             metadata={
-                'site_id': get_setting('dashboard_id') or '',
-                'user_id': session.get('user_id') or '',
+                'site_id': str(get_setting('dashboard_id') or ''),
+                'user_id': str(user_id),
                 'context': 'saas_launch'
             }
         )
+        print(f"[SAAS] Session Stripe créée | user_id: {user_id} | session_id: {session_obj.id}")
         return redirect(session_obj.url, code=303)
     except Exception as e:
         print(f"[SAAS] Erreur création session Stripe: {e}")
+        import traceback
+        traceback.print_exc()
         flash("Impossible de lancer la session de paiement pour le moment.")
         return redirect(url_for('home'))
 
 
 @app.route('/saas/launch/success')
 def saas_launch_success():
-    flash("Merci ! Paiement reçu, nous lançons votre site.")
-    return redirect(url_for('home'))
-
-
-# ================================
-# AUTO-REGISTRATION AU CHARGEMENT DU MODULE
-# (Compatible avec Gunicorn)
-# ================================
-
-def init_auto_registration():
-    """
-    Initialise l'auto-registration au chargement du module.
-    S'exécute avec Flask dev server ET avec Gunicorn.
-    """
-    import threading
-    import time
+    # Récupérer l'user_id depuis la session ou la métadonnée Stripe
+    user_id = session.get('user_id')
+    print(f"[SAAS] DEBUG 1 - user_id from session: {user_id}")
     
-    # Sécuriser l'activation au démarrage: activer si variable d'env présente
-    try:
-        env_override = (os.getenv("ENABLE_AUTO_REGISTRATION", "").strip().lower() in ("true", "1", "yes"))
-        current = get_setting("enable_auto_registration")
-        if env_override:
-            set_setting("enable_auto_registration", "true")
-            print("[AUTO-REG] ✅ Activation via ENABLE_AUTO_REGISTRATION=true")
-        elif current is None:
-            # Défaut sûr: activer si le paramètre n'existe pas
-            set_setting("enable_auto_registration", "true")
-            print("[AUTO-REG] ✅ Activation par défaut de enable_auto_registration (paramètre manquant)")
-    except Exception as e:
-        print(f"[AUTO-REG] ⚠️ Impossible de forcer l'activation: {e}")
-    
-    def register_async():
-        """Enregistrement asynchrone pour ne pas bloquer le démarrage"""
-        time.sleep(2)  # Attendre que l'app soit prête
-        
-        with app.app_context():
+    # Si pas en session, récupérer depuis la session Stripe
+    if not user_id:
+        session_id = request.args.get('session_id')
+        print(f"[SAAS] DEBUG 2 - session_id from URL: {session_id}")
+        if session_id:
             try:
-                print("[AUTO-REG] 🚀 Démarrage auto-registration...")
-                register_site_to_dashboard()
+                stripe_secret = get_stripe_secret_key()
+                print(f"[SAAS] DEBUG 3 - stripe_secret available: {bool(stripe_secret)}")
+                if stripe_secret:
+                    stripe.api_key = stripe_secret
+                    session_obj = stripe.checkout.Session.retrieve(session_id)
+                    print(f"[SAAS] DEBUG 4 - session_obj metadata: {session_obj.metadata}")
+                    user_id = session_obj.metadata.get('user_id') if session_obj.metadata else None
+                    print(f"[SAAS] DEBUG 5 - user_id from metadata: {user_id}")
+                    user_id = int(user_id) if user_id and str(user_id).isdigit() else None
+                    print(f"[SAAS] DEBUG 6 - user_id converted to int: {user_id}")
             except Exception as e:
-                print(f"[AUTO-REG] ⚠️ Erreur globale: {e}")
+                print(f"[SAAS] Erreur récupération metadata Stripe: {e}")
+                import traceback
+                traceback.print_exc()
     
-    # Lancer dans un thread daemon pour ne pas bloquer
-    thread = threading.Thread(target=register_async, daemon=True)
-    thread.start()
-    print("[AUTO-REG] Thread de registration lancé")
+    print(f"[SAAS] DEBUG 7 - final user_id: {user_id}")
+    if not user_id:
+        flash("Erreur: utilisateur non identifié.")
+        return redirect(url_for('home'))
+    
+    # Initialiser la DB du site si elle n'existe pas
+    try:
+        init_database(user_id=user_id)
+        print(f"[SAAS] DB initialisée pour le site {user_id}")
+    except Exception as e:
+        print(f"[SAAS] Erreur initialisation DB site: {e}")
+    
+    # Générer une clé API unique pour ce site
+    api_key = secrets.token_urlsafe(32)
+    set_setting("export_api_key", api_key, user_id=user_id)
+    
+    # Rendre le template avec popup pour domaine
+    return render_template('saas_launch_success.html', 
+                         api_key=api_key, 
+                         user_id=user_id)
 
-# Exécuter l'auto-registration au chargement du module
-# (fonctionne avec 'python app.py' ET 'gunicorn app:app')
-init_auto_registration()
 
-# --------------------------------
-# LANCEMENT DE L'APPLICATION
-# --------------------------------
-if __name__ == "__main__":
-    # Mode développement local uniquement
-    app.run(debug=True)
+@app.route('/api/saas/register-site', methods=['POST'])
+def api_register_site_saas():
+    """Enregistre le site au dashboard et lance le déploiement"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error": "unauthorized"}), 401
+    
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return jsonify({"error": "user_id invalide"}), 400
+    
+    domain = data.get('domain', '').strip()
+    api_key = data.get('api_key', '').strip()
+    
+    if not domain or not api_key:
+        return jsonify({"error": "domain et api_key requis"}), 400
+    
+    try:
+        # Construire l'URL complète du domaine
+        if not domain.startswith('http'):
+            site_url = f"https://{domain}"
+        else:
+            site_url = domain
+        
+        # Récupérer le nom du site
+        site_name = get_setting("site_name") or "Site Artiste"
+        user_info = _get_user_info(user_id)
+        if user_info:
+            _, user_name, _ = user_info
+            site_name = user_name or site_name
+        
+        # Préparer les données pour le dashboard
+        dashboard_data = {
+            "site_name": site_name,
+            "site_url": site_url,
+            "api_key": api_key,
+            "auto_registered": True,
+            "artist_id": user_id
+        }
+        
+        # Envoyer au dashboard
+        dashboard_url = f"{get_dashboard_base_url()}/api/sites/register"
+        response = requests.post(dashboard_url, json=dashboard_data, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            site_id = result.get("site_id", user_id)
+            
+            # Initialiser la base de données séparée du site
+            try:
+                init_database(user_id=user_id)
+                print(f"[SAAS] DB initialisée pour le site {user_id}")
+            except Exception as e:
+                print(f"[SAAS] Erreur initialisation DB site: {e}")
+            
+            # Mettre à jour le statut local
+            _saas_upsert(user_id, status='active', final_domain=site_url)
+            set_setting("dashboard_id", str(site_id), user_id=user_id)
+            set_setting("export_api_key", api_key, user_id=user_id)
+            
+            # Envoyer email de confirmation
+            _send_saas_step_email(user_id, 'active', 
+                                'Site activé !', 
+                                f"Votre site est maintenant actif sur {site_url}")
+            
+            return jsonify({
+                "ok": True,
+                "message": "Site enregistré et activé",
+                "site_url": site_url,
+                "api_key": api_key
+            }), 200
+        else:
+            return jsonify({
+                "error": f"Erreur dashboard: {response.status_code}",
+                "details": response.text
+            }), response.status_code
+    
+    except Exception as e:
+        print(f"[SAAS] Erreur enregistrement site: {e}")
+        return jsonify({"error": str(e)}), 500

@@ -190,7 +190,9 @@
         {% for expo in other_expos %}
         <article class="expo-card">
             {% if expo[5] %}
-            <img src="{{ url_for('static', filename='expo_images/' ~ expo[5]) }}" alt="{{ expo[1] }}">
+            <img src="{{ url_for('static', filename='expo_images/' ~ expo[5]) }}" 
+                 alt="{{ expo[1] }}"
+                 loading="lazy">
             {% endif %}
             <div class="expo-card-content">
                 <h3>{{ expo[1] }}</h3>

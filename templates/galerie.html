@@ -171,7 +171,9 @@
         <article class="gallery-card" data-painting-id="{{ p[0] }}" {% if user_is_admin %}draggable="true"{% endif %}>
             <a href="{{ url_for('painting_detail', painting_id=p[0]) }}" style="text-decoration: none; color: inherit; display: block; width: 100%; height: 100%;" class="card-link">
                 <div class="gallery-image-wrapper">
-                    <img src="{{ url_for('static', filename=p[2]) }}" alt="Peinture '{{ p[1] }}' par l'artiste">
+                    <img src="{{ url_for('static', filename=p[2]) }}" 
+                         alt="Peinture '{{ p[1] }}' par l'artiste"
+                         loading="lazy">
                     <div class="gallery-overlay">
                         <span class="gallery-title">{{ p[1] }}</span>
                     </div>
