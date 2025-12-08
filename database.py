@@ -53,8 +53,13 @@ def get_db_connection():
             conn.close()
 
 
-def get_db():
-    """Retourne une connexion simple (compatible avec le code existant)"""
+def get_db(user_id=None):
+    """Retourne une connexion simple (compatible avec le code existant).
+    `user_id` is accepted for compatibility with callers but currently ignored
+    since the project uses a single database connection. In multi-tenant
+    setups this parameter can be used to select a different DB file or
+    connection parameters per user/site.
+    """
     if IS_POSTGRES:
         conn = psycopg2.connect(**DB_CONFIG)
         conn.cursor_factory = psycopg2.extras.RealDictCursor

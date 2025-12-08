@@ -83,7 +83,12 @@ from database import (
 
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
-print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
+try:
+    # Print a short masked preview of the master key. Avoid non-encodable characters on some consoles.
+    print(f"Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
+except UnicodeEncodeError:
+    # Fallback: use ASCII-only output
+    print("TEMPLATE_MASTER_API_KEY loaded: {}...{}".format(TEMPLATE_MASTER_API_KEY[:10], TEMPLATE_MASTER_API_KEY[-5:]))
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
@@ -678,12 +683,18 @@ def migrate_db():
         for col_name, col_type in cols.items():
             add_column_if_not_exists(table_name, col_name, col_type)
     
-    print("Migration terminée ✅")
+    try:
+        print("Migration terminée: OK")
+    except UnicodeEncodeError:
+        print("Migration terminée: OK (unicode fallback)")
     
     # --- Activer l'auto-registration par défaut ---
     if not get_setting("enable_auto_registration"):
         set_setting("enable_auto_registration", "true")
-        print("✅ Auto-registration activé par défaut")
+        try:
+            print("Auto-registration activé par défaut")
+        except UnicodeEncodeError:
+            print("Auto-registration activé par défaut (unicode fallback)")
 
 
 def generate_invoice_pdf(order, items, total_price):
