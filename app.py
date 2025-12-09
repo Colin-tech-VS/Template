@@ -3707,7 +3707,7 @@ def update_stripe_publishable_key():
                     has_valid_stored = False
             
             if not has_valid_stored:
-                # Authentication failed - do not auto-generate a key during auth attempts
+                # Authentication failed - export_api_key should only be generated via admin endpoints, not during failed auth
                 return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json() or {}
@@ -3784,7 +3784,7 @@ def update_stripe_secret_key():
                     has_valid_stored = False
             
             if not has_valid_stored:
-                # Authentication failed - do not auto-generate a key during auth attempts
+                # Authentication failed - export_api_key should only be generated via admin endpoints, not during failed auth
                 return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json(silent=True) or {}
