@@ -3754,6 +3754,31 @@ def update_stripe_publishable_key():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/export/settings/stripe_publishable_key', methods=['GET'])
+def get_stripe_publishable_key():
+    """Public endpoint returning only the publishable key for client usage.
+    Allows CORS for browser clients. Never returns secret keys.
+    Retourne: 200 {"success": true, "publishable_key": "pk_test_..."}
+    """
+    try:
+        pk = get_setting('stripe_publishable_key')
+        if not pk:
+            pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
+        if not pk:
+            return jsonify({'success': False, 'error': 'not_found'}), 404
+
+        resp = jsonify({'success': True, 'publishable_key': pk})
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers['Access-Control-Allow-Methods'] = 'GET'
+        return resp, 200
+    except Exception as e:
+        try:
+            print(f"[API] ❌ Erreur GET stripe_publishable_key: {e}")
+        except UnicodeEncodeError:
+            print("[API] Erreur GET stripe_publishable_key: %s" % str(e))
+        return jsonify({'success': False, 'error': 'internal'}), 500
+
+
 @app.route('/api/export/settings/stripe_secret_key', methods=['PUT'])
 def update_stripe_secret_key():
     """Endpoint dédié pour persister la clé secrète Stripe via l'API export.
@@ -3826,6 +3851,15 @@ def update_stripe_secret_key():
         except UnicodeEncodeError:
             print("[API] Erreur mise à jour stripe_secret_key: %s" % str(e))
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/export/settings/stripe_secret_key', methods=['GET'])
+def get_stripe_secret_key_blocked():
+    """Security: Never expose the secret key to GET requests.
+    Secret keys must never be transmitted to clients.
+    Retourne: 404 Not Found
+    """
+    return jsonify({'error': 'not_found'}), 404
 
 
 @app.route('/api/stripe-pk', methods=['GET'])
