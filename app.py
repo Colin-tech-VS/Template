@@ -48,6 +48,7 @@ import stripe
 import json
 import requests
 import urllib.parse
+import hmac
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -82,13 +83,12 @@ from database import (
 # --------------------------------
 
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
-TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
-try:
-    # Print a short masked preview of the master key. Avoid non-encodable characters on some consoles.
-    print(f"Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
-except UnicodeEncodeError:
-    # Fallback: use ASCII-only output
-    print("TEMPLATE_MASTER_API_KEY loaded: {}...{}".format(TEMPLATE_MASTER_API_KEY[:10], TEMPLATE_MASTER_API_KEY[-5:]))
+TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
+if TEMPLATE_MASTER_API_KEY:
+    print("🔑 Configuration sécurisée chargée avec succès")
+else:
+    print("⚠️ ATTENTION: Configuration d'authentification manquante")
+    TEMPLATE_MASTER_API_KEY = 'default-insecure-key'  # Fallback pour développement uniquement
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
@@ -3356,23 +3356,8 @@ def dynamic_colors():
 # Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
 from functools import wraps
 
-def require_api_key(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
-        if not api_key:
-            return jsonify({'error': 'API key manquante'}), 401
-        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
-        if master_key and api_key == master_key:
-            return f(*args, **kwargs)
-        stored_key = get_setting('export_api_key')
-        if not stored_key:
-            stored_key = secrets.token_urlsafe(32)
-            set_setting('export_api_key', stored_key)
-        if api_key != stored_key:
-            return jsonify({'error': 'API key invalide'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
+# Note: require_api_key decorator is defined earlier in the file (around line 536)
+# using constant-time comparison with hmac.compare_digest for security
 
 
 @app.route('/api/export/full', methods=['GET'])
