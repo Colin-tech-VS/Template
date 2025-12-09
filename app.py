@@ -48,6 +48,7 @@ import stripe
 import json
 import requests
 import urllib.parse
+import hmac
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -82,13 +83,20 @@ from database import (
 # --------------------------------
 
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
-TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
-try:
-    # Print a short masked preview of the master key. Avoid non-encodable characters on some consoles.
-    print(f"Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
-except UnicodeEncodeError:
-    # Fallback: use ASCII-only output
-    print("TEMPLATE_MASTER_API_KEY loaded: {}...{}".format(TEMPLATE_MASTER_API_KEY[:10], TEMPLATE_MASTER_API_KEY[-5:]))
+TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
+if TEMPLATE_MASTER_API_KEY:
+    print("🔑 Configuration sécurisée chargée avec succès")
+else:
+    print("⚠️ ATTENTION: Configuration d'authentification manquante")
+    print("⚠️ TEMPLATE_MASTER_API_KEY non définie - génération d'une clé temporaire")
+    print("⚠️ En production, définissez TOUJOURS TEMPLATE_MASTER_API_KEY dans les variables d'environnement")
+    # Generate a secure random key for development
+    # This prevents timing attacks while still requiring explicit configuration
+    TEMPLATE_MASTER_API_KEY = secrets.token_urlsafe(32)
+
+# Dummy value for constant-time comparisons when keys are missing
+# This avoids generating random values on every comparison
+_DUMMY_KEY_FOR_COMPARISON = secrets.token_urlsafe(32)
 
 app = Flask(__name__)
 app.secret_key = 'secret_key'
@@ -536,26 +544,50 @@ def fetch_dashboard_site_price():
 def require_api_key(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        import hmac
-        api_key = request.headers.get('X-API-Key') or ''
-        expected_master = TEMPLATE_MASTER_API_KEY or ''
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({"error": "invalid_api_key", "success": False}), 401
+        
+        expected_master = TEMPLATE_MASTER_API_KEY
 
         # allow either master key or stored export_api_key (if set)
         stored = None
         try:
-            stored = get_setting('export_api_key') or ''
+            stored = get_setting('export_api_key')
         except Exception:
-            stored = ''
+            stored = None
 
         ok_master = False
         ok_stored = False
-        try:
-            ok_master = hmac.compare_digest(api_key, expected_master)
-        except Exception:
+        
+        # Check master key with constant-time comparison
+        # Always perform comparison to prevent timing leaks
+        if expected_master:
+            try:
+                ok_master = hmac.compare_digest(api_key, expected_master)
+            except Exception:
+                ok_master = False
+        else:
+            # Use dummy comparison to maintain constant timing
+            try:
+                _ = hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+            except Exception:
+                pass
             ok_master = False
-        try:
-            ok_stored = bool(stored) and hmac.compare_digest(api_key, stored)
-        except Exception:
+        
+        # Check stored key with constant-time comparison
+        # Always perform comparison to prevent timing leaks
+        if stored:
+            try:
+                ok_stored = hmac.compare_digest(api_key, stored)
+            except Exception:
+                ok_stored = False
+        else:
+            # Use dummy comparison to maintain constant timing
+            try:
+                _ = hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+            except Exception:
+                pass
             ok_stored = False
 
         if not (ok_master or ok_stored):
@@ -604,7 +636,17 @@ def api_get_settings():
 
     # Filter other sensitive values unless correct API key provided
     api_key = request.headers.get('X-API-Key')
-    if api_key != TEMPLATE_MASTER_API_KEY:
+    master_key = TEMPLATE_MASTER_API_KEY
+    
+    # Use constant-time comparison - always compare to prevent timing leaks
+    has_valid_master = False
+    if api_key and master_key:
+        try:
+            has_valid_master = hmac.compare_digest(api_key, master_key)
+        except Exception:
+            has_valid_master = False
+    
+    if not has_valid_master:
         filtered = {k: v for k, v in result.items() if not (k.lower().startswith('stripe') and ('secret' in k.lower() or 'sk_' in str(v)))}
         # Ensure publishable key stays available
         return jsonify(filtered)
@@ -3356,23 +3398,8 @@ def dynamic_colors():
 # Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
 from functools import wraps
 
-def require_api_key(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key') or request.args.get('api_key')
-        if not api_key:
-            return jsonify({'error': 'API key manquante'}), 401
-        master_key = os.getenv('TEMPLATE_MASTER_API_KEY')
-        if master_key and api_key == master_key:
-            return f(*args, **kwargs)
-        stored_key = get_setting('export_api_key')
-        if not stored_key:
-            stored_key = secrets.token_urlsafe(32)
-            set_setting('export_api_key', stored_key)
-        if api_key != stored_key:
-            return jsonify({'error': 'API key invalide'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
+# Note: The main require_api_key decorator is defined near the beginning of the API section
+# It uses constant-time comparison with hmac.compare_digest for security
 
 
 @app.route('/api/export/full', methods=['GET'])
@@ -3655,8 +3682,16 @@ def update_stripe_publishable_key():
         if not api_key:
             return jsonify({'success': False, 'error': 'API key manquante'}), 401
 
-        # Priorité maître
-        if api_key == TEMPLATE_MASTER_API_KEY:
+        # Priorité maître - use constant-time comparison
+        master_key = TEMPLATE_MASTER_API_KEY
+        has_valid_master = False
+        if api_key and master_key:
+            try:
+                has_valid_master = hmac.compare_digest(api_key, master_key)
+            except Exception:
+                has_valid_master = False
+        
+        if has_valid_master:
             try:
                 print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
             except UnicodeEncodeError:
@@ -3670,7 +3705,16 @@ def update_stripe_publishable_key():
                     print(f"Nouvelle clé API générée: {stored_key}")
                 except UnicodeEncodeError:
                     print("Nouvelle clé API générée: %s" % stored_key)
-            if api_key != stored_key:
+            
+            # Always perform constant-time comparison
+            has_valid_stored = False
+            if api_key and stored_key:
+                try:
+                    has_valid_stored = hmac.compare_digest(api_key, stored_key)
+                except Exception:
+                    has_valid_stored = False
+            
+            if not has_valid_stored:
                 return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
 
         data = request.get_json() or {}
@@ -3726,7 +3770,15 @@ def update_stripe_secret_key():
             return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         # accept master key or previously provisioned export_api_key
-        if api_key == TEMPLATE_MASTER_API_KEY:
+        master_key = TEMPLATE_MASTER_API_KEY
+        has_valid_master = False
+        if api_key and master_key:
+            try:
+                has_valid_master = hmac.compare_digest(api_key, master_key)
+            except Exception:
+                has_valid_master = False
+        
+        if has_valid_master:
             pass
         else:
             stored_key = get_setting('export_api_key')
@@ -3735,7 +3787,16 @@ def update_stripe_secret_key():
                 stored_key = secrets.token_urlsafe(32)
                 set_setting('export_api_key', stored_key)
                 print(f"New export_api_key provisioned")
-            if api_key != stored_key:
+            
+            # Always perform constant-time comparison
+            has_valid_stored = False
+            if api_key and stored_key:
+                try:
+                    has_valid_stored = hmac.compare_digest(api_key, stored_key)
+                except Exception:
+                    has_valid_stored = False
+            
+            if not has_valid_stored:
                 return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json(silent=True) or {}
