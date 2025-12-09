@@ -536,7 +536,6 @@ def fetch_dashboard_site_price():
 def require_api_key(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        import hmac
         api_key = request.headers.get('X-API-Key') or ''
         expected_master = TEMPLATE_MASTER_API_KEY or ''
 
