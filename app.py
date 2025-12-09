@@ -88,6 +88,8 @@ if TEMPLATE_MASTER_API_KEY:
     print("🔑 Configuration sécurisée chargée avec succès")
 else:
     print("⚠️ ATTENTION: Configuration d'authentification manquante")
+    print("⚠️ TEMPLATE_MASTER_API_KEY non définie - génération d'une clé temporaire")
+    print("⚠️ En production, définissez TOUJOURS TEMPLATE_MASTER_API_KEY dans les variables d'environnement")
     # Generate a secure random key for development
     # This prevents timing attacks while still requiring explicit configuration
     TEMPLATE_MASTER_API_KEY = secrets.token_urlsafe(32)
@@ -568,7 +570,7 @@ def require_api_key(f):
         else:
             # Use dummy comparison to maintain constant timing
             try:
-                hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+                _ = hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
             except Exception:
                 pass
             ok_master = False
@@ -583,7 +585,7 @@ def require_api_key(f):
         else:
             # Use dummy comparison to maintain constant timing
             try:
-                hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+                _ = hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
             except Exception:
                 pass
             ok_stored = False
@@ -3396,8 +3398,8 @@ def dynamic_colors():
 # Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
 from functools import wraps
 
-# Note: require_api_key decorator is defined in the "API for dashboard -> template" section
-# using constant-time comparison with hmac.compare_digest for security
+# Note: The main require_api_key decorator is defined near the beginning of the API section
+# It uses constant-time comparison with hmac.compare_digest for security
 
 
 @app.route('/api/export/full', methods=['GET'])
