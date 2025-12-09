@@ -22,6 +22,10 @@ import os
 import sys
 
 
+# Constants
+MIN_STRIPE_KEY_LENGTH = 32
+
+
 def mask_key(key):
     """Mask a key for safe display in output."""
     if not key or len(key) < 10:
@@ -59,10 +63,10 @@ def validate_secret_key(key, verbose=True):
         return False
     
     # Check length
-    if len(key) < 32:
+    if len(key) < MIN_STRIPE_KEY_LENGTH:
         if verbose:
             print(f"⚠️  Warning: Secret key seems short ({len(key)} chars)")
-            print(f"   Stripe keys are typically 32+ characters")
+            print(f"   Stripe keys are typically {MIN_STRIPE_KEY_LENGTH}+ characters")
             print(f"   Key: {mask_key(key)}")
         # Don't fail, just warn
     
@@ -108,10 +112,10 @@ def validate_publishable_key(key, verbose=True):
         return False
     
     # Check length
-    if len(key) < 32:
+    if len(key) < MIN_STRIPE_KEY_LENGTH:
         if verbose:
             print(f"⚠️  Warning: Publishable key seems short ({len(key)} chars)")
-            print(f"   Stripe keys are typically 32+ characters")
+            print(f"   Stripe keys are typically {MIN_STRIPE_KEY_LENGTH}+ characters")
             print(f"   Key: {mask_key(key)}")
         # Don't fail, just warn
     
@@ -142,8 +146,8 @@ def check_environment_match(secret_key, publishable_key, verbose=True):
     if not secret_key or not publishable_key:
         return True  # Can't check if one is missing
     
-    secret_env = 'test' if 'test' in secret_key else 'live'
-    pub_env = 'test' if 'test' in publishable_key else 'live'
+    secret_env = 'test' if secret_key.startswith('sk_test_') else 'live'
+    pub_env = 'test' if publishable_key.startswith('pk_test_') else 'live'
     
     if secret_env != pub_env:
         if verbose:

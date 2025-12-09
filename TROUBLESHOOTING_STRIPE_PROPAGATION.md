@@ -469,9 +469,9 @@ def validate_stripe_key(key, key_type):
     return True
 
 if __name__ == "__main__":
-    # Example usage
-    secret_key = "sk_test_51HabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP"
-    publishable_key = "pk_test_51HabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP"
+    # Example usage with clearly fake keys
+    secret_key = "sk_test_EXAMPLE1234567890abcdefghijklmnopqrstuvwxyz"
+    publishable_key = "pk_test_EXAMPLE1234567890abcdefghijklmnopqrstuvwxyz"
     
     validate_stripe_key(secret_key, 'secret')
     validate_stripe_key(publishable_key, 'publishable')

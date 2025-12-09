@@ -111,9 +111,9 @@ def verify_site(site_url, check_health_endpoint=False, verbose=True):
     if success:
         if verbose:
             print(f"✅ OK")
-            print(f"     Key: {key[:15]}..." if key else "     (empty)")
+            print(f"     Key: {key[:12]}..." if key else "     (empty)")
             # Determine environment
-            env = 'test' if key and 'test' in key else 'live'
+            env = 'test' if key and key.startswith('pk_test_') else 'live'
             print(f"     Environment: {env}")
     else:
         if verbose:
@@ -179,7 +179,7 @@ def print_summary(all_results):
     environments = {}
     for r in all_results:
         if r['publishable_key']:
-            env = 'test' if 'test' in r['publishable_key'] else 'live'
+            env = 'test' if r['publishable_key'].startswith('pk_test_') else 'live'
             environments[env] = environments.get(env, 0) + 1
     
     if len(environments) > 1:
