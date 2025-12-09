@@ -602,8 +602,9 @@ def api_get_settings():
         result.pop('stripe_secret_key')
 
     # Filter other sensitive values unless correct API key provided
-    api_key = request.headers.get('X-API-Key')
-    if api_key != TEMPLATE_MASTER_API_KEY:
+    api_key = request.headers.get('X-API-Key') or ''
+    master_key = TEMPLATE_MASTER_API_KEY or ''
+    if not (api_key and master_key and hmac.compare_digest(api_key, master_key)):
         filtered = {k: v for k, v in result.items() if not (k.lower().startswith('stripe') and ('secret' in k.lower() or 'sk_' in str(v)))}
         # Ensure publishable key stays available
         return jsonify(filtered)
@@ -3640,7 +3641,8 @@ def update_stripe_publishable_key():
             return jsonify({'success': False, 'error': 'API key manquante'}), 401
 
         # Priorité maître
-        if api_key == TEMPLATE_MASTER_API_KEY:
+        master_key = TEMPLATE_MASTER_API_KEY or ''
+        if api_key and master_key and hmac.compare_digest(api_key, master_key):
             try:
                 print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
             except UnicodeEncodeError:
@@ -3654,7 +3656,7 @@ def update_stripe_publishable_key():
                     print(f"Nouvelle clé API générée: {stored_key}")
                 except UnicodeEncodeError:
                     print("Nouvelle clé API générée: %s" % stored_key)
-            if api_key != stored_key:
+            if not hmac.compare_digest(api_key, stored_key):
                 return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
 
         data = request.get_json() or {}
@@ -3710,7 +3712,8 @@ def update_stripe_secret_key():
             return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         # accept master key or previously provisioned export_api_key
-        if api_key == TEMPLATE_MASTER_API_KEY:
+        master_key = TEMPLATE_MASTER_API_KEY or ''
+        if api_key and master_key and hmac.compare_digest(api_key, master_key):
             pass
         else:
             stored_key = get_setting('export_api_key')
@@ -3719,7 +3722,7 @@ def update_stripe_secret_key():
                 stored_key = secrets.token_urlsafe(32)
                 set_setting('export_api_key', stored_key)
                 print(f"New export_api_key provisioned")
-            if api_key != stored_key:
+            if not hmac.compare_digest(api_key, stored_key):
                 return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json(silent=True) or {}
