@@ -242,7 +242,7 @@ def import_setting_stripe_pk():
     
     try:
         save_setting('stripe_publishable_key', value)
-        print(f"✅ Stripe PK configurée: {value[:10]}...")
+        print("✅ Stripe PK configurée avec succès")
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -352,7 +352,7 @@ def configure_site_preview_price(site_url, base_price=500, commission_percent=10
         f'{site_url}/api/export/settings/saas_site_price_cache',
         headers={
             'Content-Type': 'application/json',
-            'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
+            'X-API-Key': os.getenv('TEMPLATE_MASTER_API_KEY')
         },
         json={'value': f'{final_price:.2f}'}
     )
@@ -373,6 +373,8 @@ print(result)  # {'success': True, 'message': '...'}
 ```javascript
 async function configureSitePreviewPrice(siteUrl, basePrice = 500, commissionPercent = 10) {
     const finalPrice = basePrice * (1 + commissionPercent / 100);
+    const apiKey = process.env.TEMPLATE_MASTER_API_KEY; // Node.js backend
+    // ou const apiKey = window.TEMPLATE_MASTER_API_KEY; // Si stocké globalement
     
     const response = await fetch(
         `${siteUrl}/api/export/settings/saas_site_price_cache`,
@@ -380,7 +382,7 @@ async function configureSitePreviewPrice(siteUrl, basePrice = 500, commissionPer
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
+                'X-API-Key': apiKey
             },
             body: JSON.stringify({
                 value: finalPrice.toFixed(2)
@@ -661,11 +663,13 @@ curl https://template-artworksdigital.osc-fr1.scalingo.io/api/export/stats \
 4. **Dashboard** : Configure automatiquement le site via l'API :
    ```javascript
    // Configurer la publishable key
+   const apiKey = process.env.TEMPLATE_MASTER_API_KEY; // ou window.TEMPLATE_MASTER_API_KEY
+   
    await fetch(`${siteUrl}/api/export/settings/stripe_publishable_key`, {
      method: 'PUT',
      headers: {
        'Content-Type': 'application/json',
-       'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
+       'X-API-Key': apiKey
      },
      body: JSON.stringify({ value: 'pk_live_...' })
    });
@@ -675,7 +679,7 @@ curl https://template-artworksdigital.osc-fr1.scalingo.io/api/export/stats \
      method: 'PUT',
      headers: {
        'Content-Type': 'application/json',
-       'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
+       'X-API-Key': apiKey
      },
      body: JSON.stringify({ value: '550.00' })
    });
