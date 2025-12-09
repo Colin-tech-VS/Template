@@ -77,9 +77,9 @@ load_dotenv()
 # Clé API maître pour authentification Dashboard
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
 if TEMPLATE_MASTER_API_KEY:
-    print("🔑 Clé maître dashboard chargée avec succès")
+    print("🔑 Configuration sécurisée chargée avec succès")
 else:
-    print("⚠️ ATTENTION: Clé maître dashboard non configurée")
+    print("⚠️ ATTENTION: Configuration d'authentification manquante")
     TEMPLATE_MASTER_API_KEY = 'default-insecure-key'  # Fallback pour développement uniquement
 ```
 
@@ -162,7 +162,7 @@ def update_setting_api(key):
     
     # Accepter la clé maître du dashboard (priorité absolue)
     if api_key == TEMPLATE_MASTER_API_KEY:
-        print(f'[API] 🔑 Clé maître acceptée - Configuration {key}')
+        print(f'[API] ✅ Authentification réussie - Configuration {key}')
         # Skip la vérification normale
     else:
         # Vérification normale pour les autres requêtes
@@ -639,7 +639,7 @@ scalingo --app template-artworksdigital logs -f
 
 Vous devriez voir :
 ```
-🔑 Clé maître dashboard chargée: template-ma...y-2025
+🔑 Configuration sécurisée chargée avec succès
 ✅ Stripe Secret Key configurée
 * Running on http://0.0.0.0:5000/
 ```
@@ -751,7 +751,7 @@ Artiste          Dashboard              Template              Stripe
 - HTTP en production
 - Exposer la secret key côté client
 - Pas de validation des paramètres d'entrée
-- Logs contenant des clés complètes
+- Logs contenant des clés (complètes ou partielles)
 
 ### 10.2 Structure des Clés
 
