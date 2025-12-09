@@ -98,7 +98,7 @@ async def push_secret_key_async(session, site_url, secret_key, master_key, timeo
         }
 
 
-async def push_to_all_sites(sites, secret_key, master_key, concurrency=5):
+async def push_to_all_sites(sites, secret_key, master_key, concurrency=5, timeout=10):
     """
     Pousse la clé secrète vers tous les sites en parallèle (avec limite de concurrence).
     
@@ -107,16 +107,17 @@ async def push_to_all_sites(sites, secret_key, master_key, concurrency=5):
         secret_key: Clé secrète Stripe
         master_key: Clé API maître
         concurrency: Nombre de requêtes simultanées maximum
+        timeout: Timeout en secondes pour chaque requête (default: 10)
     
     Returns:
         list: Liste des résultats
     """
     connector = aiohttp.TCPConnector(limit=concurrency)
-    timeout = aiohttp.ClientTimeout(total=30)
+    client_timeout = aiohttp.ClientTimeout(total=timeout * 3)
     
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+    async with aiohttp.ClientSession(connector=connector, timeout=client_timeout) as session:
         tasks = [
-            push_secret_key_async(session, site, secret_key, master_key)
+            push_secret_key_async(session, site, secret_key, master_key, timeout)
             for site in sites
         ]
         results = await asyncio.gather(*tasks)
@@ -149,6 +150,12 @@ def main():
         type=int,
         default=5,
         help='Max concurrent requests (default: 5)'
+    )
+    parser.add_argument(
+        '--timeout',
+        type=int,
+        default=10,
+        help='Timeout per request in seconds (default: 10)'
     )
     parser.add_argument(
         '--dry-run',
@@ -223,7 +230,7 @@ def main():
 
     # Execute async push
     print('Starting propagation...\n')
-    results = asyncio.run(push_to_all_sites(sites, secret_key, master_key, args.concurrency))
+    results = asyncio.run(push_to_all_sites(sites, secret_key, master_key, args.concurrency, args.timeout))
 
     # Display results
     print()
