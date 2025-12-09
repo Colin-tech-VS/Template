@@ -41,7 +41,10 @@ La clé maître (`TEMPLATE_MASTER_API_KEY`) est un secret partagé entre le Dash
 - ✅ Mettre à jour les prix SAAS
 - ✅ Gérer les paramètres sans connaître les clés locales de chaque site
 
-**Valeur recommandée :** `template-master-key-2025`
+**Format recommandé :** Une clé longue, aléatoire et unique
+- Minimum 32 caractères
+- Combinaison de lettres, chiffres et caractères spéciaux
+- Exemple de génération : `openssl rand -base64 32` ou `python -c "import secrets; print(secrets.token_urlsafe(32))"`
 
 ### 1.2 Configuration sur le Template
 
@@ -51,12 +54,12 @@ La clé maître (`TEMPLATE_MASTER_API_KEY`) est un secret partagé entre le Dash
 ```
 Dashboard > Environment > Environment variables > Add a variable
 Name:  TEMPLATE_MASTER_API_KEY
-Value: template-master-key-2025
+Value: [votre-clé-générée-aléatoirement]
 ```
 
 **En local (.env) :**
 ```env
-TEMPLATE_MASTER_API_KEY=template-master-key-2025
+TEMPLATE_MASTER_API_KEY=[votre-clé-générée-aléatoirement]
 ```
 
 **IMPORTANT :** Ne jamais committer cette clé dans le code source. Assurez-vous que `.env` est dans `.gitignore`.
@@ -72,8 +75,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Clé API maître pour authentification Dashboard
-TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY', 'template-master-key-2025')
-print(f"🔑 Clé maître dashboard chargée: {TEMPLATE_MASTER_API_KEY[:10]}...{TEMPLATE_MASTER_API_KEY[-5:]}")
+TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
+if TEMPLATE_MASTER_API_KEY:
+    print("🔑 Clé maître dashboard chargée avec succès")
+else:
+    print("⚠️ ATTENTION: Clé maître dashboard non configurée")
+    TEMPLATE_MASTER_API_KEY = 'default-insecure-key'  # Fallback pour développement uniquement
 ```
 
 ---
@@ -99,7 +106,7 @@ Ces endpoints permettent au Dashboard de récupérer les données du site :
 
 ```bash
 curl -X GET https://template.artworksdigital.fr/api/export/stats \
-  -H "X-API-Key: template-master-key-2025"
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}"
 ```
 
 ### 2.2 Endpoints d'Écriture (PUT)
@@ -118,7 +125,7 @@ Ces endpoints permettent au Dashboard de configurer le site :
 ```bash
 curl -X PUT https://template.artworksdigital.fr/api/export/settings/saas_site_price_cache \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -d '{"value": "550.00"}'
 ```
 
@@ -303,7 +310,7 @@ STRIPE_SECRET_KEY=sk_live_...
 ```bash
 curl -X PUT https://template.artworksdigital.fr/api/export/settings/stripe_secret_key \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -d '{"value": "sk_live_..."}'
 ```
 
@@ -345,7 +352,7 @@ def configure_site_preview_price(site_url, base_price=500, commission_percent=10
         f'{site_url}/api/export/settings/saas_site_price_cache',
         headers={
             'Content-Type': 'application/json',
-            'X-API-Key': 'template-master-key-2025'
+            'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
         },
         json={'value': f'{final_price:.2f}'}
     )
@@ -373,7 +380,7 @@ async function configureSitePreviewPrice(siteUrl, basePrice = 500, commissionPer
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'X-API-Key': 'template-master-key-2025'
+                'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
             },
             body: JSON.stringify({
                 value: finalPrice.toFixed(2)
@@ -428,9 +435,10 @@ Pour pousser la configuration vers plusieurs sites :
 ```python
 # dashboard_push_stripe_pk.py
 import requests
+import os
 
-TEMPLATE_MASTER_KEY = 'template-master-key-2025'
-PUBLISHABLE_KEY = 'pk_live_...'
+TEMPLATE_MASTER_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
+PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_live_...')
 
 sites = [
     'https://site1.artworksdigital.fr',
@@ -464,9 +472,10 @@ Pour une propagation plus rapide en parallèle :
 # dashboard_push_stripe_pk_async.py
 import asyncio
 import aiohttp
+import os
 
-TEMPLATE_MASTER_KEY = 'template-master-key-2025'
-PUBLISHABLE_KEY = 'pk_live_...'
+TEMPLATE_MASTER_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
+PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_live_...')
 
 sites = [
     'https://site1.artworksdigital.fr',
@@ -510,17 +519,17 @@ if __name__ == '__main__':
 ```bash
 # Test 1 : Vérifier le chargement de la variable
 python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('TEMPLATE_MASTER_API_KEY'))"
-# Résultat attendu : template-master-key-2025
+# Résultat attendu : [votre-clé-générée]
 
 # Test 2 : Accès API avec clé maître
 curl -X GET https://template.artworksdigital.fr/api/export/stats \
-  -H "X-API-Key: template-master-key-2025"
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}"
 # Résultat attendu : JSON avec les statistiques
 
 # Test 3 : Mise à jour d'un paramètre
 curl -X PUT https://template.artworksdigital.fr/api/export/settings/test_key \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -d '{"value": "test_value"}'
 # Résultat attendu : {"success": true}
 
@@ -542,7 +551,7 @@ curl -i https://template.artworksdigital.fr/api/stripe-pk
 # Test 2 : Pousser une nouvelle publishable key
 curl -X PUT https://template.artworksdigital.fr/api/export/settings/stripe_publishable_key \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -d '{"value":"pk_test_51Hxxxx..."}'
 # Résultat attendu : {"success": true}
 
@@ -557,13 +566,13 @@ curl -i https://template.artworksdigital.fr/api/stripe-pk
 # Test 1 : Configurer le prix
 curl -X PUT https://template.artworksdigital.fr/api/export/settings/saas_site_price_cache \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -d '{"value": "550.00"}'
 # Résultat attendu : {"success": true}
 
 # Test 2 : Vérifier le prix dans les settings
 curl -X GET https://template.artworksdigital.fr/api/export/settings \
-  -H "X-API-Key: template-master-key-2025"
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}"
 # Chercher "saas_site_price_cache": "550.00" dans la réponse
 ```
 
@@ -606,8 +615,8 @@ Via l'interface Scalingo ou en ligne de commande :
 
 ```bash
 scalingo --app template-artworksdigital env-set \
-  TEMPLATE_MASTER_API_KEY=template-master-key-2025 \
-  SECRET_KEY=your-very-long-random-secret-key \
+  TEMPLATE_MASTER_API_KEY="[votre-clé-générée]" \
+  SECRET_KEY="your-very-long-random-secret-key" \
   FLASK_ENV=production
 ```
 
@@ -637,7 +646,7 @@ Vous devriez voir :
 
 ```bash
 curl https://template-artworksdigital.osc-fr1.scalingo.io/api/export/stats \
-  -H "X-API-Key: template-master-key-2025"
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}"
 ```
 
 ---
@@ -656,7 +665,7 @@ curl https://template-artworksdigital.osc-fr1.scalingo.io/api/export/stats \
      method: 'PUT',
      headers: {
        'Content-Type': 'application/json',
-       'X-API-Key': 'template-master-key-2025'
+       'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
      },
      body: JSON.stringify({ value: 'pk_live_...' })
    });
@@ -666,7 +675,7 @@ curl https://template-artworksdigital.osc-fr1.scalingo.io/api/export/stats \
      method: 'PUT',
      headers: {
        'Content-Type': 'application/json',
-       'X-API-Key': 'template-master-key-2025'
+       'X-API-Key': '${TEMPLATE_MASTER_API_KEY}'
      },
      body: JSON.stringify({ value: '550.00' })
    });
@@ -747,10 +756,10 @@ Artiste          Dashboard              Template              Stripe
 TEMPLATE_MASTER_API_KEY=123
 STRIPE_SECRET_KEY=sk_test_123
 
-# ✅ BON : Clés fortes et sécurisées
-TEMPLATE_MASTER_API_KEY=template-master-key-2025-7f9a8c3e2d1b
+# ✅ BON : Clés fortes et sécurisées (générées aléatoirement)
+TEMPLATE_MASTER_API_KEY=[générer avec: openssl rand -base64 32]
 STRIPE_SECRET_KEY=[Utilisez votre vraie clé Stripe sk_live_... ou sk_test_...]
-SECRET_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0
+SECRET_KEY=[générer avec: openssl rand -hex 32]
 ```
 
 ### 10.3 Protection des Endpoints
@@ -780,7 +789,7 @@ def update_setting_api(key):
 
 ```env
 # Clé API maître (OBLIGATOIRE pour intégration dashboard)
-TEMPLATE_MASTER_API_KEY=template-master-key-2025
+TEMPLATE_MASTER_API_KEY=[votre-clé-générée-aléatoirement]
 
 # Flask (OBLIGATOIRE)
 SECRET_KEY=your-very-long-random-secret-key
@@ -812,7 +821,7 @@ SITE_NAME=template
 
 ```env
 # Clé API maître pour authentification Dashboard
-TEMPLATE_MASTER_API_KEY=template-master-key-2025
+TEMPLATE_MASTER_API_KEY=[votre-clé-générée-aléatoirement]
 
 # Flask
 SECRET_KEY=change-me-to-a-random-secret-key
@@ -852,13 +861,13 @@ SITE_NAME=
 **Solutions :**
 1. Vérifiez que la variable `TEMPLATE_MASTER_API_KEY` est définie sur Scalingo
 2. Vérifiez le header : `X-API-Key` (pas `Authorization`)
-3. Vérifiez la valeur : `template-master-key-2025` (pas d'espace, majuscules/minuscules)
+3. Vérifiez la valeur : utilisez la même clé que celle configurée (pas d'espace, sensible à la casse)
 4. Redémarrez l'application après avoir ajouté la variable
 
 **Test :**
 ```bash
 curl -X GET https://template.artworksdigital.fr/api/export/stats \
-  -H "X-API-Key: template-master-key-2025" \
+  -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
   -v
 ```
 
@@ -874,7 +883,7 @@ curl -X GET https://template.artworksdigital.fr/api/export/stats \
    ```bash
    curl -X PUT https://template.artworksdigital.fr/api/export/settings/stripe_publishable_key \
      -H "Content-Type: application/json" \
-     -H "X-API-Key: template-master-key-2025" \
+     -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" \
      -d '{"value":"pk_test_..."}'
    ```
 2. Ou définissez la variable d'environnement `STRIPE_PUBLISHABLE_KEY`
@@ -898,7 +907,7 @@ curl -X GET https://template.artworksdigital.fr/api/export/stats \
 1. Le paramètre existe en base de données :
    ```bash
    curl -X GET https://template.artworksdigital.fr/api/export/settings \
-     -H "X-API-Key: template-master-key-2025" | grep saas_site_price_cache
+     -H "X-API-Key: ${TEMPLATE_MASTER_API_KEY}" | grep saas_site_price_cache
    ```
 2. La fonction `is_preview_request()` retourne `True` :
    - Vérifiez le domaine : doit être `template.artworksdigital.fr` ou `preview-*`
