@@ -3905,36 +3905,6 @@ def api_stripe_pk():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/export/settings/stripe_publishable_key', methods=['GET'])
-def get_stripe_publishable_key():
-    """Public endpoint returning only the publishable key for client usage.
-    Allows CORS for browser clients. Never returns secret keys.
-    """
-    try:
-        pk = get_setting('stripe_publishable_key')
-        if not pk:
-            pk = os.getenv('STRIPE_PUBLISHABLE_KEY')
-        if not pk:
-            return jsonify({'error': 'not_found'}), 404
-
-        # Log request origin
-        try:
-            ip = request.remote_addr or 'unknown'
-            ua = request.headers.get('User-Agent', '')
-            app.logger.info(f"[API] GET stripe_publishable_key from {ip} - UA:{ua}")
-        except Exception:
-            pass
-
-        # Return with permissive CORS (adjust in production as needed)
-        resp = jsonify({'publishable_key': pk})
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        resp.headers['Access-Control-Allow-Methods'] = 'GET'
-        return resp, 200
-    except Exception as e:
-        app.logger.exception('Error in get_stripe_publishable_key')
-        return jsonify({'error': 'internal'}), 500
-
-
 @app.route('/api/upload/image', methods=['POST'])
 @require_api_key
 def upload_image():
