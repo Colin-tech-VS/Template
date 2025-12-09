@@ -1,0 +1,23 @@
+# Example sites file for Stripe secret key propagation
+# 
+# Format: One URL per line
+# Lines starting with # are treated as comments and ignored
+#
+# Usage:
+#   python dashboard_push_stripe_sk.py --sites-file sites-example.txt --dry-run
+#
+# Security reminder:
+#   - Always use HTTPS URLs
+#   - Verify sites are reachable before propagation
+#   - Test with dry-run first
+#   - Use test keys (sk_test_...) for testing
+#
+
+# Example production sites
+# https://site1.artworksdigital.fr
+# https://site2.artworksdigital.fr
+# https://site3.artworksdigital.fr
+
+# Example test/staging sites
+# https://test-site1.artworksdigital.fr
+# https://staging-site2.artworksdigital.fr

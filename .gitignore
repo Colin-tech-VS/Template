@@ -16,6 +16,11 @@ ENV/
 # Variables d'environnement
 .env
 
+# Sites lists for propagation scripts (to avoid committing production URLs)
+sites.txt
+sites-*.txt
+!sites-example.txt
+
 # IDE
 .vscode/
 .idea/
