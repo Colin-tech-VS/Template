@@ -92,6 +92,10 @@ else:
     # This prevents timing attacks while still requiring explicit configuration
     TEMPLATE_MASTER_API_KEY = secrets.token_urlsafe(32)
 
+# Dummy value for constant-time comparisons when keys are missing
+# This avoids generating random values on every comparison
+_DUMMY_KEY_FOR_COMPARISON = secrets.token_urlsafe(32)
+
 app = Flask(__name__)
 app.secret_key = 'secret_key'
 
@@ -556,20 +560,32 @@ def require_api_key(f):
         
         # Check master key with constant-time comparison
         # Always perform comparison to prevent timing leaks
-        try:
-            # Use dummy value if master key not set to maintain constant timing
-            compare_master = expected_master if expected_master else secrets.token_urlsafe(32)
-            ok_master = hmac.compare_digest(api_key, compare_master)
-        except Exception:
+        if expected_master:
+            try:
+                ok_master = hmac.compare_digest(api_key, expected_master)
+            except Exception:
+                ok_master = False
+        else:
+            # Use dummy comparison to maintain constant timing
+            try:
+                hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+            except Exception:
+                pass
             ok_master = False
         
         # Check stored key with constant-time comparison
         # Always perform comparison to prevent timing leaks
-        try:
-            # Use dummy value if stored key not set to maintain constant timing
-            compare_stored = stored if stored else secrets.token_urlsafe(32)
-            ok_stored = hmac.compare_digest(api_key, compare_stored)
-        except Exception:
+        if stored:
+            try:
+                ok_stored = hmac.compare_digest(api_key, stored)
+            except Exception:
+                ok_stored = False
+        else:
+            # Use dummy comparison to maintain constant timing
+            try:
+                hmac.compare_digest(api_key, _DUMMY_KEY_FOR_COMPARISON)
+            except Exception:
+                pass
             ok_stored = False
 
         if not (ok_master or ok_stored):
