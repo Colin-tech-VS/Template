@@ -3373,7 +3373,6 @@ from functools import wraps
 
 # Note: require_api_key decorator is defined in the "API for dashboard -> template" section
 # using constant-time comparison with hmac.compare_digest for security
-# using constant-time comparison with hmac.compare_digest for security
 
 
 @app.route('/api/export/full', methods=['GET'])
