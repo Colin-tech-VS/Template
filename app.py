@@ -964,13 +964,38 @@ def is_admin():
     if not user_id:
         return False
     
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(adapt_query("SELECT role FROM users WHERE id=?"), (user_id,))
-    result = c.fetchone()
-    conn.close()
-    
-    return result and result[0] == 'admin'
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute(adapt_query("SELECT role FROM users WHERE id=?"), (user_id,))
+        result = c.fetchone()
+        conn.close()
+        
+        # Vérification robuste: result doit être une séquence non vide
+        if result is None:
+            print(f"[is_admin] Aucun résultat pour user_id={user_id}")
+            return False
+        
+        if not isinstance(result, (tuple, list)) or len(result) == 0:
+            print(f"[is_admin] Résultat mal formé pour user_id={user_id}: {type(result)}")
+            return False
+        
+        # Accès sécurisé au rôle
+        role = result[0]
+        if role is None:
+            print(f"[is_admin] Rôle NULL pour user_id={user_id}")
+            return False
+        
+        is_admin_role = (role == 'admin')
+        # Log uniquement en mode debug pour éviter le bruit et les fuites d'info
+        if not is_admin_role and os.getenv('DEBUG_AUTH'):
+            print(f"[is_admin] user_id={user_id} a le rôle '{role}' (non admin)")
+        
+        return is_admin_role
+        
+    except Exception as e:
+        print(f"[is_admin] Erreur lors de la vérification du rôle pour user_id={user_id}: {e}")
+        return False
 
 def require_admin(f):
     """Décorateur pour protéger les routes admin"""
