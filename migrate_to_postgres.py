@@ -1,50 +1,24 @@
 """
-Script de migration de SQLite vers PostgreSQL pour Render
-Ce script transfère toutes les données de la base SQLite locale vers PostgreSQL
+[DEPRECATED] Ce script est obsolète.
+Utilisez migrate_sqlite_to_supabase.py à la place.
+
+Migration de SQLite vers Supabase/PostgreSQL
 """
 
-import sqlite3
-import psycopg2
-import psycopg2.extras
-import os
-from urllib.parse import urlparse
-
-# Configuration
-SQLITE_DB = 'paintings.db'
-POSTGRES_URL = os.environ.get('DATABASE_URL')
-
-if not POSTGRES_URL:
-    print("❌ Erreur: La variable d'environnement DATABASE_URL n'est pas définie")
-    print("💡 Définissez-la avec: export DATABASE_URL='postgresql://user:pass@host:port/dbname'")
-    exit(1)
-
-# Parser l'URL PostgreSQL
-result = urlparse(POSTGRES_URL)
-pg_config = {
-    'host': result.hostname,
-    'port': result.port,
-    'database': result.path[1:],
-    'user': result.username,
-    'password': result.password
-}
-
-print(f"📊 Migration de SQLite vers PostgreSQL")
-print(f"   Source: {SQLITE_DB}")
-print(f"   Destination: {pg_config['host']}/{pg_config['database']}")
+print("=" * 80)
+print("⚠️  ATTENTION: Ce script est obsolète!")
+print("=" * 80)
 print()
+print("📋 Utilisez le nouveau script de migration:")
+print("   python migrate_sqlite_to_supabase.py")
+print()
+print("📖 Consultez la documentation:")
+print("   SUPABASE_MIGRATION_GUIDE.md")
+print()
+print("=" * 80)
 
-# Tables à migrer (dans l'ordre pour respecter les contraintes de clés étrangères)
-TABLES = [
-    'users',
-    'settings',
-    'paintings',
-    'exhibitions',
-    'notifications',
-    'orders',
-    'order_items',
-    'custom_requests',
-    'favorites'
-]
+import sys
+sys.exit(1)
 
 def adapt_schema_for_postgres(create_sql):
     """Adapte le schéma SQLite pour PostgreSQL"""
