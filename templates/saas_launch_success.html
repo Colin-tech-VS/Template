@@ -337,20 +337,23 @@
 <div class="modal-overlay active" id="domainModal">
     <div class="modal-content">
         <h2>Configurez votre domaine</h2>
-        <p class="subtitle">Entrez le nom de votre site (sans extension)</p>
+        <p class="subtitle">Entrez votre nom de site ou votre domaine personnalisé</p>
 
         <div class="domain-input-group">
-            <label class="domain-input-label">Nom du domaine</label>
+            <label class="domain-input-label">Domaine de votre site</label>
             <div class="domain-input-wrapper">
                 <input 
                     type="text" 
                     id="domainInput" 
                     class="domain-input-field" 
-                    placeholder="jeanbaptiste"
-                    value="jeanbaptiste"
+                    placeholder="example ou example.com"
+                    value="example"
                 >
-                <span class="domain-extension">.com</span>
             </div>
+            <p style="font-size: 12px; color: #999; margin-top: 8px;">
+                ℹ️ Entrez juste le nom (ex: example) → exemple.artworksdigital.fr<br>
+                ou votre domaine complet (ex: example.com) → example.com
+            </p>
             <div class="error-message" id="errorMessage"></div>
         </div>
 
@@ -373,16 +376,27 @@
 const apiKey = "{{ api_key }}";
 const userId = {{ user_id }};
 
+// Helper function to generate full domain
+function generateFullDomain(input) {
+    const trimmed = (input || '').trim() || 'example';
+    // If contains a dot, it's a custom domain (example.com, example.fr, etc.)
+    if (trimmed.includes('.')) {
+        return trimmed;
+    }
+    // Otherwise, append .artworksdigital.fr
+    return trimmed + '.artworksdigital.fr';
+}
+
 // Update domain preview as user types
 document.getElementById('domainInput').addEventListener('input', function(e) {
-    const domainName = e.target.value.trim() || 'jeanbaptiste';
-    document.getElementById('domainPreview').textContent = domainName + '.com';
+    const fullDomain = generateFullDomain(e.target.value);
+    document.getElementById('domainPreview').textContent = fullDomain;
     document.getElementById('errorMessage').classList.remove('show');
 });
 
 // Initialize with default value
-document.getElementById('domainInput').value = 'jeanbaptiste';
-document.getElementById('domainPreview').textContent = 'jeanbaptiste.com';
+document.getElementById('domainInput').value = 'example';
+document.getElementById('domainPreview').textContent = generateFullDomain('example');
 
 function copyApiKey() {
     const apiKeyText = document.getElementById('apiKeyDisplay').textContent.trim();
@@ -402,24 +416,33 @@ function copyApiKey() {
 
 function submitDomain() {
     const domainInput = document.getElementById('domainInput');
-    let domainName = domainInput.value.trim();
+    let userInput = domainInput.value.trim();
     
-    if (!domainName) {
-        domainName = 'jeanbaptiste';
+    if (!userInput) {
+        userInput = 'example';
     }
     
-    // Validate domain name (alphanumeric, hyphens, no spaces)
-    if (!/^[a-zA-Z0-9-]+$/.test(domainName)) {
-        showError('Le nom de domaine ne peut contenir que des lettres, chiffres et tirets');
-        return;
+    // Check if it's a custom domain (contains a dot)
+    if (userInput.includes('.')) {
+        // Validate custom domain format (domain.com, domain.fr, etc.)
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/.test(userInput)) {
+            showError('Format de domaine personnalisé invalide (ex: example.com)');
+            return;
+        }
+    } else {
+        // Validate simple domain name format
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/.test(userInput)) {
+            showError('Le nom du site ne peut contenir que des lettres, chiffres et tirets');
+            return;
+        }
+        
+        if (userInput.length < 3) {
+            showError('Le nom du site doit contenir au moins 3 caractères');
+            return;
+        }
     }
     
-    if (domainName.length < 3) {
-        showError('Le nom de domaine doit contenir au moins 3 caractères');
-        return;
-    }
-    
-    const fullDomain = domainName + '.com';
+    const fullDomain = generateFullDomain(userInput);
     submitToAPI(fullDomain);
 }
 
