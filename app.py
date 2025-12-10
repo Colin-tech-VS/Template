@@ -484,8 +484,7 @@ def get_dashboard_base_url():
 def is_preview_request():
     host = (request.host or "").lower()
     return (
-        host.endswith(".artworksdigital.fr")
-        or ".preview." in host
+        ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
     )
