@@ -14,7 +14,7 @@ if not SUPABASE_URL:
     sys.exit(1)
 
 try:
-    from database import get_db
+    from database import get_db  # Returns connection with RealDictCursor configured
     
     print("🔍 Vérification du schéma de la base de données Supabase")
     print("=" * 70)
@@ -35,6 +35,7 @@ try:
     columns = cursor.fetchall()
     if columns:
         for col in columns:
+            # RealDictCursor allows dict-style access
             col_name = col['column_name']
             col_type = col['data_type']
             col_length = col['character_maximum_length'] or ''

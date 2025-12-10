@@ -23,7 +23,7 @@ try:
     print("🔍 VÉRIFICATION DE LA BASE DE DONNÉES SUPABASE - Clés Stripe")
     print("="*80)
     
-    cursor.execute("SELECT key, value FROM settings WHERE key LIKE %s", ('stripe%',))
+    cursor.execute("SELECT key, value FROM settings WHERE key LIKE %s", ['stripe%'])
     rows = cursor.fetchall()
     
     if not rows:

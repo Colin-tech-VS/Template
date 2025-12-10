@@ -14,7 +14,7 @@ if not SUPABASE_URL:
 
 def reset_database():
     """Réinitialise la base de données Supabase (SUPPRIME TOUT)"""
-    from database import get_db
+    from database import get_db  # Returns connection with RealDictCursor
     
     print("🔄 Réinitialisation de la base de données Supabase...")
     print("=" * 70)
@@ -29,6 +29,7 @@ def reset_database():
         admin_user = cursor.fetchone()
         
         if admin_user:
+            # RealDictCursor allows dict-style access
             print(f"   ✅ Admin trouvé: {admin_user['email']}")
         else:
             print("   ⚠️  Aucun admin trouvé")

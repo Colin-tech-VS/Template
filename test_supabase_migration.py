@@ -57,6 +57,7 @@ def test_tables_exist():
             'custom_requests', 'settings', 'stripe_events', 'saas_sites'
         ]
         
+        # get_db() returns connection with RealDictCursor, so we can use dict keys
         conn = get_db()
         cursor = conn.cursor()
         
@@ -66,7 +67,9 @@ def test_tables_exist():
             WHERE table_schema = 'public'
         """)
         
-        existing_tables = [row['table_name'] for row in cursor.fetchall()]
+        rows = cursor.fetchall()
+        # Access using dict keys (RealDictCursor)
+        existing_tables = [row['table_name'] for row in rows]
         print(f"✅ Tables trouvées: {len(existing_tables)}")
         
         missing_tables = []

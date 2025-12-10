@@ -142,7 +142,9 @@ def migrate_table(sqlite_conn, pg_conn, table_name):
     columns_str = ', '.join(columns)
     
     # Pour les tables avec ID auto-incrémenté, on garde l'ID source
-    insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
+    # ON CONFLICT sur la colonne 'id' si elle existe
+    conflict_clause = "ON CONFLICT (id) DO NOTHING" if 'id' in columns else "ON CONFLICT DO NOTHING"
+    insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders}) {conflict_clause}"
     
     try:
         migrated_count = 0
