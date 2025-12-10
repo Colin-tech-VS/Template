@@ -7,6 +7,7 @@ import os
 import requests
 import time
 import logging
+import json
 from typing import Dict, List, Optional, Any
 from functools import wraps
 
@@ -201,7 +202,7 @@ class SupabaseClient:
             error_json = response.json()
             error_message = error_json.get('message', error_body)
             error_code = error_json.get('code', '')
-        except:
+        except (ValueError, json.JSONDecodeError):
             error_message = error_body
             error_code = ''
         

@@ -39,9 +39,16 @@ def validate_webhook_signature(payload: bytes, signature: str) -> bool:
     Returns:
         True si signature valide, False sinon
     """
+    # Vérifier si le mode dev est explicitement activé
+    dev_mode = os.environ.get('WEBHOOK_DEV_MODE', '').lower() == 'true'
+    
     if not WEBHOOK_SECRET:
-        logger.warning("Validation signature ignorée (WEBHOOK_SECRET non défini)")
-        return True  # En dev, accepter sans validation
+        if dev_mode:
+            logger.warning("⚠️  Mode DEV: Validation signature ignorée (WEBHOOK_SECRET non défini)")
+            return True
+        else:
+            logger.error("❌ WEBHOOK_SECRET non défini et WEBHOOK_DEV_MODE non activé - rejet sécurisé")
+            return False
     
     if not signature:
         logger.error("Signature manquante dans le header")

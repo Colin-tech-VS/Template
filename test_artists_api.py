@@ -16,7 +16,11 @@ os.environ['SUPABASE_SERVICE_KEY'] = os.environ.get('SUPABASE_SERVICE_KEY', 'tes
 
 # Vérifier que les variables sont définies
 required_vars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_KEY']
-missing_vars = [var for var in required_vars if not os.environ.get(var) or os.environ.get(var).startswith('test_')]
+missing_vars = []
+for var in required_vars:
+    value = os.environ.get(var)
+    if not value or value.startswith('test_'):
+        missing_vars.append(var)
 
 if missing_vars:
     print("⚠️  ATTENTION: Variables manquantes ou valeurs de test:")

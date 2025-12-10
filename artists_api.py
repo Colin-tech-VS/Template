@@ -276,7 +276,8 @@ def update_artist(artist_id: int):
         return jsonify({'error': 'Artiste non trouvé'}), 404
     except ValueError as e:
         logger.error(f"Erreur validation mise à jour artiste {artist_id}: {e}")
-        return jsonify({'error': str(e)}), 400
+        # Ne pas exposer les détails internes de l'erreur
+        return jsonify({'error': 'Données invalides'}), 400
     except Exception as e:
         logger.error(f"Erreur mise à jour artiste {artist_id}: {e}")
         return jsonify({'error': 'Erreur serveur'}), 500
