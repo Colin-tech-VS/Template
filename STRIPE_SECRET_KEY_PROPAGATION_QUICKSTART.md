@@ -121,6 +121,18 @@ pip install requests aiohttp
 | `timeout` | Increase `--timeout` value or check site connectivity |
 | `connection refused` | Verify site URL is correct and accessible |
 
+**For detailed troubleshooting, see:** [TROUBLESHOOTING_STRIPE_PROPAGATION.md](./TROUBLESHOOTING_STRIPE_PROPAGATION.md)
+
+## Utility Scripts
+
+```bash
+# Validate key format before propagation
+python validate_stripe_keys.py --secret-key sk_test_...
+
+# Verify propagation was successful
+python verify_stripe_propagation.py --sites-file sites.txt
+```
+
 ## Get Help
 
 ```bash
@@ -132,6 +144,7 @@ python dashboard_push_stripe_sk_async.py --help
 ## Related Documentation
 
 - Complete guide: [STRIPE_SECRET_KEY_AUTO_PROPAGATION.md](./STRIPE_SECRET_KEY_AUTO_PROPAGATION.md)
+- **Troubleshooting guide:** [TROUBLESHOOTING_STRIPE_PROPAGATION.md](./TROUBLESHOOTING_STRIPE_PROPAGATION.md)
 - Publishable key propagation: [TEMPLATE_STRIPE_INTEGRATION.md](./TEMPLATE_STRIPE_INTEGRATION.md)
 - Stripe integration: [DASHBOARD_STRIPE_LAUNCH_INSTRUCTIONS.md](./DASHBOARD_STRIPE_LAUNCH_INSTRUCTIONS.md)
 

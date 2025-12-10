@@ -397,10 +397,14 @@ Toujours maintenir des fichiers sites distincts:
 
 Pour toute question sur la propagation de la clé secrète:
 
-1. Consulter la documentation Stripe: https://stripe.com/docs/keys
-2. Vérifier les logs du template et du dashboard
-3. Tester avec le mode dry-run
-4. Contacter l'équipe technique si le problème persiste
+1. **Consulter le guide de dépannage:** [TROUBLESHOOTING_STRIPE_PROPAGATION.md](./TROUBLESHOOTING_STRIPE_PROPAGATION.md)
+2. Consulter la documentation Stripe: https://stripe.com/docs/keys
+3. Vérifier les logs du template et du dashboard
+4. Tester avec le mode dry-run
+5. Utiliser les scripts de validation et vérification:
+   - `python validate_stripe_keys.py --secret-key sk_...`
+   - `python verify_stripe_propagation.py --sites-file sites.txt`
+6. Contacter l'équipe technique si le problème persiste
 
 ---
 
