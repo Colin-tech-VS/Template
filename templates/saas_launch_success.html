@@ -300,36 +300,9 @@
 }
 </style>
 
-<section class="section">
+<section class="section" id="contentSection" style="display: none;">
     <div class="saas-success-container">
-        <div class="success-badge">✓ Paiement réussi</div>
-        <h2>Votre site est prêt !</h2>
-        
-        <p class="info-text">
-            Votre site a été créé avec succès. Ci-dessous se trouve votre clé API unique 
-            pour configurer les connexions avec le Dashboard.
-        </p>
-
-        <div class="api-key-section">
-            <div class="api-key-label">Clé API d'export</div>
-            <div class="api-key-display" id="apiKeyDisplay">{{ api_key }}</div>
-            <button class="copy-btn" onclick="copyApiKey()">Copier la clé</button>
-        </div>
-
-        <div class="next-steps">
-            <h3>Prochaines étapes</h3>
-            <ol>
-                <li><strong>Configurez votre domaine</strong> dans la popup</li>
-                <li><strong>Ajoutez les clés Stripe</strong> via le Dashboard (secret et publishable)</li>
-                <li><strong>Testez les endpoints API</strong> pour vérifier la configuration</li>
-                <li><strong>Déployez votre site</strong> en production</li>
-            </ol>
-        </div>
-
-        <p class="info-text">
-            <strong>Important :</strong> Gardez cette clé API confidentielle. 
-            Elle permet au Dashboard de gérer votre site.
-        </p>
+        <div id="successMessage"></div>
     </div>
 </section>
 
@@ -397,22 +370,6 @@ document.getElementById('domainInput').addEventListener('input', function(e) {
 // Initialize with default value
 document.getElementById('domainInput').value = 'example';
 document.getElementById('domainPreview').textContent = generateFullDomain('example');
-
-function copyApiKey() {
-    const apiKeyText = document.getElementById('apiKeyDisplay').textContent.trim();
-    navigator.clipboard.writeText(apiKeyText).then(() => {
-        const btn = event.target;
-        btn.textContent = 'Copié !';
-        btn.classList.add('copied');
-        setTimeout(() => {
-            btn.textContent = 'Copier la clé';
-            btn.classList.remove('copied');
-        }, 2000);
-    }).catch(err => {
-        console.error('Erreur copie:', err);
-        alert('Erreur lors de la copie');
-    });
-}
 
 function submitDomain() {
     const domainInput = document.getElementById('domainInput');
@@ -492,21 +449,24 @@ function submitToAPI(domain) {
 }
 
 function showSuccess(domain, siteUrl) {
-    // Close modal and show success message
+    // Close modal and redirect to production site
     const modal = document.getElementById('domainModal');
-    const container = document.querySelector('.saas-success-container');
-    
     modal.classList.remove('active');
     
-    // Add success confirmation
+    // Show brief loading message before redirect
+    const container = document.querySelector('.saas-success-container');
     const successDiv = document.createElement('div');
-    successDiv.style.cssText = 'text-align: center; color: #10B981; margin-top: 30px; padding: 20px; background: #ECFDF5; border-radius: 8px;';
+    successDiv.style.cssText = 'text-align: center; color: #3B65C4; margin-top: 30px; padding: 20px;';
     successDiv.innerHTML = `
-        <h3 style="color: #10B981; margin-bottom: 10px;">✓ Site enregistré avec succès !</h3>
-        <p>Votre site est accessible sur: <strong>${siteUrl}</strong></p>
-        <p style="margin-top: 15px; font-size: 14px; color: #666;">Le Dashboard a été mis à jour automatiquement</p>
+        <h3>Redirection vers votre site...</h3>
+        <p>Votre site démarre à l'adresse: <strong>${siteUrl}</strong></p>
     `;
     container.appendChild(successDiv);
+    
+    // Redirect to production site after 2 seconds
+    setTimeout(() => {
+        window.location.href = 'https://' + siteUrl;
+    }, 2000);
 }
 </script>
 {% endblock %}
