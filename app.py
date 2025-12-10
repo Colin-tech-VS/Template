@@ -4125,6 +4125,15 @@ def saas_launch_site():
         flash("Vous devez être connecté pour lancer votre site.")
         return redirect(url_for('login'))
     
+    # Sauvegarder le domaine preview actuel pour suppression ultérieure
+    preview_host = request.host
+    if is_preview_request():
+        try:
+            set_setting("preview_domain", preview_host, user_id=user_id)
+            print(f"[SAAS] Domaine preview {preview_host} sauvegardé pour user_id {user_id}")
+        except Exception as e:
+            print(f"[SAAS] Erreur sauvegarde preview_domain: {e}")
+    
     price = fetch_dashboard_site_price()
     if not price or price <= 0:
         flash("Prix indisponible pour le lancement.")
