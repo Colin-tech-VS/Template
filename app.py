@@ -109,6 +109,14 @@ _DUMMY_KEY_FOR_COMPARISON = secrets.token_urlsafe(32)
 app = Flask(__name__)
 app.secret_key = 'secret_key'
 
+# Register artists blueprint
+try:
+    from artists_api import artists_bp
+    app.register_blueprint(artists_bp)
+    print("✅ Blueprint artistes enregistré")
+except Exception as e:
+    print(f"⚠️  Erreur enregistrement blueprint artistes: {e}")
+
 # Config Flask-Mail
 app.config.update(
     MAIL_SERVER='smtp.gmail.com',
