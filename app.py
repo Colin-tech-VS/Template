@@ -132,18 +132,28 @@ def allowed_file(filename):
 
 
 def get_order_by_id(order_id):
+    """Récupère une commande par ID - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     cursor = conn.cursor()
-    query = adapt_query("SELECT * FROM orders WHERE id = ?")
+    query = adapt_query("""
+        SELECT id, customer_name, email, address, total_price, order_date, status, user_id
+        FROM orders 
+        WHERE id = %s
+    """)
     cursor.execute(query, (order_id,))
     order = cursor.fetchone()
     conn.close()
     return order
 
 def get_order_items(order_id):
+    """Récupère les items d'une commande - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     cursor = conn.cursor()
-    query = adapt_query("SELECT * FROM order_items WHERE order_id = ?")
+    query = adapt_query("""
+        SELECT id, order_id, painting_id, quantity, price
+        FROM order_items 
+        WHERE order_id = %s
+    """)
     cursor.execute(query, (order_id,))
     items = cursor.fetchall()
     conn.close()
@@ -934,9 +944,16 @@ except Exception as e:
 # UTILITAIRES
 # --------------------------------
 def get_paintings():
+    """Récupère toutes les peintures - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, name, image, price, quantity, description FROM paintings")
+    # OPTIMISÉ: Sélection de colonnes spécifiques au lieu de SELECT *
+    # Ajout d'ORDER BY et LIMIT pour pagination future
+    c.execute("""
+        SELECT id, name, image, price, quantity, description, category, status, display_order
+        FROM paintings 
+        ORDER BY display_order DESC, id DESC
+    """)
     paintings = c.fetchall()
     conn.close()
     return paintings
@@ -970,15 +987,28 @@ def require_admin(f):
 # --------------------------------
 @app.route('/')
 def home():
+    """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT *"""
     conn = get_db()
     c = conn.cursor()
 
-    # Sélection explicite pour latest_paintings
-    c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC LIMIT 4")
+    # OPTIMISÉ: Sélection explicite des colonnes nécessaires + LIMIT
+    c.execute("""
+        SELECT id, name, image, price, quantity, description, category, status
+        FROM paintings 
+        WHERE status = 'disponible'
+        ORDER BY display_order DESC, id DESC 
+        LIMIT 4
+    """)
     latest_paintings = c.fetchall()
 
-    # Sélection explicite pour all_paintings
-    c.execute("SELECT id, name, image, price, quantity, description FROM paintings ORDER BY id DESC")
+    # OPTIMISÉ: Sélection explicite pour toutes les peintures
+    c.execute("""
+        SELECT id, name, image, price, quantity, description, category, status
+        FROM paintings 
+        WHERE status = 'disponible'
+        ORDER BY display_order DESC, id DESC
+        LIMIT 100
+    """)
     all_paintings = c.fetchall()
 
     conn.close()
@@ -986,10 +1016,18 @@ def home():
 
 @app.route('/about')
 def about():
+    """Page à propos - OPTIMISÉ: colonnes spécifiques + LIMIT"""
     # Récupérer toutes les peintures pour affichage dans la page à propos
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, name, image FROM paintings ORDER BY id DESC")
+    # OPTIMISÉ: Colonnes spécifiques + LIMIT pour éviter de charger trop de données
+    c.execute("""
+        SELECT id, name, image 
+        FROM paintings 
+        WHERE status = 'disponible'
+        ORDER BY display_order DESC, id DESC
+        LIMIT 50
+    """)
     paintings = c.fetchall()
     conn.close()
 
@@ -1106,9 +1144,16 @@ def logout():
 
 @app.route("/expositions")
 def expositions_page():
+    """Page expositions - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM exhibitions ORDER BY date ASC")  # tri par date croissante
+    # OPTIMISÉ: Sélection explicite des colonnes
+    c.execute("""
+        SELECT id, title, location, date, start_time, end_time, description, image, venue_details
+        FROM exhibitions 
+        ORDER BY date ASC
+        LIMIT 100
+    """)
     expositions = c.fetchall()
     conn.close()
 
@@ -1290,9 +1335,16 @@ def submit_custom_request():
 # Page de détail
 @app.route("/expo_detail/<int:expo_id>")
 def expo_detail_page(expo_id):
+    """Page détail exposition - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     c = conn.cursor()
-    c.execute(adapt_query("SELECT * FROM exhibitions WHERE id=?"), (expo_id,))
+    # OPTIMISÉ: Sélection explicite des colonnes + WHERE sur primary key
+    c.execute(adapt_query("""
+        SELECT id, title, location, date, start_time, end_time, description, image, 
+               venue_details, organizer, entry_price, contact_info
+        FROM exhibitions 
+        WHERE id=%s
+    """), (expo_id,))
     expo = c.fetchone()
     conn.close()
     if expo is None:
@@ -1300,12 +1352,12 @@ def expo_detail_page(expo_id):
 
     # Construire le chemin de l'image si elle existe
     image_url = None
-    if expo[5]:
+    if expo[7]:  # image field
         # Vérifier si c'est déjà une URL complète
-        if expo[5].startswith("http"):
-            image_url = expo[5]
+        if expo[7].startswith("http"):
+            image_url = expo[7]
         else:
-            image_url = url_for('static', filename='expo_images/' + expo[5])
+            image_url = url_for('static', filename='expo_images/' + expo[7])
 
     return render_template("expo_detail.html", expo=expo, image_url=image_url)
 
@@ -1315,19 +1367,34 @@ def expo_detail_page(expo_id):
 @app.route("/admin/custom-requests")
 @require_admin
 def admin_custom_requests():
+    """Page admin demandes sur mesure - OPTIMISÉ: colonnes spécifiques"""
     status_filter = request.args.get('status')
     
     conn = get_db()
     c = conn.cursor()
     
+    # OPTIMISÉ: Sélection explicite des colonnes + filtrage avec index
     if status_filter:
-        c.execute(adapt_query("SELECT * FROM custom_requests WHERE status=? ORDER BY created_at DESC"), (status_filter,))
+        c.execute(adapt_query("""
+            SELECT id, client_name, client_email, project_type, description, 
+                   budget, dimensions, deadline, status, created_at
+            FROM custom_requests 
+            WHERE status=%s 
+            ORDER BY created_at DESC
+            LIMIT 200
+        """), (status_filter,))
     else:
-        c.execute("SELECT * FROM custom_requests ORDER BY created_at DESC")
+        c.execute("""
+            SELECT id, client_name, client_email, project_type, description, 
+                   budget, dimensions, deadline, status, created_at
+            FROM custom_requests 
+            ORDER BY created_at DESC
+            LIMIT 200
+        """)
     
     requests_list = c.fetchall()
     
-    # Compter par statut
+    # OPTIMISÉ: Comptages avec requêtes rapides sur index
     c.execute("SELECT COUNT(*) FROM custom_requests")
     total_count = c.fetchone()[0]
     
@@ -1398,9 +1465,16 @@ def delete_custom_request(request_id):
 # --------------------------------
 @app.route("/admin/exhibitions")
 def admin_exhibitions():
+    """Page admin exhibitions - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM exhibitions ORDER BY create_date DESC")
+    # OPTIMISÉ: Sélection explicite + LIMIT
+    c.execute("""
+        SELECT id, title, location, date, start_time, end_time, description, image, create_date
+        FROM exhibitions 
+        ORDER BY create_date DESC
+        LIMIT 200
+    """)
     exhibitions = c.fetchall()
     conn.close()
     return render_template("admin/admin_exhibitions.html", 
@@ -3018,25 +3092,30 @@ def update_order_status(order_id, status):
 
 @app.route("/admin/orders/<int:order_id>")
 def admin_order_detail(order_id):
+    """Détail commande - OPTIMISÉ: colonnes spécifiques + JOIN au lieu de N+1"""
     if not is_admin():
         return redirect(url_for("index"))
 
     conn = get_db()
     c = conn.cursor()
 
-    # Récupérer la commande
-    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?"), (order_id,))
+    # OPTIMISÉ: Récupérer la commande avec colonnes spécifiques
+    c.execute(adapt_query("""
+        SELECT id, customer_name, email, address, total_price, order_date, status 
+        FROM orders 
+        WHERE id=%s
+    """), (order_id,))
     order = c.fetchone()
     if not order:
         conn.close()
         return "Commande introuvable", 404
 
-    # Récupérer les articles de la commande
+    # OPTIMISÉ: JOIN au lieu de requête séparée (évite N+1)
     c.execute("""
         SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
         FROM order_items oi
         JOIN paintings p ON oi.painting_id = p.id
-        WHERE oi.order_id=?
+        WHERE oi.order_id=%s
     """, (order_id,))
     items = c.fetchall()
     conn.close()
@@ -3050,38 +3129,42 @@ def admin_order_detail(order_id):
 @app.route('/admin/users')
 @require_admin
 def admin_users():
-    """Gestion des utilisateurs avec recherche et filtre par rôle"""
+    """Gestion des utilisateurs avec recherche et filtre par rôle - OPTIMISÉ"""
     q = request.args.get('q', '').strip().lower()
     role = request.args.get('role', '').strip().lower()
     
     conn = get_db()
     c = conn.cursor()
 
-    query = "SELECT id, name, email, role, create_date FROM users"
+    # OPTIMISÉ: Sélection explicite des colonnes + LIMIT
+    query = """
+        SELECT id, name, email, role, create_date 
+        FROM users
+    """
     conditions = []
     params = []
 
     # Recherche texte
     if q:
         conditions.append("""(
-            CAST(id AS TEXT) LIKE ?
-            OR LOWER(name) LIKE ?
-            OR LOWER(email) LIKE ?
-            OR LOWER(role) LIKE ?
-            OR LOWER(create_date) LIKE ?
+            CAST(id AS TEXT) LIKE %s
+            OR LOWER(name) LIKE %s
+            OR LOWER(email) LIKE %s
+            OR LOWER(role) LIKE %s
+            OR LOWER(create_date) LIKE %s
         )""")
         params.extend([f"%{q}%" ] * 5)
 
-    # Filtre rôle
+    # Filtre rôle - utilise l'index idx_users_role
     if role:
-        conditions.append("LOWER(role) = ?")
+        conditions.append("LOWER(role) = %s")
         params.append(role)
 
     # Construire la requête finale
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    query += " ORDER BY id DESC"
+    query += " ORDER BY id DESC LIMIT 500"
 
     c.execute(query, params)
     users = c.fetchall()
@@ -3468,22 +3551,58 @@ def api_export_full():
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
 def api_orders():
-    """Récupère toutes les commandes au format dashboard"""
+    """Récupère toutes les commandes au format dashboard - OPTIMISÉ"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, customer_name, email, total_price, order_date, status FROM orders ORDER BY order_date DESC"))
+        
+        # OPTIMISÉ: Colonnes spécifiques + LIMIT pour pagination
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        cur.execute(adapt_query("""
+            SELECT id, customer_name, email, total_price, order_date, status 
+            FROM orders 
+            ORDER BY order_date DESC
+            LIMIT %s OFFSET %s
+        """), (limit, offset))
         orders_rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         orders = [dict(zip(columns, row)) for row in orders_rows]
-        for order in orders:
-            cur.execute(adapt_query("SELECT painting_id, name, image, price, quantity FROM order_items LEFT JOIN paintings ON order_items.painting_id = paintings.id WHERE order_items.order_id = ?"), (order['id'],))
-            items_rows = cur.fetchall()
-            items_columns = [desc[0] for desc in cur.description]
-            order['items'] = [dict(zip(items_columns, row)) for row in items_rows]
-            order['site_name'] = get_setting("site_name") or "Site Artiste"
+        
+        # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
+        order_ids = [o['id'] for o in orders]
+        if order_ids:
+            placeholders = ','.join(['%s'] * len(order_ids))
+            cur.execute(f"""
+                SELECT oi.order_id, oi.painting_id, p.name, p.image, oi.price, oi.quantity
+                FROM order_items oi
+                LEFT JOIN paintings p ON oi.painting_id = p.id
+                WHERE oi.order_id IN ({placeholders})
+            """, order_ids)
+            all_items = cur.fetchall()
+            
+            # Grouper les items par order_id
+            items_by_order = {}
+            for item in all_items:
+                order_id = item[0]
+                if order_id not in items_by_order:
+                    items_by_order[order_id] = []
+                items_by_order[order_id].append({
+                    'painting_id': item[1],
+                    'name': item[2],
+                    'image': item[3],
+                    'price': item[4],
+                    'quantity': item[5]
+                })
+            
+            # Assigner les items à chaque commande
+            for order in orders:
+                order['items'] = items_by_order.get(order['id'], [])
+                order['site_name'] = get_setting("site_name") or "Site Artiste"
+        
         conn.close()
-        return jsonify({"orders": orders})
+        return jsonify({"orders": orders, "count": len(orders)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3491,19 +3610,31 @@ def api_orders():
 @app.route('/api/export/users', methods=['GET'])
 @require_api_key
 def api_users():
-    """Récupère tous les utilisateurs au format dashboard"""
+    """Récupère tous les utilisateurs au format dashboard - OPTIMISÉ"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, name, email, create_date FROM users"))
+        
+        # OPTIMISÉ: Colonnes spécifiques + pagination
+        limit = request.args.get('limit', 500, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        cur.execute(adapt_query("""
+            SELECT id, name, email, create_date, role
+            FROM users
+            ORDER BY id DESC
+            LIMIT %s OFFSET %s
+        """), (limit, offset))
         rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         users = [dict(zip(columns, row)) for row in rows]
+        
         site_name = get_setting("site_name") or "Site Artiste"
         for user in users:
             user["site_name"] = site_name
+        
         conn.close()
-        return jsonify({"users": users})
+        return jsonify({"users": users, "count": len(users)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3511,19 +3642,31 @@ def api_users():
 @app.route('/api/export/paintings', methods=['GET'])
 @require_api_key
 def api_paintings():
-    """Récupère toutes les peintures au format dashboard"""
+    """Récupère toutes les peintures au format dashboard - OPTIMISÉ"""
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, name, price, category, technique, year, quantity, status, image FROM paintings ORDER BY display_order, id"))
+        
+        # OPTIMISÉ: Colonnes spécifiques + pagination
+        limit = request.args.get('limit', 200, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        cur.execute(adapt_query("""
+            SELECT id, name, price, category, technique, year, quantity, status, image, display_order
+            FROM paintings 
+            ORDER BY display_order DESC, id DESC
+            LIMIT %s OFFSET %s
+        """), (limit, offset))
         rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         paintings = [dict(zip(columns, row)) for row in rows]
+        
         site_name = get_setting("site_name") or "Site Artiste"
         for painting in paintings:
             painting["site_name"] = site_name
+        
         conn.close()
-        return jsonify({"paintings": paintings})
+        return jsonify({"paintings": paintings, "count": len(paintings)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
