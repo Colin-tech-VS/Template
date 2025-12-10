@@ -3970,10 +3970,11 @@ def get_export_api_key():
     Récupère ougénère la clé API pour l'export
     Accessible uniquement aux administrateurs connectés
     """
-    api_key = get_setting("export_api_key")
+    user_id = session.get('user_id')
+    api_key = get_setting("export_api_key", user_id=user_id)
     if not api_key:
         api_key = secrets.token_urlsafe(32)
-        set_setting("export_api_key", api_key)
+        set_setting("export_api_key", api_key, user_id=user_id)
     
     return jsonify({
         "success": True,
@@ -3986,8 +3987,9 @@ def get_export_api_key():
 @require_admin
 def regenerate_export_api_key():
     """Régénère une nouvelle clé API"""
+    user_id = session.get('user_id')
     new_key = secrets.token_urlsafe(32)
-    set_setting("export_api_key", new_key)
+    set_setting("export_api_key", new_key, user_id=user_id)
     
     return jsonify({
         "success": True,

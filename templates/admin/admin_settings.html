@@ -351,6 +351,24 @@
                         <span class="seo-hint">Affiche un lien dans la navigation permettant aux clients de faire des demandes de créations personnalisées</span>
                     </div>
                 </div>
+
+                <!-- API KEY SECTION -->
+                <div class="form-group">
+                    <div class="label-group">
+                        <label>🔐 Clé API du Site</label>
+                        <span class="seo-hint">Utilisez cette clé pour l'intégration avec le Dashboard (en tant que X-API-Key)</span>
+                    </div>
+                    <div class="api-key-container">
+                        <div class="api-key-display">
+                            <span id="api_key_display" class="api-key-text">••••••••••••••••••••••••••••••••••</span>
+                            <button type="button" id="toggle_api_key" class="api-key-btn">👁️ Afficher</button>
+                            <button type="button" id="copy_api_key" class="api-key-btn copy-btn">📋 Copier</button>
+                        </div>
+                        <div class="api-key-actions">
+                            <button type="button" id="regenerate_api_key" class="api-key-btn regenerate-btn">🔄 Régénérer</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- SECTION 9: THÈME DES COULEURS -->
@@ -665,6 +683,98 @@
     border-color: #ef4444;
 }
 
+.api-key-container {
+    background-color: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.api-key-display {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.api-key-text {
+    flex: 1;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e0;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 1px;
+    word-break: break-all;
+    min-width: 200px;
+}
+
+.api-key-btn {
+    padding: 10px 16px;
+    background-color: #4299e1;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.api-key-btn:hover {
+    background-color: #3182ce;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+}
+
+.api-key-btn.copy-btn {
+    background-color: #48bb78;
+}
+
+.api-key-btn.copy-btn:hover {
+    background-color: #38a169;
+}
+
+.api-key-btn.regenerate-btn {
+    background-color: #ed8936;
+}
+
+.api-key-btn.regenerate-btn:hover {
+    background-color: #dd6b20;
+}
+
+.api-key-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.api-key-copied {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #48bb78;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
 @media (max-width: 768px) {
     .settings-section {
         padding: 25px;
@@ -681,10 +791,35 @@
     .btn-save {
         width: 100%;
     }
+
+    .api-key-display {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .api-key-text {
+        width: 100%;
+    }
+
+    .api-key-btn {
+        width: 100%;
+        flex: 1;
+    }
+
+    .api-key-actions {
+        flex-direction: column;
+    }
+
+    .api-key-actions .api-key-btn {
+        width: 100%;
+    }
 }
 </style>
 
 <script>
+let currentApiKey = null;
+let isApiKeyVisible = false;
+
 document.addEventListener('DOMContentLoaded', function() {
     const colorPickers = document.querySelectorAll('.color-picker');
 
@@ -724,7 +859,133 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+
+    loadApiKey();
+    setupApiKeyHandlers();
 });
+
+function loadApiKey() {
+    fetch('/api/export/api-key')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load API key');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.api_key) {
+                currentApiKey = data.api_key;
+                updateApiKeyDisplay();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading API key:', error);
+        });
+}
+
+function updateApiKeyDisplay() {
+    const display = document.getElementById('api_key_display');
+    if (isApiKeyVisible) {
+        display.textContent = currentApiKey;
+    } else {
+        const truncated = currentApiKey.substring(0, 8) + '•'.repeat(Math.max(0, currentApiKey.length - 16)) + currentApiKey.substring(currentApiKey.length - 8);
+        display.textContent = truncated;
+    }
+}
+
+function setupApiKeyHandlers() {
+    const toggleBtn = document.getElementById('toggle_api_key');
+    const copyBtn = document.getElementById('copy_api_key');
+    const regenerateBtn = document.getElementById('regenerate_api_key');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            isApiKeyVisible = !isApiKeyVisible;
+            toggleBtn.textContent = isApiKeyVisible ? '👁️‍🗨️ Masquer' : '👁️ Afficher';
+            updateApiKeyDisplay();
+        });
+    }
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentApiKey) {
+                navigator.clipboard.writeText(currentApiKey).then(() => {
+                    showCopiedNotification();
+                    copyBtn.textContent = '✓ Copié!';
+                    setTimeout(() => {
+                        copyBtn.textContent = '📋 Copier';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+            }
+        });
+    }
+
+    if (regenerateBtn) {
+        regenerateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('Êtes-vous sûr? Cela invalidera la clé API actuelle.')) {
+                regenerateBtn.disabled = true;
+                regenerateBtn.textContent = '⏳ Régénération...';
+                
+                fetch('/api/export/regenerate-key', {
+                    method: 'POST'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to regenerate API key');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.api_key) {
+                        currentApiKey = data.api_key;
+                        isApiKeyVisible = false;
+                        updateApiKeyDisplay();
+                        document.getElementById('toggle_api_key').textContent = '👁️ Afficher';
+                        showNotification('Clé API régénérée avec succès');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error regenerating API key:', error);
+                    showNotification('Erreur lors de la régénération', 'error');
+                })
+                .finally(() => {
+                    regenerateBtn.disabled = false;
+                    regenerateBtn.textContent = '🔄 Régénérer';
+                });
+            }
+        });
+    }
+}
+
+function showCopiedNotification() {
+    const notification = document.createElement('div');
+    notification.className = 'api-key-copied';
+    notification.textContent = '✓ Clé API copiée dans le presse-papiers';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = type === 'error' ? 'api-key-copied' : 'api-key-copied';
+    if (type === 'error') {
+        notification.style.backgroundColor = '#ef4444';
+    }
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
 </script>
 
 {% endblock %}

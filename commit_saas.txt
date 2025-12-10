@@ -1,0 +1,8 @@
+Update saas_launch_success.html with domain popup and auto-registration
+
+- Displays modal immediately after payment
+- Allows user to enter domain name (defaults to jeanbaptiste)
+- Shows domain preview with .com extension  
+- Submits to /api/saas/register-site endpoint
+- Updates Dashboard automatically after registration
+- Shows success confirmation with site URL
