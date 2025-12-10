@@ -4281,6 +4281,16 @@ def api_register_site_saas():
             set_setting("dashboard_id", str(site_id), user_id=user_id)
             set_setting("export_api_key", api_key, user_id=user_id)
             
+            # Vérifier que les clés Stripe du preview sont disponibles en production
+            try:
+                stripe_pk = get_setting('stripe_publishable_key')
+                stripe_sk = get_stripe_secret_key()
+                print(f"[SAAS] Site {user_id} lancé - Clés Stripe disponibles:")
+                print(f"[SAAS]   - Publishable key: {stripe_pk[:20] + '...' if stripe_pk else 'NOT SET'}")
+                print(f"[SAAS]   - Secret key: {'SET' if stripe_sk else 'NOT SET'}")
+            except Exception as e:
+                print(f"[SAAS] Erreur vérification clés Stripe: {e}")
+            
             # Envoyer email de confirmation
             _send_saas_step_email(user_id, 'active', 
                                 'Site activé !', 
