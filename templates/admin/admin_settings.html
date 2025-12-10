@@ -39,15 +39,30 @@
             {% endif %}
         {% endwith %}
 
+<section class="admin-section">
+    <div class="settings-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <form method="POST" enctype="multipart/form-data" class="settings-form">
 
             <!-- SECTION 1: IDENTITÉ DU SITE -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🎨 Identité du Site</h2>
-                    <p class="section-subtitle">Logo, nom et informations principales de votre site</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="identity">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🎨 Identité du Site</h2>
+                            <p class="section-subtitle">Logo, nom et informations principales de votre site</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -86,12 +101,17 @@
             </div>
 
             <!-- SECTION 2: PAGE D'ACCUEIL -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🏠 Page d'Accueil</h2>
-                    <p class="section-subtitle">Contenu de votre page principale</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="home">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🏠 Page d'Accueil</h2>
+                            <p class="section-subtitle">Contenu de votre page principale</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -122,12 +142,17 @@
             </div>
 
             <!-- SECTION 3: PAGE À PROPOS -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>👤 Page À Propos</h2>
-                    <p class="section-subtitle">Présentez votre histoire et votre univers artistique</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="about">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>👤 Page À Propos</h2>
+                            <p class="section-subtitle">Présentez votre histoire et votre univers artistique</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -188,12 +213,17 @@
             </div>
 
             <!-- SECTION 4: PAGE GALERIE -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🖼️ Page Galerie</h2>
-                    <p class="section-subtitle">Textes de présentation de votre galerie d'œuvres</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="gallery">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🖼️ Page Galerie</h2>
+                            <p class="section-subtitle">Textes de présentation de votre galerie d'œuvres</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -215,12 +245,17 @@
             </div>
 
             <!-- SECTION 5: PAGE BOUTIQUE -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🛒 Page Boutique</h2>
-                    <p class="section-subtitle">Textes de présentation de votre boutique en ligne</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="shop">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🛒 Page Boutique</h2>
+                            <p class="section-subtitle">Textes de présentation de votre boutique en ligne</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -242,12 +277,17 @@
             </div>
 
             <!-- SECTION 6: PAGE EXPOSITIONS -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🎭 Page Expositions</h2>
-                    <p class="section-subtitle">Textes de présentation de vos expositions</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="exhibitions">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🎭 Page Expositions</h2>
+                            <p class="section-subtitle">Textes de présentation de vos expositions</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -269,12 +309,17 @@
             </div>
 
             <!-- SECTION 7: PAGE CONTACT & FOOTER -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>📧 Contact & Footer</h2>
-                    <p class="section-subtitle">Textes pour la page contact et pied de page</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="contact">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>📧 Contact & Footer</h2>
+                            <p class="section-subtitle">Textes pour la page contact et pied de page</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -295,12 +340,17 @@
             </div>
 
             <!-- SECTION 8: INTÉGRATIONS & SERVICES -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🔧 Intégrations & Services</h2>
-                    <p class="section-subtitle">Clés API et services externes (paiement, email, etc.)</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="integrations">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🔧 Intégrations & Services</h2>
+                            <p class="section-subtitle">Clés API et services externes (paiement, email, etc.)</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="form-group">
                     <div class="label-group">
@@ -372,12 +422,17 @@
             </div>
 
             <!-- SECTION 9: THÈME DES COULEURS -->
-            <div class="settings-section">
-                <div class="section-header">
-                    <h2>🎨 Thème des Couleurs</h2>
-                    <p class="section-subtitle">Personnalisez la palette de couleurs de votre site</p>
+            <div class="settings-section accordion-section">
+                <div class="section-header accordion-header" data-section="theme">
+                    <div class="header-content">
+                        <span class="accordion-icon">▼</span>
+                        <div>
+                            <h2>🎨 Thème des Couleurs</h2>
+                            <p class="section-subtitle">Personnalisez la palette de couleurs de votre site</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="section-divider"></div>
+                <div class="accordion-content section-divider" style="display: none;">
 
                 <div class="color-grid">
                     <div class="color-item">
@@ -456,6 +511,65 @@
 </section>
 
 <style>
+/* Accordéons */
+.accordion-section {
+    margin-bottom: 15px !important;
+}
+
+.accordion-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: linear-gradient(90deg, #f7fafc 0%, #edf2f7 100%);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color, #1E3A8A);
+    transition: all 0.3s ease;
+}
+
+.accordion-header:hover {
+    background: linear-gradient(90deg, #edf2f7 0%, #e2e8f0 100%);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+}
+
+.accordion-icon {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+    color: var(--primary-color, #1E3A8A);
+    font-weight: bold;
+}
+
+.accordion-header[data-open="true"] .accordion-icon {
+    transform: rotate(-180deg);
+}
+
+.accordion-content {
+    padding: 20px !important;
+    display: none;
+}
+
+.accordion-content.active {
+    display: block !important;
+}
+
+.accordion-header h2 {
+    margin: 0 0 5px 0 !important;
+    font-size: 16px !important;
+}
+
+.accordion-header .section-subtitle {
+    margin: 0 !important;
+    font-size: 13px !important;
+}
+
 .settings-container {
     max-width: 900px;
     margin: 40px auto;
@@ -820,7 +934,40 @@
 let currentApiKey = null;
 let isApiKeyVisible = false;
 
+function setupAccordions() {
+    const headers = document.querySelectorAll('.accordion-header');
+    
+    headers.forEach(header => {
+        const content = header.nextElementSibling;
+        
+        // La première section est ouverte par défaut, les autres fermées
+        const isFirstSection = header.getAttribute('data-section') === 'identity';
+        if (isFirstSection) {
+            content.classList.add('active');
+            header.setAttribute('data-open', 'true');
+        }
+        
+        header.addEventListener('click', function(e) {
+            e.preventDefault();
+            const isOpen = header.getAttribute('data-open') === 'true';
+            
+            if (isOpen) {
+                // Fermer
+                content.classList.remove('active');
+                header.setAttribute('data-open', 'false');
+            } else {
+                // Ouvrir
+                content.classList.add('active');
+                header.setAttribute('data-open', 'true');
+            }
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Setup accordéons
+    setupAccordions();
+    
     const colorPickers = document.querySelectorAll('.color-picker');
 
     colorPickers.forEach(picker => {
