@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Site lancé avec succès{% endblock %}
+
+{% block content %}
+<style>
+.saas-success-container {
+    max-width: 700px;
+    margin: 60px auto;
+    background: white;
+    border-radius: 15px;
+    padding: 40px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.saas-success-container h2 {
+    color: #1E3A8A;
+    margin-bottom: 30px;
+    font-size: 28px;
+}
+
+.success-badge {
+    display: inline-block;
+    background: #10B981;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.api-key-section {
+    background: #F3F4F6;
+    border-left: 4px solid #3B65C4;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 30px 0;
+    text-align: left;
+}
+
+.api-key-label {
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.api-key-display {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    word-break: break-all;
+    color: #1E3A8A;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.copy-btn {
+    background: #3B65C4;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.3s;
+}
+
+.copy-btn:hover {
+    background: #1E3A8A;
+}
+
+.copy-btn.copied {
+    background: #10B981;
+}
+
+.info-text {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.btn-back {
+    display: inline-block;
+    padding: 12px 25px;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.3s;
+    margin-top: 20px;
+}
+
+.btn-back:hover {
+    background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+}
+
+.next-steps {
+    background: #EFF6FF;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 30px 0;
+    text-align: left;
+}
+
+.next-steps h3 {
+    color: #1E3A8A;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.next-steps ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.next-steps li {
+    margin-bottom: 10px;
+    color: #666;
+    font-size: 14px;
+}
+</style>
+
+<section class="section">
+    <div class="saas-success-container">
+        <div class="success-badge">✓ Paiement réussi</div>
+        <h2>Votre site est prêt !</h2>
+        
+        <p class="info-text">
+            Votre site a été créé avec succès. Ci-dessous se trouve votre clé API unique 
+            pour configurer les connexions avec le Dashboard.
+        </p>
+
+        <div class="api-key-section">
+            <div class="api-key-label">Clé API d'export</div>
+            <div class="api-key-display" id="apiKeyDisplay">{{ api_key }}</div>
+            <button class="copy-btn" onclick="copyApiKey()">Copier la clé</button>
+        </div>
+
+        <div class="next-steps">
+            <h3>Prochaines étapes</h3>
+            <ol>
+                <li><strong>Configurez votre site</strong> avec le domaine personnalisé</li>
+                <li><strong>Ajoutez les clés Stripe</strong> via le Dashboard (secret et publishable)</li>
+                <li><strong>Testez les endpoints API</strong> pour vérifier la configuration</li>
+                <li><strong>Déployez votre site</strong> en production</li>
+            </ol>
+        </div>
+
+        <p class="info-text">
+            <strong>Important :</strong> Gardez cette clé API confidentielle. 
+            Elle permet au Dashboard de gérer votre site.
+        </p>
+
+        <a href="/" class="btn-back">Retour à l'accueil</a>
+    </div>
+</section>
+
+<script>
+function copyApiKey() {
+    const apiKey = document.getElementById('apiKeyDisplay').textContent.trim();
+    navigator.clipboard.writeText(apiKey).then(() => {
+        const btn = event.target;
+        btn.textContent = 'Copié !';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copier la clé';
+            btn.classList.remove('copied');
+        }, 2000);
+    }).catch(err => {
+        console.error('Erreur copie:', err);
+        alert('Erreur lors de la copie');
+    });
+}
+</script>
+{% endblock %}
