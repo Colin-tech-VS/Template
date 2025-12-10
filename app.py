@@ -484,7 +484,8 @@ def get_dashboard_base_url():
 def is_preview_request():
     host = (request.host or "").lower()
     return (
-        ".preview." in host
+        host.startswith("preview-")
+        or ".preview." in host
         or host.startswith("preview.")
         or "sandbox" in host
     )
@@ -4298,6 +4299,23 @@ def api_register_site_saas():
                 print(f"[SAAS]   - Secret key: {'SET' if stripe_sk else 'NOT SET'}")
             except Exception as e:
                 print(f"[SAAS] Erreur vérification clés Stripe: {e}")
+            
+            # Supprimer le site preview du dashboard
+            try:
+                preview_domain_to_delete = get_setting("preview_domain")
+                if preview_domain_to_delete:
+                    delete_url = f"{get_dashboard_base_url()}/api/sites/delete-preview"
+                    delete_response = requests.post(
+                        delete_url,
+                        json={"artist_id": user_id, "preview_domain": preview_domain_to_delete},
+                        timeout=10
+                    )
+                    if delete_response.status_code == 200:
+                        print(f"[SAAS] Site preview {preview_domain_to_delete} supprimé")
+                    else:
+                        print(f"[SAAS] Erreur suppression preview: {delete_response.status_code}")
+            except Exception as e:
+                print(f"[SAAS] Erreur lors de la suppression du site preview: {e}")
             
             # Envoyer email de confirmation
             _send_saas_step_email(user_id, 'active', 
