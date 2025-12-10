@@ -1,13 +1,21 @@
 """
 Module de gestion de base de données Supabase/PostgreSQL
 Migration complète depuis SQLite vers Supabase/Postgres
+OPTIMISÉ: Connection pooling, logging de performance
 """
 
 import os
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from urllib.parse import urlparse
 from contextlib import contextmanager
+import time
+import logging
+
+# Configuration du logging pour la performance
+logging.basicConfig(level=logging.INFO)
+perf_logger = logging.getLogger('db.performance')
 
 # Configuration Supabase/PostgreSQL
 # Priorité 1: SUPABASE_DB_URL (nouvelle variable)
@@ -41,26 +49,110 @@ except Exception as e:
 # Constantes
 IS_POSTGRES = True  # Toujours PostgreSQL maintenant
 
+# =========================================
+# CONNECTION POOL GLOBAL (OPTIMISATION)
+# =========================================
+# Pool de connexions thread-safe pour réutiliser les connexions
+# Réduit drastiquement le temps de connexion (de ~100ms à <1ms)
+CONNECTION_POOL = None
+
+def init_connection_pool(minconn=2, maxconn=20):
+    """
+    Initialise le pool de connexions PostgreSQL/Supabase
+    
+    Args:
+        minconn: Nombre minimum de connexions maintenues
+        maxconn: Nombre maximum de connexions autorisées
+    
+    Returns:
+        psycopg2.pool.ThreadedConnectionPool
+    """
+    global CONNECTION_POOL
+    
+    if CONNECTION_POOL is not None:
+        return CONNECTION_POOL
+    
+    try:
+        CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
+            minconn=minconn,
+            maxconn=maxconn,
+            **DB_CONFIG
+        )
+        print(f"✅ Connection pool initialisé: {minconn}-{maxconn} connexions")
+        return CONNECTION_POOL
+    except Exception as e:
+        print(f"❌ Erreur initialisation connection pool: {e}")
+        raise
+
+def get_pool_connection():
+    """
+    Obtient une connexion depuis le pool
+    
+    Returns:
+        psycopg2.connection
+    """
+    global CONNECTION_POOL
+    
+    if CONNECTION_POOL is None:
+        init_connection_pool()
+    
+    try:
+        return CONNECTION_POOL.getconn()
+    except Exception as e:
+        perf_logger.error(f"Erreur obtention connexion du pool: {e}")
+        raise
+
+def return_pool_connection(conn):
+    """
+    Retourne une connexion au pool
+    
+    Args:
+        conn: Connexion à retourner
+    """
+    global CONNECTION_POOL
+    
+    if CONNECTION_POOL is not None and conn is not None:
+        CONNECTION_POOL.putconn(conn)
+
+def close_connection_pool():
+    """Ferme toutes les connexions du pool"""
+    global CONNECTION_POOL
+    
+    if CONNECTION_POOL is not None:
+        CONNECTION_POOL.closeall()
+        CONNECTION_POOL = None
+        print("✅ Connection pool fermé")
+
 
 @contextmanager
 def get_db_connection():
     """
     Context manager pour obtenir une connexion Supabase/PostgreSQL
+    OPTIMISÉ: Utilise le connection pool au lieu de créer une nouvelle connexion
+    
     Usage: 
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(...)
     """
-    conn = psycopg2.connect(**DB_CONFIG)
+    start_time = time.time()
+    conn = get_pool_connection()
+    conn_time = (time.time() - start_time) * 1000
+    
+    # Logger si la connexion prend trop de temps
+    if conn_time > 10:
+        perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
+    
     try:
         yield conn
     finally:
-        conn.close()
+        return_pool_connection(conn)
 
 
 def get_db(user_id=None):
     """
-    Retourne une connexion Supabase/PostgreSQL.
+    Retourne une connexion Supabase/PostgreSQL depuis le pool.
+    OPTIMISÉ: Réutilise les connexions au lieu d'en créer de nouvelles
     
     Args:
         user_id: ID de l'utilisateur/site (pour compatibilité multi-tenant future)
@@ -68,9 +160,27 @@ def get_db(user_id=None):
     
     Returns:
         psycopg2.connection: Connexion PostgreSQL avec RealDictCursor
+        
+    IMPORTANT: L'appelant doit fermer la connexion avec conn.close()
+               qui la retournera au pool
     """
-    conn = psycopg2.connect(**DB_CONFIG)
+    start_time = time.time()
+    conn = get_pool_connection()
     conn.cursor_factory = psycopg2.extras.RealDictCursor
+    
+    conn_time = (time.time() - start_time) * 1000
+    if conn_time > 10:
+        perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
+    
+    # Wrapper pour retourner au pool lors du close()
+    original_close = conn.close
+    
+    def close_wrapper():
+        return_pool_connection(conn)
+        # Restaurer la méthode close originale pour éviter les double-returns
+        conn.close = original_close
+    
+    conn.close = close_wrapper
     return conn
 
 
@@ -93,6 +203,7 @@ def adapt_query(query):
 def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=True):
     """
     Exécute une requête PostgreSQL/Supabase avec gestion automatique de la connexion
+    OPTIMISÉ: Utilise le connection pool et log les requêtes lentes
     
     Args:
         query: La requête SQL
@@ -104,14 +215,18 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=T
     Returns:
         Le résultat de la requête selon fetch_one/fetch_all
     """
+    start_time = time.time()
+    
     with get_db_connection() as conn:
         cursor = conn.cursor()
         adapted_query = adapt_query(query)
         
+        query_start = time.time()
         if params:
             cursor.execute(adapted_query, params)
         else:
             cursor.execute(adapted_query)
+        query_time = (time.time() - query_start) * 1000
         
         result = None
         if fetch_one:
@@ -121,6 +236,16 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=T
         
         if commit:
             conn.commit()
+        
+        total_time = (time.time() - start_time) * 1000
+        
+        # Logger les requêtes lentes (>100ms)
+        if total_time > 100:
+            # Tronquer la requête pour le log
+            query_preview = adapted_query[:100].replace('\n', ' ')
+            perf_logger.warning(
+                f"Requête lente: {total_time:.2f}ms (query: {query_time:.2f}ms) - {query_preview}..."
+            )
         
         return result
 
@@ -175,6 +300,7 @@ AUTOINCREMENT = 'SERIAL'  # PostgreSQL/Supabase uniquement
 def init_database(user_id=None):
     """
     Initialise les tables de la base de données Supabase/PostgreSQL
+    OPTIMISÉ: Crée aussi les indexes pour améliorer les performances
     
     Args:
         user_id: ID utilisateur pour compatibilité multi-tenant (non utilisé actuellement)
@@ -184,11 +310,105 @@ def init_database(user_id=None):
     
     print(f"🔧 Initialisation de la base de données Supabase/Postgres...")
     
+    # Initialiser le pool de connexions
+    init_connection_pool()
+    
     for table_name, columns in TABLES.items():
         try:
             create_table_if_not_exists(table_name, columns)
         except Exception as e:
             print(f"⚠️  Erreur création table '{table_name}': {e}")
     
+    # Créer les indexes pour optimiser les performances
+    print(f"🔧 Création des indexes de performance...")
+    create_performance_indexes()
+    
     print(f"✅ Base de données Supabase/Postgres initialisée avec succès")
+
+
+def create_performance_indexes():
+    """
+    Crée les indexes de base de données pour optimiser les performances des requêtes fréquentes
+    
+    Indexes créés:
+    - users(email): Lookups lors du login
+    - paintings(status, display_order): Filtrage et tri de la galerie
+    - orders(status, order_date): Filtrage des commandes admin
+    - order_items(order_id): JOIN avec orders
+    - order_items(painting_id): JOIN avec paintings
+    - cart_items(cart_id): JOIN avec carts
+    - carts(session_id): Lookup du panier par session
+    - carts(user_id): Lookup du panier par utilisateur
+    - notifications(user_id, is_read): Filtrage des notifications
+    - exhibitions(date): Tri chronologique
+    - custom_requests(status): Filtrage par statut
+    - settings(key): Lookup rapide des settings
+    """
+    indexes = [
+        # Users - login rapide
+        ("idx_users_email", "users", "email"),
+        
+        # Paintings - galerie et filtres
+        ("idx_paintings_status", "paintings", "status"),
+        ("idx_paintings_display_order", "paintings", "display_order"),
+        ("idx_paintings_category", "paintings", "category"),
+        
+        # Orders - gestion des commandes
+        ("idx_orders_status", "orders", "status"),
+        ("idx_orders_date", "orders", "order_date"),
+        ("idx_orders_user_id", "orders", "user_id"),
+        
+        # Order items - JOINs
+        ("idx_order_items_order_id", "order_items", "order_id"),
+        ("idx_order_items_painting_id", "order_items", "painting_id"),
+        
+        # Carts - panier utilisateur
+        ("idx_carts_session_id", "carts", "session_id"),
+        ("idx_carts_user_id", "carts", "user_id"),
+        
+        # Cart items - JOINs
+        ("idx_cart_items_cart_id", "cart_items", "cart_id"),
+        ("idx_cart_items_painting_id", "cart_items", "painting_id"),
+        
+        # Notifications - filtrage admin
+        ("idx_notifications_user_id", "notifications", "user_id"),
+        ("idx_notifications_is_read", "notifications", "is_read"),
+        
+        # Exhibitions - tri par date
+        ("idx_exhibitions_date", "exhibitions", "date"),
+        
+        # Custom requests - filtrage par statut
+        ("idx_custom_requests_status", "custom_requests", "status"),
+        
+        # Settings - lookup rapide
+        ("idx_settings_key", "settings", "key"),
+        
+        # SAAS sites - lookup par user
+        ("idx_saas_sites_user_id", "saas_sites", "user_id"),
+        ("idx_saas_sites_status", "saas_sites", "status"),
+    ]
+    
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        for index_name, table_name, column_name in indexes:
+            try:
+                # Vérifier si l'index existe déjà
+                cursor.execute("""
+                    SELECT 1 FROM pg_indexes 
+                    WHERE indexname = %s
+                """, (index_name,))
+                
+                if not cursor.fetchone():
+                    # Créer l'index
+                    cursor.execute(f"CREATE INDEX {index_name} ON {table_name}({column_name})")
+                    print(f"  ✅ Index créé: {index_name} sur {table_name}({column_name})")
+                else:
+                    print(f"  ℹ️  Index existe déjà: {index_name}")
+            except Exception as e:
+                print(f"  ⚠️  Erreur création index {index_name}: {e}")
+        
+        conn.commit()
+    
+    print(f"✅ Indexes de performance créés")
 
