@@ -285,41 +285,42 @@ def run_all_tests():
     print(f"{BLUE}TESTS DE PERFORMANCE - BASE DE DONNÉES SUPABASE/POSTGRES{RESET}")
     print(f"{BLUE}{'='*70}{RESET}")
     
-    results = {
-        'Connection Pool': test_connection_pool(),
-        'Requêtes simples': test_simple_queries(),
-        'Requêtes complexes': test_complex_queries(),
-        'Indexes': test_indexes(),
-        'Accès concurrent': test_concurrent_access(),
-    }
-    
-    # Résumé
-    print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"{BLUE}RÉSUMÉ DES TESTS{RESET}")
-    print(f"{BLUE}{'='*70}{RESET}\n")
-    
-    for test_name, passed in results.items():
-        symbol = f"{GREEN}✓{RESET}" if passed else f"{RED}✗{RESET}"
-        status = f"{GREEN}RÉUSSI{RESET}" if passed else f"{RED}ÉCHOUÉ{RESET}"
-        print(f"  {symbol} {test_name:25s} {status}")
-    
-    total = len(results)
-    passed = sum(results.values())
-    
-    print(f"\n{BLUE}{'='*70}{RESET}")
-    print(f"Total: {passed}/{total} tests réussis")
-    
-    if passed == total:
-        print(f"{GREEN}✓ Tous les tests sont passés avec succès!{RESET}")
+    try:
+        results = {
+            'Connection Pool': test_connection_pool(),
+            'Requêtes simples': test_simple_queries(),
+            'Requêtes complexes': test_complex_queries(),
+            'Indexes': test_indexes(),
+            'Accès concurrent': test_concurrent_access(),
+        }
+        
+        # Résumé
+        print(f"\n{BLUE}{'='*70}{RESET}")
+        print(f"{BLUE}RÉSUMÉ DES TESTS{RESET}")
         print(f"{BLUE}{'='*70}{RESET}\n")
-        return 0
-    else:
-        print(f"{RED}✗ Certains tests ont échoué{RESET}")
-        print(f"{BLUE}{'='*70}{RESET}\n")
-        return 1
-    
-    # Fermer le pool à la fin
-    close_connection_pool()
+        
+        for test_name, passed in results.items():
+            symbol = f"{GREEN}✓{RESET}" if passed else f"{RED}✗{RESET}"
+            status = f"{GREEN}RÉUSSI{RESET}" if passed else f"{RED}ÉCHOUÉ{RESET}"
+            print(f"  {symbol} {test_name:25s} {status}")
+        
+        total = len(results)
+        passed = sum(results.values())
+        
+        print(f"\n{BLUE}{'='*70}{RESET}")
+        print(f"Total: {passed}/{total} tests réussis")
+        
+        if passed == total:
+            print(f"{GREEN}✓ Tous les tests sont passés avec succès!{RESET}")
+            print(f"{BLUE}{'='*70}{RESET}\n")
+            return 0
+        else:
+            print(f"{RED}✗ Certains tests ont échoué{RESET}")
+            print(f"{BLUE}{'='*70}{RESET}\n")
+            return 1
+    finally:
+        # Fermer le pool à la fin
+        close_connection_pool()
 
 
 if __name__ == '__main__':

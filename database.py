@@ -400,7 +400,15 @@ def create_performance_indexes():
                 """, (index_name,))
                 
                 if not cursor.fetchone():
-                    # Créer l'index
+                    # Créer l'index - Valider les noms pour éviter SQL injection
+                    # Les noms proviennent d'une liste codée en dur, donc sûrs
+                    if not all(c.isalnum() or c == '_' for c in index_name):
+                        raise ValueError(f"Nom d'index invalide: {index_name}")
+                    if not all(c.isalnum() or c == '_' for c in table_name):
+                        raise ValueError(f"Nom de table invalide: {table_name}")
+                    if not all(c.isalnum() or c == '_' for c in column_name):
+                        raise ValueError(f"Nom de colonne invalide: {column_name}")
+                    
                     cursor.execute(f"CREATE INDEX {index_name} ON {table_name}({column_name})")
                     print(f"  ✅ Index créé: {index_name} sur {table_name}({column_name})")
                 else:

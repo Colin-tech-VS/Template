@@ -132,18 +132,28 @@ def allowed_file(filename):
 
 
 def get_order_by_id(order_id):
+    """Récupère une commande par ID - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     cursor = conn.cursor()
-    query = adapt_query("SELECT * FROM orders WHERE id = ?")
+    query = adapt_query("""
+        SELECT id, customer_name, email, address, total_price, order_date, status, user_id
+        FROM orders 
+        WHERE id = %s
+    """)
     cursor.execute(query, (order_id,))
     order = cursor.fetchone()
     conn.close()
     return order
 
 def get_order_items(order_id):
+    """Récupère les items d'une commande - OPTIMISÉ: colonnes spécifiques"""
     conn = get_db()
     cursor = conn.cursor()
-    query = adapt_query("SELECT * FROM order_items WHERE order_id = ?")
+    query = adapt_query("""
+        SELECT id, order_id, painting_id, quantity, price
+        FROM order_items 
+        WHERE order_id = %s
+    """)
     cursor.execute(query, (order_id,))
     items = cursor.fetchall()
     conn.close()
