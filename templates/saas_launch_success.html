@@ -122,6 +122,182 @@
     color: #666;
     font-size: 14px;
 }
+
+/* Domain Modal Styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    color: #1E3A8A;
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+.modal-content .subtitle {
+    color: #999;
+    margin-bottom: 30px;
+    font-size: 14px;
+}
+
+.domain-input-group {
+    margin-bottom: 30px;
+}
+
+.domain-input-label {
+    display: block;
+    color: #1E3A8A;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.domain-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.domain-input-field {
+    flex: 1;
+    padding: 12px 15px;
+    border: 2px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.domain-input-field:focus {
+    outline: none;
+    border-color: #3B65C4;
+}
+
+.domain-extension {
+    color: #666;
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 12px 0;
+}
+
+.domain-preview {
+    background: #F3F4F6;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.domain-preview-label {
+    color: #999;
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+
+.domain-preview-value {
+    color: #1E3A8A;
+    font-size: 18px;
+    font-weight: 600;
+    font-family: monospace;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-submit {
+    flex: 1;
+    padding: 12px 25px;
+    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-submit:hover:not(:disabled) {
+    background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+}
+
+.btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-cancel {
+    flex: 1;
+    padding: 12px 25px;
+    background: #E5E7EB;
+    color: #1E3A8A;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.btn-cancel:hover {
+    background: #D1D5DB;
+}
+
+.error-message {
+    color: #DC2626;
+    font-size: 14px;
+    margin-top: 10px;
+    display: none;
+}
+
+.error-message.show {
+    display: block;
+}
+
+.loading {
+    display: none;
+    text-align: center;
+    color: #3B65C4;
+}
+
+.loading.show {
+    display: block;
+}
 </style>
 
 <section class="section">
@@ -143,7 +319,7 @@
         <div class="next-steps">
             <h3>Prochaines étapes</h3>
             <ol>
-                <li><strong>Configurez votre site</strong> avec le domaine personnalisé</li>
+                <li><strong>Configurez votre domaine</strong> dans la popup</li>
                 <li><strong>Ajoutez les clés Stripe</strong> via le Dashboard (secret et publishable)</li>
                 <li><strong>Testez les endpoints API</strong> pour vérifier la configuration</li>
                 <li><strong>Déployez votre site</strong> en production</li>
@@ -154,15 +330,63 @@
             <strong>Important :</strong> Gardez cette clé API confidentielle. 
             Elle permet au Dashboard de gérer votre site.
         </p>
-
-        <a href="/" class="btn-back">Retour à l'accueil</a>
     </div>
 </section>
 
+<!-- Domain Configuration Modal -->
+<div class="modal-overlay active" id="domainModal">
+    <div class="modal-content">
+        <h2>Configurez votre domaine</h2>
+        <p class="subtitle">Entrez le nom de votre site (sans extension)</p>
+
+        <div class="domain-input-group">
+            <label class="domain-input-label">Nom du domaine</label>
+            <div class="domain-input-wrapper">
+                <input 
+                    type="text" 
+                    id="domainInput" 
+                    class="domain-input-field" 
+                    placeholder="jeanbaptiste"
+                    value="jeanbaptiste"
+                >
+                <span class="domain-extension">.com</span>
+            </div>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <div class="domain-preview">
+            <div class="domain-preview-label">Aperçu du domaine</div>
+            <div class="domain-preview-value" id="domainPreview">jeanbaptiste.com</div>
+        </div>
+
+        <div class="loading" id="loadingSpinner">
+            <p>Enregistrement en cours...</p>
+        </div>
+
+        <div class="modal-buttons">
+            <button class="btn-submit" id="submitBtn" onclick="submitDomain()">Lancer le site</button>
+        </div>
+    </div>
+</div>
+
 <script>
+const apiKey = "{{ api_key }}";
+const userId = {{ user_id }};
+
+// Update domain preview as user types
+document.getElementById('domainInput').addEventListener('input', function(e) {
+    const domainName = e.target.value.trim() || 'jeanbaptiste';
+    document.getElementById('domainPreview').textContent = domainName + '.com';
+    document.getElementById('errorMessage').classList.remove('show');
+});
+
+// Initialize with default value
+document.getElementById('domainInput').value = 'jeanbaptiste';
+document.getElementById('domainPreview').textContent = 'jeanbaptiste.com';
+
 function copyApiKey() {
-    const apiKey = document.getElementById('apiKeyDisplay').textContent.trim();
-    navigator.clipboard.writeText(apiKey).then(() => {
+    const apiKeyText = document.getElementById('apiKeyDisplay').textContent.trim();
+    navigator.clipboard.writeText(apiKeyText).then(() => {
         const btn = event.target;
         btn.textContent = 'Copié !';
         btn.classList.add('copied');
@@ -174,6 +398,92 @@ function copyApiKey() {
         console.error('Erreur copie:', err);
         alert('Erreur lors de la copie');
     });
+}
+
+function submitDomain() {
+    const domainInput = document.getElementById('domainInput');
+    let domainName = domainInput.value.trim();
+    
+    if (!domainName) {
+        domainName = 'jeanbaptiste';
+    }
+    
+    // Validate domain name (alphanumeric, hyphens, no spaces)
+    if (!/^[a-zA-Z0-9-]+$/.test(domainName)) {
+        showError('Le nom de domaine ne peut contenir que des lettres, chiffres et tirets');
+        return;
+    }
+    
+    if (domainName.length < 3) {
+        showError('Le nom de domaine doit contenir au moins 3 caractères');
+        return;
+    }
+    
+    const fullDomain = domainName + '.com';
+    submitToAPI(fullDomain);
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMessage');
+    errorDiv.textContent = message;
+    errorDiv.classList.add('show');
+}
+
+function submitToAPI(domain) {
+    const submitBtn = document.getElementById('submitBtn');
+    const loadingDiv = document.getElementById('loadingSpinner');
+    
+    submitBtn.disabled = true;
+    loadingDiv.classList.add('show');
+    
+    const data = {
+        user_id: userId,
+        domain: domain,
+        api_key: apiKey
+    };
+    
+    fetch('/api/saas/register-site', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            // Success - redirect or show confirmation
+            showSuccess(domain, data.site_url);
+        } else {
+            showError(data.error || 'Erreur lors de l\'enregistrement du site');
+            submitBtn.disabled = false;
+            loadingDiv.classList.remove('show');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Erreur réseau: ' + error.message);
+        submitBtn.disabled = false;
+        loadingDiv.classList.remove('show');
+    });
+}
+
+function showSuccess(domain, siteUrl) {
+    // Close modal and show success message
+    const modal = document.getElementById('domainModal');
+    const container = document.querySelector('.saas-success-container');
+    
+    modal.classList.remove('active');
+    
+    // Add success confirmation
+    const successDiv = document.createElement('div');
+    successDiv.style.cssText = 'text-align: center; color: #10B981; margin-top: 30px; padding: 20px; background: #ECFDF5; border-radius: 8px;';
+    successDiv.innerHTML = `
+        <h3 style="color: #10B981; margin-bottom: 10px;">✓ Site enregistré avec succès !</h3>
+        <p>Votre site est accessible sur: <strong>${siteUrl}</strong></p>
+        <p style="margin-top: 15px; font-size: 14px; color: #666;">Le Dashboard a été mis à jour automatiquement</p>
+    `;
+    container.appendChild(successDiv);
 }
 </script>
 {% endblock %}
