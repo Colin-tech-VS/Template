@@ -4249,10 +4249,8 @@ def api_register_site_saas():
     
     try:
         # Construire l'URL complète du domaine
-        if not domain.startswith('http'):
-            site_url = f"https://{domain}"
-        else:
-            site_url = domain
+        domain_clean = domain.replace('https://', '').replace('http://', '')
+        site_url = f"https://{domain_clean}"
         
         # Récupérer le nom du site
         site_name = get_setting("site_name") or "Site Artiste"

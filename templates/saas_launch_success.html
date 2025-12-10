@@ -465,7 +465,10 @@ function showSuccess(domain, siteUrl) {
     
     // Redirect to production site after 2 seconds
     setTimeout(() => {
-        window.location.href = 'https://' + siteUrl;
+        const redirectUrl = siteUrl.startsWith('https://') || siteUrl.startsWith('http://') 
+            ? siteUrl 
+            : 'https://' + siteUrl;
+        window.location.href = redirectUrl;
     }, 2000);
 }
 </script>
