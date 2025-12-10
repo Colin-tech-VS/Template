@@ -117,6 +117,14 @@ try:
 except Exception as e:
     print(f"⚠️  Erreur enregistrement blueprint artistes: {e}")
 
+# Register webhook blueprint
+try:
+    from webhook_handler import webhook_bp
+    app.register_blueprint(webhook_bp)
+    print("✅ Blueprint webhooks enregistré")
+except Exception as e:
+    print(f"⚠️  Erreur enregistrement blueprint webhooks: {e}")
+
 # Config Flask-Mail
 app.config.update(
     MAIL_SERVER='smtp.gmail.com',
