@@ -124,6 +124,54 @@ def close_connection_pool():
         print("✅ Connection pool fermé")
 
 
+class ConnectionWrapper:
+    """
+    Wrapper pour une connexion PostgreSQL/Supabase qui retourne automatiquement
+    la connexion au pool lors du close() au lieu de la fermer réellement.
+    
+    Cette classe résout le problème d'AttributeError lorsqu'on tente de réassigner
+    conn.close qui est read-only dans psycopg2.
+    """
+    
+    def __init__(self, connection):
+        object.__setattr__(self, '_connection', connection)
+        object.__setattr__(self, '_closed', False)
+    
+    def __getattr__(self, name):
+        """Délègue tous les attributs non définis à la connexion sous-jacente"""
+        return getattr(self._connection, name)
+    
+    def __setattr__(self, name, value):
+        """Délègue l'assignation des attributs à la connexion sous-jacente"""
+        if name in ('_connection', '_closed'):
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._connection, name, value)
+    
+    def __enter__(self):
+        """Support pour le context manager"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Retourne la connexion au pool lors de la sortie du context manager"""
+        self.close()
+        return False
+    
+    def close(self):
+        """
+        Retourne la connexion au pool au lieu de la fermer réellement.
+        Peut être appelé plusieurs fois sans problème.
+        """
+        if not self._closed:
+            return_pool_connection(self._connection)
+            object.__setattr__(self, '_closed', True)
+    
+    @property
+    def closed(self):
+        """Indique si la connexion est fermée (retournée au pool)"""
+        return self._closed
+
+
 @contextmanager
 def get_db_connection():
     """
@@ -159,10 +207,13 @@ def get_db(user_id=None):
                  Actuellement ignoré car on utilise une seule base Supabase
     
     Returns:
-        psycopg2.connection: Connexion PostgreSQL avec RealDictCursor
+        ConnectionWrapper: Wrapper de connexion PostgreSQL avec RealDictCursor
         
     IMPORTANT: L'appelant doit fermer la connexion avec conn.close()
                qui la retournera au pool
+    
+    Note: Utilise maintenant ConnectionWrapper pour éviter l'erreur AttributeError
+          lors de la réassignation de conn.close qui est read-only dans psycopg2.
     """
     start_time = time.time()
     conn = get_pool_connection()
@@ -172,16 +223,8 @@ def get_db(user_id=None):
     if conn_time > 10:
         perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
     
-    # Wrapper pour retourner au pool lors du close()
-    original_close = conn.close
-    
-    def close_wrapper():
-        return_pool_connection(conn)
-        # Restaurer la méthode close originale pour éviter les double-returns
-        conn.close = original_close
-    
-    conn.close = close_wrapper
-    return conn
+    # Utiliser le wrapper pour gérer le close() proprement
+    return ConnectionWrapper(conn)
 
 
 def adapt_query(query):
