@@ -272,6 +272,14 @@ def generate_email_html(title, content, button_text=None, button_url=None):
     """
 
 TABLES = {
+    "users": {
+        "id": "SERIAL PRIMARY KEY",
+        "name": "TEXT NOT NULL",
+        "email": "TEXT UNIQUE NOT NULL",
+        "password": "TEXT NOT NULL",
+        "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "role": "TEXT DEFAULT 'user'"
+    },
     "paintings": {
         "id": "SERIAL PRIMARY KEY",
         "name": "TEXT NOT NULL",
@@ -865,6 +873,9 @@ def set_admin_user(email):
     conn = get_db()
     c = conn.cursor()
     try:
+        from database import add_column_if_not_exists
+        add_column_if_not_exists('users', 'role', 'TEXT DEFAULT "user"')
+        
         query = adapt_query("UPDATE users SET role='admin' WHERE email=?")
         c.execute(query, (email,))
         conn.commit()
@@ -912,11 +923,12 @@ def merge_carts(user_id, session_id):
     conn.commit()
     conn.close()
 
-# Initialisation de la base de données (une seule fonction suffit maintenant)
-migrate_db()
+init_database()
 
-# Définir l'administrateur
-set_admin_user('coco.cayre@gmail.com')
+try:
+    set_admin_user('coco.cayre@gmail.com')
+except Exception as e:
+    print(f"[STARTUP] Erreur définition admin au démarrage: {e}")
 
 # --------------------------------
 # UTILITAIRES
