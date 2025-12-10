@@ -13,7 +13,11 @@ from contextlib import contextmanager
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Configuration pour les tests (utiliser une DB de test)
-os.environ['SUPABASE_DB_URL'] = os.environ.get('SUPABASE_DB_URL', 'postgresql://test:test@localhost:5432/test')
+# IMPORTANT: Définir SUPABASE_DB_URL dans les variables d'environnement avant d'exécuter ce test
+if 'SUPABASE_DB_URL' not in os.environ:
+    print("❌ ERREUR: Variable d'environnement SUPABASE_DB_URL non définie")
+    print("   Définissez-la avec: export SUPABASE_DB_URL='postgresql://user:pass@host:port/database'")
+    sys.exit(1)
 
 # Importer après avoir configuré l'environnement
 from app import app, is_admin, get_db, adapt_query

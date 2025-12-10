@@ -987,7 +987,8 @@ def is_admin():
             return False
         
         is_admin_role = (role == 'admin')
-        if not is_admin_role:
+        # Log uniquement en mode debug pour éviter le bruit et les fuites d'info
+        if not is_admin_role and os.getenv('DEBUG_AUTH'):
             print(f"[is_admin] user_id={user_id} a le rôle '{role}' (non admin)")
         
         return is_admin_role
