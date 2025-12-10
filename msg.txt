@@ -1,1 +1,1 @@
-\"refactor: restructure admin settings with collapsible accordions\"  
+\"fix: correct accordion display and animation\"  

@@ -3987,9 +3987,8 @@ def get_export_api_key():
 @require_admin
 def regenerate_export_api_key():
     """Régénère une nouvelle clé API"""
-    user_id = session.get('user_id')
     new_key = secrets.token_urlsafe(32)
-    set_setting("export_api_key", new_key, user_id=user_id)
+    set_setting("export_api_key", new_key)
     
     return jsonify({
         "success": True,
