@@ -85,11 +85,19 @@ from database import (
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
 if TEMPLATE_MASTER_API_KEY:
-    print("🔑 Configuration sécurisée chargée avec succès")
+    try:
+        print("🔑 Configuration sécurisée chargée avec succès")
+    except UnicodeEncodeError:
+        print("[KEY] Configuration securisee chargee avec succes")
 else:
-    print("⚠️ ATTENTION: Configuration d'authentification manquante")
-    print("⚠️ TEMPLATE_MASTER_API_KEY non définie - génération d'une clé temporaire")
-    print("⚠️ En production, définissez TOUJOURS TEMPLATE_MASTER_API_KEY dans les variables d'environnement")
+    try:
+        print("⚠️ ATTENTION: Configuration d'authentification manquante")
+        print("⚠️ TEMPLATE_MASTER_API_KEY non définie - génération d'une clé temporaire")
+        print("⚠️ En production, définissez TOUJOURS TEMPLATE_MASTER_API_KEY dans les variables d'environnement")
+    except UnicodeEncodeError:
+        print("[WARNING] Configuration d'authentification manquante")
+        print("[WARNING] TEMPLATE_MASTER_API_KEY non definie")
+        print("[WARNING] En production, definissez TEMPLATE_MASTER_API_KEY dans les variables d'environnement")
     # Generate a secure random key for development
     # This prevents timing attacks while still requiring explicit configuration
     TEMPLATE_MASTER_API_KEY = secrets.token_urlsafe(32)
