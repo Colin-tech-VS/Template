@@ -136,12 +136,36 @@ Tests d'intégration avec base de données réelle (nécessite Supabase/Postgres
 
 ## 🔍 Endpoints affectés
 
-La fonction `is_admin()` est utilisée dans les routes suivantes :
-- `/admin/*` - Toutes les routes admin protégées par `@require_admin`
-- Galerie, peintures, commandes, utilisateurs, etc.
-- Plus de 15 endpoints au total
+La fonction `is_admin()` est utilisée dans **23 endpoints** via le décorateur `@require_admin` :
 
-Tous continuent de fonctionner normalement après la correction.
+### Routes admin protégées :
+- `/admin/custom-requests` - Gestion des demandes sur mesure
+- `/admin/settings` - Configuration du site
+- `/admin/add` - Ajout d'éléments
+- `/admin` - Tableau de bord admin
+- `/admin/api-export` - Export API
+- `/admin/paintings` - Gestion des peintures
+- `/admin/painting/edit/<id>` - Édition peinture
+- `/admin/painting/delete/<id>` - Suppression peinture
+- `/admin/orders` - Gestion des commandes
+- `/admin/order/<id>/status/<status>` - Mise à jour statut commande
+- `/admin/users` - Gestion des utilisateurs
+- `/admin/users/export` - Export des utilisateurs
+- `/admin/user/<id>/role` - Modification du rôle
+- `/admin/send_email_role` - Envoi d'emails groupés
+
+### Routes SAAS admin :
+- `/saas/approve/<user_id>` - Approbation site
+- `/saas/paid/<user_id>` - Validation paiement
+- `/saas/domain/<user_id>` - Vérification domaine
+- `/saas/clone/<user_id>` - Clonage en production
+- `/saas/activate/<user_id>` - Activation site
+
+### Routes API admin :
+- `/api/export/api-key` - Récupération clé API
+- `/api/export/regenerate-key` - Régénération clé API
+
+**Tous continuent de fonctionner normalement après la correction.**
 
 ## 📝 Comment exécuter les tests
 
