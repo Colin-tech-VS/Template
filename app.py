@@ -4248,8 +4248,9 @@ def api_register_site_saas():
         # Récupérer le nom du site
         site_name = get_setting("site_name") or "Site Artiste"
         user_info = _get_user_info(user_id)
+        user_email = None
         if user_info:
-            _, user_name, _ = user_info
+            _, user_name, user_email = user_info
             site_name = user_name or site_name
         
         # Préparer les données pour le dashboard
@@ -4280,6 +4281,14 @@ def api_register_site_saas():
             _saas_upsert(user_id, status='active', final_domain=site_url)
             set_setting("dashboard_id", str(site_id), user_id=user_id)
             set_setting("export_api_key", api_key, user_id=user_id)
+            
+            # Définir le créateur du site comme administrateur
+            if user_email:
+                try:
+                    set_admin_user(user_email)
+                    print(f"[SAAS] User {user_email} défini comme administrateur")
+                except Exception as e:
+                    print(f"[SAAS] Erreur lors de la définition de l'administrateur: {e}")
             
             # Vérifier que les clés Stripe du preview sont disponibles en production
             try:
