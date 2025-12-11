@@ -1056,6 +1056,140 @@ nav a:hover {
     box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
 }
 
+/* GRILLE STATS PRODUITS */
+.products-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    margin-top: 30px;
+}
+
+/* TOP PRODUCTS */
+.top-products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.top-product-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.top-product-item:hover {
+    background: #f3f4f6;
+    border-color: #1E3A8A;
+    transform: translateX(5px);
+}
+
+.product-rank {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1E3A8A;
+    min-width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #e0f2fe, #bfdbfe);
+    border-radius: 50%;
+}
+
+.product-rank.loved {
+    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+    color: #be185d;
+}
+
+.product-image-small {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.product-image-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-details {
+    flex: 1;
+}
+
+.product-details h4 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.product-meta {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    font-size: 14px;
+}
+
+.product-price {
+    font-weight: 700;
+    color: #1E3A8A;
+}
+
+.product-sold {
+    color: #059669;
+    font-weight: 600;
+}
+
+.product-loved {
+    color: #be185d;
+    font-weight: 600;
+}
+
+.btn-view {
+    padding: 8px 12px;
+    background: #1E3A8A;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.btn-view:hover {
+    background: #3B65C4;
+    transform: scale(1.1);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Boutons Supprimer dans ruptures de stock */
+.btn-link.btn-danger {
+    background-color: #dc3545;
+}
+
+.btn-link.btn-danger:hover {
+    background-color: #c82333;
+}
+
+@media (max-width: 1024px) {
+    .products-stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
     .admin-header h1 {
         font-size: 24px;
