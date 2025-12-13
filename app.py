@@ -1097,9 +1097,18 @@ def register():
         conn = get_db()
         c = conn.cursor()
         try:
-            c.execute(adapt_query("SELECT COUNT(*) FROM users"))
-            user_count = c.fetchone()[0]
+            print(f"[REGISTER] Début inscription: {email}")
             
+            c.execute(adapt_query("SELECT COUNT(*) FROM users"))
+            count_result = c.fetchone()
+            print(f"[REGISTER] Count result: {count_result}")
+            
+            if count_result is None:
+                user_count = 0
+            else:
+                user_count = count_result[0]
+            
+            print(f"[REGISTER] User count: {user_count}")
             is_first_user = (user_count == 0)
             
             if is_first_user:
@@ -1109,19 +1118,23 @@ def register():
             else:
                 c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
                           (name, email, hashed_password, 'user'))
+                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
             
             conn.commit()
             conn.close()
+            print(f"[REGISTER] Inscription réussie pour {email}")
             flash("Inscription réussie !")
             return redirect(url_for('login'))
         except Exception as e:
             conn.close()
             error_msg = str(e)
-            print(f"[REGISTER ERROR] {error_msg}")
+            print(f"[REGISTER ERROR] {type(e).__name__}: {error_msg}")
+            import traceback
+            traceback.print_exc()
             if 'UNIQUE' in error_msg or 'unique' in error_msg:
                 flash("Cet email est déjà utilisé.")
             else:
-                flash(f"Erreur lors de l'inscription: {error_msg}")
+                flash(f"Erreur: {error_msg}")
             return redirect(url_for('register'))
 
     return render_template("register.html")
