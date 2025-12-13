@@ -3910,7 +3910,7 @@ def update_stripe_secret_key():
             return jsonify({'success': False, 'error': 'invalid_secret_format'}), 400
 
         import re
-        if not re.match(r'^sk_(test|live)_[A-Za-z0-9]+$', value):
+        if not re.match(r'^sk_(test|live)_[A-Za-z0-9_-]+$', value):
             return jsonify({'success': False, 'error': 'invalid_secret_format'}), 400
 
         # Persist secret server-side only
@@ -3986,7 +3986,7 @@ def update_stripe_publishable_key():
 
         # Validate publishable key format
         import re
-        if not re.match(r'^pk_(test|live)_[A-Za-z0-9]+$', value):
+        if not re.match(r'^pk_(test|live)_[A-Za-z0-9_-]+$', value):
             return jsonify({'success': False, 'error': 'invalid_publishable_format'}), 400
 
         # Persist publishable key (non sensible côté template)
@@ -4017,6 +4017,93 @@ def get_stripe_secret_key_blocked():
     Retourne: 404 Not Found
     """
     return jsonify({'error': 'not_found'}), 404
+
+
+@app.route('/api/export/settings/stripe_price_id', methods=['PUT'])
+@require_api_key
+def update_stripe_price_id():
+    """Endpoint pour propager un price_id Stripe du Dashboard au Template.
+    
+    Utile quand le Dashboard crée des produits Stripe et doit propager les price_id
+    aux sites templates (ex: prix de lancement, abonnements centralisés).
+    
+    Auth: X-API-Key (TEMPLATE_MASTER_API_KEY ou export_api_key)
+    Body: {"value": "price_1A4Xc..."}
+    """
+    try:
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API key manquante'}), 401
+
+        master_key = TEMPLATE_MASTER_API_KEY
+        has_valid_master = False
+        if api_key and master_key:
+            try:
+                has_valid_master = hmac.compare_digest(api_key, master_key)
+            except Exception:
+                has_valid_master = False
+        
+        if has_valid_master:
+            pass
+        else:
+            stored_key = get_setting('export_api_key')
+            if not stored_key:
+                stored_key = secrets.token_urlsafe(32)
+                set_setting('export_api_key', stored_key)
+            
+            has_valid_stored = False
+            if api_key and stored_key:
+                try:
+                    has_valid_stored = hmac.compare_digest(api_key, stored_key)
+                except Exception:
+                    has_valid_stored = False
+            
+            if not has_valid_stored:
+                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
+
+        data = request.get_json() or {}
+        value = data.get('value')
+        if not value or not isinstance(value, str):
+            return jsonify({'success': False, 'error': 'price_id manquant'}), 400
+
+        # Validate price_id format (loose: prix_ ou prix_<id>)
+        # Stripe price IDs commencent par "price_" suivi d'alphanumériques et traits
+        import re
+        if not re.match(r'^(price_)?[A-Za-z0-9_]+$', value):
+            return jsonify({'success': False, 'error': 'invalid_price_id_format'}), 400
+
+        # Stocker en Supabase
+        set_setting('stripe_price_id', value)
+
+        try:
+            print(f"[API] stripe_price_id updated: {value[:20]}...")
+        except Exception:
+            pass
+
+        return jsonify({'success': True, 'message': 'stripe_price_id mis à jour'}), 200
+
+    except Exception as e:
+        try:
+            print(f"[API] Erreur mise à jour stripe_price_id: {e}")
+        except Exception:
+            pass
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/export/settings/stripe_price_id', methods=['GET'])
+def get_stripe_price_id():
+    """Récupère le price_id Stripe stocké (optionnel, peut être public)."""
+    try:
+        price_id = get_setting('stripe_price_id')
+        if not price_id:
+            price_id = os.getenv('STRIPE_PRICE_ID')
+        
+        if not price_id:
+            return jsonify({'success': False, 'error': 'not_found'}), 404
+        
+        return jsonify({'success': True, 'price_id': price_id}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/stripe-pk', methods=['GET'])
