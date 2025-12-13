@@ -3691,89 +3691,6 @@ def update_setting_api(key):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/export/settings/stripe_publishable_key', methods=['PUT'])
-def update_stripe_publishable_key():
-    """Endpoint dédié pour persister la clé publishable Stripe via l'API export.
-    Auth: priorise TEMPLATE_MASTER_API_KEY, fallback sur export_api_key stockée en settings.
-    Corps JSON attendu: {"value": "pk_test_..."}
-    """
-    try:
-        api_key = request.headers.get('X-API-Key')
-        if not api_key:
-            return jsonify({'success': False, 'error': 'API key manquante'}), 401
-
-        # Priorité maître - use constant-time comparison
-        master_key = TEMPLATE_MASTER_API_KEY
-        has_valid_master = False
-        if api_key and master_key:
-            try:
-                has_valid_master = hmac.compare_digest(api_key, master_key)
-            except Exception:
-                has_valid_master = False
-        
-        if has_valid_master:
-            try:
-                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
-            except UnicodeEncodeError:
-                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
-        else:
-            stored_key = get_setting('export_api_key')
-            if not stored_key:
-                stored_key = secrets.token_urlsafe(32)
-                set_setting('export_api_key', stored_key)
-                try:
-                    print(f"Nouvelle clé API générée: {stored_key}")
-                except UnicodeEncodeError:
-                    print("Nouvelle clé API générée: %s" % stored_key)
-            
-            # Always perform constant-time comparison
-            has_valid_stored = False
-            if api_key and stored_key:
-                try:
-                    has_valid_stored = hmac.compare_digest(api_key, stored_key)
-                except Exception:
-                    has_valid_stored = False
-            
-            if not has_valid_stored:
-                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
-
-        data = request.get_json() or {}
-        value = data.get('value')
-        if not value:
-            return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
-
-        # Validate publishable key format
-        import re
-        if not re.match(r'^pk_(test|live)_[A-Za-z0-9]+$', value):
-            return jsonify({'success': False, 'error': 'invalid_publishable_format'}), 400
-
-        # Persister la clé publishable (non sensible côté template)
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(adapt_query('SELECT COUNT(*) FROM settings WHERE key = ?'), ('stripe_publishable_key',))
-        exists = cur.fetchone()[0] > 0
-        if exists:
-            cur.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (value, 'stripe_publishable_key'))
-        else:
-            cur.execute(adapt_query('INSERT INTO settings (key, value) VALUES (?, ?)'), ('stripe_publishable_key', value))
-        conn.commit()
-        conn.close()
-
-        # Log with origin info
-        try:
-            ip = request.remote_addr or 'unknown'
-            ua = request.headers.get('User-Agent', '')
-            app.logger.info(f"[API] stripe_publishable_key updated from {ip} - UA:{ua}")
-        except Exception:
-            pass
-
-        return jsonify({'success': True, 'message': 'stripe_publishable_key mis à jour'})
-
-    except Exception as e:
-        print(f"[API] ❌ Erreur mise à jour stripe_publishable_key: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 @app.route('/api/export/settings/stripe_publishable_key', methods=['GET'])
 def get_stripe_publishable_key():
     """Public endpoint returning only the publishable key for client usage.
@@ -3870,6 +3787,83 @@ def update_stripe_secret_key():
             print(f"[API] Erreur mise à jour stripe_secret_key: {e}")
         except UnicodeEncodeError:
             print("[API] Erreur mise à jour stripe_secret_key: %s" % str(e))
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/export/settings/stripe_publishable_key', methods=['PUT'])
+def update_stripe_publishable_key():
+    """Endpoint dédié pour persister la clé publishable Stripe via l'API export.
+    Auth: priorise TEMPLATE_MASTER_API_KEY, fallback sur export_api_key stockée en settings.
+    Corps JSON attendu: {"value": "pk_test_..."}
+    """
+    try:
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API key manquante'}), 401
+
+        # Priorité maître - use constant-time comparison
+        master_key = TEMPLATE_MASTER_API_KEY
+        has_valid_master = False
+        if api_key and master_key:
+            try:
+                has_valid_master = hmac.compare_digest(api_key, master_key)
+            except Exception:
+                has_valid_master = False
+        
+        if has_valid_master:
+            try:
+                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
+            except UnicodeEncodeError:
+                print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
+        else:
+            stored_key = get_setting('export_api_key')
+            if not stored_key:
+                stored_key = secrets.token_urlsafe(32)
+                set_setting('export_api_key', stored_key)
+                try:
+                    print(f"Nouvelle clé API générée: {stored_key}")
+                except UnicodeEncodeError:
+                    print("Nouvelle clé API générée: %s" % stored_key)
+            
+            # Always perform constant-time comparison
+            has_valid_stored = False
+            if api_key and stored_key:
+                try:
+                    has_valid_stored = hmac.compare_digest(api_key, stored_key)
+                except Exception:
+                    has_valid_stored = False
+            
+            if not has_valid_stored:
+                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
+
+        data = request.get_json() or {}
+        value = data.get('value')
+        if not value:
+            return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
+
+        # Validate publishable key format
+        import re
+        if not re.match(r'^pk_(test|live)_[A-Za-z0-9]+$', value):
+            return jsonify({'success': False, 'error': 'invalid_publishable_format'}), 400
+
+        # Persist publishable key (non sensible côté template)
+        set_setting('stripe_publishable_key', value)
+
+        # Log with origin info
+        try:
+            ip = request.remote_addr or 'unknown'
+            ua = request.headers.get('User-Agent', '')
+            app.logger.info(f"[API] stripe_publishable_key updated from {ip} - UA:{ua}")
+        except Exception:
+            pass
+
+        return jsonify({'success': True, 'message': 'stripe_publishable_key mis à jour'})
+
+    except Exception as e:
+        try:
+            print(f"[API] ❌ Erreur mise à jour stripe_publishable_key: {e}")
+        except UnicodeEncodeError:
+            print("[API] Erreur mise à jour stripe_publishable_key: %s" % str(e))
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
