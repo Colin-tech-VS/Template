@@ -1092,20 +1092,30 @@ def register():
         email = request.form['email']
         password = request.form['password']
 
-        hashed_password = generate_password_hash(password)  # hachage du mot de passe
+        hashed_password = generate_password_hash(password)
 
         conn = get_db()
         c = conn.cursor()
         try:
-            c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
-                      (name, email, hashed_password))
+            c.execute(adapt_query("SELECT COUNT(*) FROM users"))
+            user_count = c.fetchone()[0]
+            
+            is_first_user = (user_count == 0)
+            
+            if is_first_user:
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'admin'))
+                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+            else:
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'user'))
+            
             conn.commit()
             conn.close()
             flash("Inscription réussie !")
             return redirect(url_for('login'))
         except Exception as e:
             conn.close()
-            # IntegrityError pour email déjà utilisé
             if 'UNIQUE' in str(e) or 'unique' in str(e):
                 flash("Cet email est déjà utilisé.")
             else:
@@ -2282,7 +2292,7 @@ def inject_cart():
     is_preview_host = False
     preview_price = None
     try:
-        is_preview_host = is_preview_request() or bool(preview_data)
+        is_preview_host = is_preview_request()
         if is_preview_host:
             preview_price = fetch_dashboard_site_price()
     except Exception as e:

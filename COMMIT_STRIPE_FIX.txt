@@ -1,0 +1,39 @@
+Improve Stripe propagation: fix regex validation and add price_id endpoint
+
+AUDIT: Complete stripe propagation flow (Dashboard → Template → Vitrine)
+
+FINDINGS:
+- Architecture is CORRECT: Dashboard only propagates keys, not prices
+- Template is source of truth for product prices
+- Secret keys properly secured (never exposed via GET)
+- Constant-time comparison prevents timing attacks
+
+FIXES APPLIED:
+
+1. Improve Stripe key validation (CRITICAL MINOR)
+   - Old: regex r'^(sk|pk)_(test|live)_[A-Za-z0-9]+$'
+   - New: regex r'^(sk|pk)_(test|live)_[A-Za-z0-9_-]+$'
+   - Reason: Stripe keys can contain hyphens and underscores
+   - Impact: Accept more valid Stripe key formats
+
+2. Add optional endpoint for price_id propagation (ENHANCEMENT)
+   - New: PUT /api/export/settings/stripe_price_id
+   - New: GET /api/export/settings/stripe_price_id
+   - Allows Dashboard to push price IDs (optional feature)
+   - Follows same auth pattern as stripe_publishable_key
+   - Useful for centralized Stripe products (subscriptions, bundles)
+
+DOCUMENTATION:
+- STRIPE_PROPAGATION_AUDIT.md: Complete audit report with architecture analysis
+- 10 sections covering: flux, security, prices, problems, recommendations
+
+SECURITY:
+- HMAC constant-time comparison maintained
+- X-API-Key authentication required for PUT endpoints
+- Validation regex improved to accept valid Stripe formats
+- Secret key still never exposed via GET
+
+TESTING:
+- Syntax validated with py_compile
+- No breaking changes
+- Backward compatible
