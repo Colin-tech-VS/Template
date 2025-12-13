@@ -3834,54 +3834,6 @@ def api_export_stats():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@app.route('/api/export/settings/<key>', methods=['PUT'])
-@require_api_key
-def update_setting_api(key):
-    """Modifier un paramètre spécifique via l'API (accepte clé maître dashboard).
-    Auth handled by `require_api_key` decorator (constant-time compare).
-    """
-    try:
-        
-        # Récupérer la valeur depuis le JSON
-        data = request.get_json()
-        new_value = data.get('value')
-        
-        if new_value is None:
-            return jsonify({'success': False, 'error': 'Valeur manquante'}), 400
-        
-        # Mettre à jour dans la base de données
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Vérifier si le paramètre existe
-        cursor.execute(adapt_query('SELECT COUNT(*) FROM settings WHERE key = ?'), (key,))
-        exists = cursor.fetchone()[0] > 0
-        
-        if exists:
-            # UPDATE
-            cursor.execute(adapt_query('UPDATE settings SET value = ? WHERE key = ?'), (new_value, key))
-        else:
-            # INSERT
-            cursor.execute(adapt_query('INSERT INTO settings (key, value) VALUES (?, ?)'), (key, new_value))
-        
-        conn.commit()
-        conn.close()
-        
-        try:
-            print(f"[API] Paramètre '{key}' mis à jour: {new_value}")
-        except UnicodeEncodeError:
-            print("[API] Paramètre '%s' mis à jour: %s" % (key, new_value))
-        return jsonify({'success': True, 'message': f'Paramètre {key} mis à jour'})
-        
-    except Exception as e:
-        try:
-            print(f"[API] Erreur mise à jour {key}: {e}")
-        except UnicodeEncodeError:
-            print("[API] Erreur mise à jour %s: %s" % (key, str(e)))
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 @app.route('/api/export/settings/stripe_publishable_key', methods=['GET'])
 def get_stripe_publishable_key():
     """Public endpoint returning only the publishable key for client usage.
