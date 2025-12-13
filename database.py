@@ -56,13 +56,16 @@ IS_POSTGRES = True  # Toujours PostgreSQL maintenant
 # Réduit drastiquement le temps de connexion (de ~100ms à <1ms)
 CONNECTION_POOL = None
 
-def init_connection_pool(minconn=2, maxconn=20):
+def init_connection_pool(minconn=1, maxconn=5):
     """
     Initialise le pool de connexions PostgreSQL/Supabase
     
     Args:
-        minconn: Nombre minimum de connexions maintenues
-        maxconn: Nombre maximum de connexions autorisées
+        minconn: Nombre minimum de connexions maintenues (réduit pour Supabase)
+        maxconn: Nombre maximum de connexions autorisées (limité par Supabase)
+    
+    IMPORTANT: Supabase en mode Session pooling limite à 10-15 connexions par projet
+    minconn=1, maxconn=5 est optimal pour éviter "MaxClientsInSessionMode" errors
     
     Returns:
         psycopg2.pool.ThreadedConnectionPool
@@ -78,7 +81,7 @@ def init_connection_pool(minconn=2, maxconn=20):
             maxconn=maxconn,
             **DB_CONFIG
         )
-        print(f"✅ Connection pool initialisé: {minconn}-{maxconn} connexions")
+        print(f"✅ Connection pool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
         return CONNECTION_POOL
     except Exception as e:
         print(f"❌ Erreur initialisation connection pool: {e}")

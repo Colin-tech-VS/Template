@@ -444,11 +444,16 @@ def get_setting(key, user_id=None):
         return row['value'] if IS_POSTGRES else row["value"]
     return None
 
-try:
-    stripe_key = get_stripe_secret_key()
-except Exception as e:
-    print(f"[SAAS] Erreur lecture clé Stripe au démarrage: {e}")
-    stripe_key = None
+# Charger la clé Stripe de manière lazy (depuis env var en priorité pour éviter les connexions au démarrage)
+stripe_key = os.getenv('STRIPE_SECRET_KEY') or os.getenv('STRIPE_API_KEY')
+
+if not stripe_key:
+    # Fallback: essayer de charger depuis la BD (mais avec gestion d'erreur)
+    try:
+        stripe_key = get_stripe_secret_key()
+    except Exception as e:
+        print(f"[STARTUP] ⚠️  Erreur lecture clé Stripe: {e}")
+        stripe_key = None
 
 masked_stripe = (stripe_key[:6] + "…") if stripe_key else "None"
 print("Clé Stripe actuelle (masquée) :", masked_stripe)
@@ -461,18 +466,29 @@ if stripe_key:
 else:
     print("Stripe non configuré: aucune clé fournie")
 
-# Vérifier les valeurs SMTP
-smtp_server = get_setting("smtp_server") or "smtp.gmail.com"
-smtp_port = int(get_setting("smtp_port") or 587)
-smtp_user = get_setting("email_sender") or "coco.cayre@gmail.com"
-smtp_password = get_setting("smtp_password") or "motdepassepardefaut"
+# Vérifier les valeurs SMTP (charger de manière LAZY depuis les env vars ou la BD)
+# Au lieu de charger au démarrage, on utilise des variables d'environnement avec fallback
+def get_smtp_config():
+    """Charger SMTP de manière lazy depuis env vars ou BD"""
+    return {
+        'server': os.getenv("SMTP_SERVER") or "smtp.gmail.com",
+        'port': int(os.getenv("SMTP_PORT") or 587),
+        'user': os.getenv("SMTP_USER") or "coco.cayre@gmail.com",
+        'password': os.getenv("SMTP_PASSWORD") or "motdepassepardefaut"
+    }
+
+smtp_config = get_smtp_config()
+smtp_server = smtp_config['server']
+smtp_port = smtp_config['port']
+smtp_user = smtp_config['user']
+smtp_password = smtp_config['password']
 
 print("SMTP_SERVER :", smtp_server)
 print("SMTP_PORT   :", smtp_port)
 print("SMTP_USER   :", smtp_user)
-print("SMTP_PASSWORD défini :", bool(get_setting("smtp_password")))
+print("SMTP_PASSWORD défini :", bool(smtp_password))
 
-google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
+google_places_key = os.getenv("GOOGLE_PLACES_KEY") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
 def set_setting(key, value, user_id=None):
@@ -934,12 +950,16 @@ def merge_carts(user_id, session_id):
     conn.commit()
     conn.close()
 
-init_database()
+try:
+    init_database()
+except Exception as e:
+    print(f"[STARTUP] ⚠️  Erreur initialisation DB: {e}")
+    print(f"[STARTUP] Pool size réduit pour Supabase Session mode - L'app continuera")
 
 try:
     set_admin_user('coco.cayre@gmail.com')
 except Exception as e:
-    print(f"[STARTUP] Erreur définition admin au démarrage: {e}")
+    print(f"[STARTUP] ⚠️  Erreur définition admin au démarrage: {e}")
 
 # --------------------------------
 # UTILITAIRES
