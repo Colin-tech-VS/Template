@@ -1116,10 +1116,12 @@ def register():
             return redirect(url_for('login'))
         except Exception as e:
             conn.close()
-            if 'UNIQUE' in str(e) or 'unique' in str(e):
+            error_msg = str(e)
+            print(f"[REGISTER ERROR] {error_msg}")
+            if 'UNIQUE' in error_msg or 'unique' in error_msg:
                 flash("Cet email est déjà utilisé.")
             else:
-                flash("Erreur lors de l'inscription.")
+                flash(f"Erreur lors de l'inscription: {error_msg}")
             return redirect(url_for('register'))
 
     return render_template("register.html")
