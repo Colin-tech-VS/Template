@@ -3885,16 +3885,8 @@ def update_stripe_publishable_key():
             except UnicodeEncodeError:
                 print('[API] Clé maître acceptée - Configuration stripe_publishable_key')
         else:
+            # Fallback: check if provided key matches stored export_api_key
             stored_key = get_setting('export_api_key')
-            if not stored_key:
-                stored_key = secrets.token_urlsafe(32)
-                set_setting('export_api_key', stored_key)
-                try:
-                    print(f"Nouvelle clé API générée: {stored_key}")
-                except UnicodeEncodeError:
-                    print("Nouvelle clé API générée: %s" % stored_key)
-            
-            # Always perform constant-time comparison
             has_valid_stored = False
             if api_key and stored_key:
                 try:
@@ -3903,7 +3895,8 @@ def update_stripe_publishable_key():
                     has_valid_stored = False
             
             if not has_valid_stored:
-                return jsonify({'success': False, 'error': 'Clé API invalide'}), 403
+                # Authentication failed - export_api_key should only be generated via admin endpoints, not during failed auth
+                return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json() or {}
         value = data.get('value')
@@ -3994,14 +3987,8 @@ def update_stripe_secret_key():
         if has_valid_master:
             pass
         else:
+            # Fallback: check if provided key matches stored export_api_key
             stored_key = get_setting('export_api_key')
-            if not stored_key:
-                # provision a random export key if none exists (keeps backward compatibility)
-                stored_key = secrets.token_urlsafe(32)
-                set_setting('export_api_key', stored_key)
-                print(f"New export_api_key provisioned")
-            
-            # Always perform constant-time comparison
             has_valid_stored = False
             if api_key and stored_key:
                 try:
@@ -4010,6 +3997,7 @@ def update_stripe_secret_key():
                     has_valid_stored = False
             
             if not has_valid_stored:
+                # Authentication failed - export_api_key should only be generated via admin endpoints, not during failed auth
                 return jsonify({'success': False, 'error': 'invalid_api_key'}), 401
 
         data = request.get_json(silent=True) or {}
