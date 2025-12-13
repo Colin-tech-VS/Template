@@ -1106,7 +1106,7 @@ def register():
             if count_result is None:
                 user_count = 0
             else:
-                user_count = count_result[0]
+                user_count = count_result.get('count') if isinstance(count_result, dict) else count_result[0]
             
             print(f"[REGISTER] User count: {user_count}")
             is_first_user = (user_count == 0)
