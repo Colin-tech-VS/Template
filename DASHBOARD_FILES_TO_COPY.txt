@@ -1,0 +1,92 @@
+📦 FILES FOR DASHBOARD INTEGRATION
+=====================================
+
+Three files have been generated for Dashboard template sync integration:
+
+1️⃣  migrations_dashboard_template.py
+    ↓
+    Copy to: MyDashboard/migrations/ or root
+    Purpose: Migration SQL pour ajouter site_id aux tables
+    Run: python migrations_dashboard_template.py (prod ou local)
+
+2️⃣  template_sync_service.py
+    ↓
+    Copy to: MyDashboard/backend/services/
+    Purpose: Service métier pour synchronisation Template → Dashboard
+    Contains: TemplateSyncService class avec sync_paintings(), sync_users(), etc.
+
+3️⃣  sync_routes_template.py
+    ↓
+    Copy to: MyDashboard/backend/routes/
+    Purpose: Routes Flask pour les API endpoints
+    Contains: /api/sync/template/{site_id} et autres
+
+4️⃣  DASHBOARD_SYNC_INTEGRATION.md
+    ↓
+    Copy to: MyDashboard/docs/ ou root
+    Purpose: Guide complet d'intégration (pas code)
+
+=====================================
+
+📋 CHECKLIST D'INTÉGRATION:
+
+☐ 1. Exécuter la migration:
+      python migrations_dashboard_template.py
+
+☐ 2. Copier template_sync_service.py vers backend/services/
+
+☐ 3. Copier sync_routes_template.py vers backend/routes/
+
+☐ 4. Dans app.py/main.py du Dashboard, ajouter:
+      from routes.sync_routes_template import sync_bp
+      app.register_blueprint(sync_bp)
+
+☐ 5. Adapter les variables d'environnement (Supabase host, user, password)
+
+☐ 6. Tester la connexion:
+      curl -X GET "https://template.site/api/export/paintings" -H "X-API-Key: KEY"
+
+☐ 7. Tester la synchro:
+      curl -X POST "http://dashboard:5000/api/sync/template/1"
+
+☐ 8. Vérifier en BD:
+      SELECT COUNT(*) FROM paintings WHERE site_id=1
+
+=====================================
+
+🔗 ARCHITECTURE APRÈS INTÉGRATION:
+
+Template                    Dashboard
+   ↓                           ↓
+/api/export/paintings  →  /api/sync/template/1
+/api/export/users      →  services/template_sync_service.py
+/api/export/orders     →  routes/sync_routes_template.py
+                           ↓
+                        Database (Supabase)
+                           ↓
+                        paintings (with site_id)
+                        users (with site_id)
+                        orders (with site_id)
+
+=====================================
+
+✅ APRÈS DÉPLOIEMENT:
+
+Dashboard peut:
+✓ Récupérer les peintures d'un Template
+✓ Récupérer les utilisateurs (avec rôles: admin/user)
+✓ Récupérer les commandes
+✓ Stocker dans les bonnes tables avec site_id
+✓ Afficher l'historique des synchronisations
+✓ Permettre la synchro manuelle ou automatique
+
+=====================================
+
+⚠️ IMPORTANT:
+
+- Adapter DB_CONFIG dans sync_routes_template.py à ta Supabase
+- Vérifier que la colonne 'role' existe dans users (elle devrait!)
+- Faire la migration AVANT de copier les fichiers routes/services
+- Tester en local avant de déployer en prod
+
+=====================================
