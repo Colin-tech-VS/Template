@@ -906,10 +906,10 @@ def merge_carts(user_id, session_id):
     session_cart = c.fetchone()
 
     if session_cart:
-        session_cart_id = session_cart[0]
+        session_cart_id = safe_row_get(session_cart, 'id', index=0)
 
         if user_cart:
-            user_cart_id = user_cart[0]
+            user_cart_id = safe_row_get(user_cart, 'id', index=0)
             # Fusion des articles
             c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
             items = c.fetchall()
@@ -918,8 +918,9 @@ def merge_carts(user_id, session_id):
                           (user_cart_id, painting_id))
                 row = c.fetchone()
                 if row:
+                    row_qty = safe_row_get(row, 'quantity', index=0)
                     c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"),
-                              (row[0]+qty, user_cart_id, painting_id))
+                              (row_qty+qty, user_cart_id, painting_id))
                 else:
                     c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"),
                               (user_cart_id, painting_id, qty))
@@ -1130,7 +1131,7 @@ def login():
 
         if user_cart:
             # Panier utilisateur existant → récupérer session_id
-            user_cart_session = user_cart[1]
+            user_cart_session = user_cart['session_id'] if isinstance(user_cart, dict) else user_cart[1]
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
@@ -1637,7 +1638,8 @@ def add_to_cart(painting_id):
     c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
     row = c.fetchone()
     if row:
-        new_quantity = row[0] + quantity_to_add
+        current_qty = safe_row_get(row, 'quantity', index=0)
+        new_quantity = current_qty + quantity_to_add
         c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (new_quantity, cart_id, painting_id))
     else:
         c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"), (cart_id, painting_id, quantity_to_add))
@@ -1662,7 +1664,8 @@ def decrease_from_cart(painting_id):
     c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
     row = c.fetchone()
     if row:
-        new_qty = row[0] - 1
+        current_qty = safe_row_get(row, 'quantity', index=0)
+        new_qty = current_qty - 1
         if new_qty <= 0:
             c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
         else:
@@ -1848,7 +1851,7 @@ def checkout_success():
         user = c.fetchone()
 
         if user:
-            user_id = user[0]
+            user_id = safe_row_get(user, 'id', index=0)
         else:
             import secrets
             from werkzeug.security import generate_password_hash
@@ -2091,7 +2094,7 @@ def orders():
     # Récupérer les articles pour chaque commande
     all_items = {}
     for order in orders_list:
-        order_id = order[0]
+        order_id = safe_row_get(order, 'id', index=0)
         c.execute("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
@@ -2369,7 +2372,7 @@ def mark_notification_read(notif_id):
         # Récupérer l'URL pour redirection
         c.execute(adapt_query("SELECT url FROM notifications WHERE id=?"), (notif_id,))
         row = c.fetchone()
-        redirect_url = row[0] if row and row[0] else url_for("admin_notifications")
+        redirect_url = safe_row_get(row, 'url', index=0) or url_for("admin_notifications")
 
     return redirect(redirect_url)
 
@@ -2581,7 +2584,7 @@ def profile():
     all_items = {}
     order_totals = {}
     for order in user_orders:
-        order_id = order[0]
+        order_id = safe_row_get(order, 'id', index=0)
         c.execute("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
@@ -3045,7 +3048,7 @@ def admin_orders():
     # Récupérer les articles pour chaque commande
     all_items = {}
     for order in orders_list:
-        order_id = order[0]
+        order_id = safe_row_get(order, 'id', index=0)
         c.execute("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
@@ -3610,15 +3613,15 @@ def api_orders():
             # Grouper les items par order_id
             items_by_order = {}
             for item in all_items:
-                order_id = item[0]
+                order_id = safe_row_get(item, 'order_id', index=0)
                 if order_id not in items_by_order:
                     items_by_order[order_id] = []
                 items_by_order[order_id].append({
-                    'painting_id': item[1],
-                    'name': item[2],
-                    'image': item[3],
-                    'price': item[4],
-                    'quantity': item[5]
+                    'painting_id': safe_row_get(item, 'painting_id', index=1),
+                    'name': safe_row_get(item, 'name', index=2),
+                    'image': safe_row_get(item, 'image', index=3),
+                    'price': safe_row_get(item, 'price', index=4),
+                    'quantity': safe_row_get(item, 'quantity', index=5)
                 })
             
             # Assigner les items à chaque commande
