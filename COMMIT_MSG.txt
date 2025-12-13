@@ -1,1 +1,9 @@
-\"feat: Add API Key management to admin settings\"  
+Fix dashboard price propagation: remove duplicate buggy route
+
+Removes update_setting_api() handler (line 3838-3882) that was:
+- Shadowing api_put_setting() handler (line 641-656) 
+- Using fragile manual SQL instead of set_setting()
+- Causing KeyError: cursor.fetchone()[0] with RealDictCursor
+
+Retained api_put_setting() uses set_setting() with ON CONFLICT.
+Fixes Dashboard→Template price propagation to saas_site_price_cache.
