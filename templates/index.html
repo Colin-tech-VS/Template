@@ -481,6 +481,7 @@ body {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
+                credentials: 'same-origin',
                 body: new URLSearchParams({ email, password })
             });
             
