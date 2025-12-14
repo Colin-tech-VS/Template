@@ -1178,6 +1178,61 @@ def register():
     return render_template("register.html")
 
 
+@app.route('/api/register-preview', methods=['POST'])
+def api_register_preview():
+    """API endpoint pour l'inscription en preview (popup)"""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    email = data.get('email', '').strip()
+    password = data.get('password', '').strip()
+    
+    if not name or not email or not password:
+        return jsonify({"success": False, "error": "Tous les champs sont obligatoires"}), 400
+    
+    if len(password) < 6:
+        return jsonify({"success": False, "error": "Le mot de passe doit contenir au moins 6 caractères"}), 400
+    
+    hashed_password = generate_password_hash(password)
+    
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        print(f"[REGISTER-PREVIEW] Début inscription: {email}")
+        
+        c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+        count_result = c.fetchone()
+        user_count = safe_row_get(count_result, 'count', index=0, default=0)
+        is_first_user = (user_count == 0)
+        
+        if is_first_user:
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                      (name, email, hashed_password, 'admin'))
+            print(f"[REGISTER-PREVIEW] Premier utilisateur {email} créé avec rôle 'admin'")
+        else:
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                      (name, email, hashed_password, 'user'))
+            print(f"[REGISTER-PREVIEW] Utilisateur {email} créé avec rôle 'user'")
+        
+        conn.commit()
+        conn.close()
+        print(f"[REGISTER-PREVIEW] Inscription réussie pour {email}")
+        
+        return jsonify({
+            "success": True,
+            "next_url": url_for('login')
+        })
+    except Exception as e:
+        conn.close()
+        error_msg = str(e)
+        print(f"[REGISTER-PREVIEW ERROR] {type(e).__name__}: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        if 'UNIQUE' in error_msg or 'unique' in error_msg:
+            return jsonify({"success": False, "error": "Cet email est déjà utilisé."}), 400
+        else:
+            return jsonify({"success": False, "error": f"Erreur: {error_msg}"}), 500
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
