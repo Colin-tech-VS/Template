@@ -10,7 +10,7 @@ TEMPLATE_STYLES = {
     <style>
         /* NAVIGATION */
         nav {
-            background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+            background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
             padding: 15px 30px;
             display: flex;
             justify-content: space-between;
@@ -74,7 +74,7 @@ TEMPLATE_STYLES = {
                 top: 70px;
                 right: 0;
                 width: 220px;
-                background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+                background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
                 padding: 20px;
                 flex-direction: column;
                 text-align: right;
@@ -122,7 +122,7 @@ TEMPLATE_STYLES = {
         }
         
         .user-menu-links a {
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
             text-decoration: none;
             padding: 8px 0;
             border-bottom: 1px solid #f0f0f0;
@@ -338,7 +338,7 @@ TEMPLATE_STYLES = {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: linear-gradient(90deg, #FF7F50, #FF4500);
+            background: linear-gradient(90deg, var(--color-accent, #FF7F50), var(--color-accent, #FF7F50));
             color: white;
             font-size: 12px;
             font-weight: 700;
@@ -366,7 +366,7 @@ TEMPLATE_STYLES = {
             margin: 0;
             font-size: 18px;
             font-weight: 700;
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
         }
         
         .latest-artwork p {
@@ -378,7 +378,7 @@ TEMPLATE_STYLES = {
         .latest-artwork button {
             margin-top: 10px;
             padding: 10px 15px;
-            background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+            background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
             color: white;
             border: none;
             border-radius: 8px;
@@ -388,7 +388,7 @@ TEMPLATE_STYLES = {
         }
         
         .latest-artwork button:hover {
-            background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+            background: linear-gradient(90deg, var(--color-secondary, #3B65C4), var(--color-primary, #1E3A8A));
         }
         
         .artwork-image-wrapper {
@@ -520,7 +520,7 @@ TEMPLATE_STYLES = {
         
         .checkout-info .name {
             font-weight: 700;
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
         }
         
         .checkout-info .price {
@@ -560,7 +560,7 @@ TEMPLATE_STYLES = {
         .checkout-form button {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+            background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
             color: white;
             border: none;
             border-radius: 8px;
@@ -570,7 +570,7 @@ TEMPLATE_STYLES = {
         }
         
         .checkout-form button:hover {
-            background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+            background: linear-gradient(90deg, var(--color-secondary, #3B65C4), var(--color-primary, #1E3A8A));
         }
         
         @media (max-width: 768px) {
@@ -644,7 +644,7 @@ TEMPLATE_STYLES = {
             margin: 0;
             font-size: 16px;
             font-weight: 700;
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
         }
         
         .cart-section__price {
@@ -755,7 +755,7 @@ TEMPLATE_STYLES = {
             color: #1E3A8A;
             margin-top: 15px;
             padding-top: 15px;
-            border-top: 2px solid #1E3A8A;
+            border-top: 2px solid var(--color-primary, #1E3A8A);
         }
         
         .cart-section__validate-btn {
@@ -1051,7 +1051,7 @@ TEMPLATE_STYLES = {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: linear-gradient(90deg, #FF7F50, #FF4500);
+            background: linear-gradient(90deg, var(--color-accent, #FF7F50), var(--color-accent, #FF7F50));
             color: white;
             font-size: 12px;
             font-weight: 700;

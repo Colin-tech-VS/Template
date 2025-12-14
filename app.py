@@ -421,6 +421,7 @@ def safe_row_get(row, key, index=0, default=None):
         if hasattr(row, 'get'):
             return row.get(key, default)
         try:
+            color_primary = get_setting('primary_color') or "#1E3A8A"
             return row[key]
         except Exception:
             return default
@@ -2780,15 +2781,15 @@ def contact():
             <html>
             <body style="font-family: 'Poppins', sans-serif; background:#f0f4f8; padding:20px;">
                 <div style="max-width:600px; margin:auto; background:white; border-radius:15px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-                    <h2 style="color:#1E3A8A; text-align:center;">Nouveau message depuis le formulaire de contact</h2>
-                    <hr style="border:none; border-top:2px solid #1E3A8A; margin:20px 0;">
+                    <h2 style="color:{color_primary}; text-align:center;">Nouveau message depuis le formulaire de contact</h2>
+                    <hr style="border:none; border-top:2px solid {color_primary}; margin:20px 0;">
                     <p><strong>Nom :</strong> {name}</p>
                     <p><strong>Email :</strong> {email}</p>
                     <p><strong>Message :</strong></p>
                     <div style="padding:15px; background:#f9f9f9; border-radius:8px; line-height:1.5; color:#333;">
                         {message}
                     </div>
-                    <hr style="border:none; border-top:2px solid #1E3A8A; margin:20px 0;">
+                    <hr style="border:none; border-top:2px solid {color_primary}; margin:20px 0;">
                     <p style="text-align:center; color:#555;">JB Art - Formulaire de contact</p>
                 </div>
             </body>
@@ -2945,7 +2946,7 @@ def download_invoice(order_id):
     width, height = A4
 
     # --- Couleurs ---
-    primary_color = colors.HexColor("#1E3A8A")
+    primary_color = colors.HexColor(get_setting('primary_color') or "#1E3A8A")
     grey_color = colors.HexColor("#333333")
     light_grey = colors.HexColor("#F5F5F5")
 
@@ -3656,6 +3657,7 @@ def send_email_role():
 
     # HTML du mail
     # HTML du mail avec design similaire à ton site
+    color_primary = get_setting('primary_color') or "#1E3A8A"
     html_template = f"""
     <html>
     <head><meta charset="UTF-8"></head>
@@ -3663,7 +3665,7 @@ def send_email_role():
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width:600px; margin:40px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
             
             <!-- Header -->
-            <div style="background:#1E3A8A; color:#fff; padding:20px; text-align:center;">
+            <div style="background:{color_primary}; color:#fff; padding:20px; text-align:center;">
                 <h1 style="margin:0; font-size:22px;">{subject}</h1>
             </div>
             
@@ -3675,7 +3677,7 @@ def send_email_role():
                 <!-- Bouton -->
                 <div style="text-align:center; margin:25px 0;">
                     <a href="https://www.tonsite.com" 
-                    style="background:#1E3A8A; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; display:inline-block; font-weight:bold;">
+                    style="background:{color_primary}; color:#fff; text-decoration:none; padding:10px 20px; border-radius:6px; display:inline-block; font-weight:bold;">
                         Accéder au site
                     </a>
                 </div>
