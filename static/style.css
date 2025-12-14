@@ -10,7 +10,7 @@ body {
 }
 
 nav {
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
     padding: 15px 30px;
     display: flex;
     justify-content: space-between;
