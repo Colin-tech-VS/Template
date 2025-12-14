@@ -779,7 +779,7 @@ def get_new_notifications_count():
         WHERE user_id IS NULL AND is_read = 0
     """)
     result = c.fetchone()
-    count = result.get('count', 0) if result else 0
+    count = safe_row_get(result, 'count', index=0, default=0)
     conn.close()
     return count
 
@@ -888,7 +888,7 @@ def get_or_create_cart(conn=None):
 
     c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
     cart_result = c.fetchone()
-    cart_id = cart_result.get('id') if cart_result else None
+    cart_id = safe_row_get(cart_result, 'id', index=0) if cart_result else None
 
     user_id = session.get("user_id")
     if user_id:
@@ -1139,7 +1139,7 @@ def register():
             if count_result is None:
                 user_count = 0
             else:
-                user_count = count_result.get('count', 0)
+                user_count = safe_row_get(count_result, 'count', index=0, default=0)
             
             print(f"[REGISTER] User count: {user_count}")
             is_first_user = (user_count == 0)
@@ -1502,23 +1502,23 @@ def admin_custom_requests():
     # OPTIMISÉ: Comptages avec requêtes rapides sur index
     c.execute("SELECT COUNT(*) as count FROM custom_requests")
     result = c.fetchone()
-    total_count = result.get('count', 0) if result else 0
+    total_count = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En attente'")
     result = c.fetchone()
-    pending_count = result.get('count', 0) if result else 0
+    pending_count = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En cours'")
     result = c.fetchone()
-    in_progress_count = result.get('count', 0) if result else 0
+    in_progress_count = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Acceptée'")
     result = c.fetchone()
-    accepted_count = result.get('count', 0) if result else 0
+    accepted_count = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Refusée'")
     result = c.fetchone()
-    refused_count = result.get('count', 0) if result else 0
+    refused_count = safe_row_get(result, 'count', index=0, default=0)
     
     conn.close()
     
@@ -2361,7 +2361,7 @@ def inject_cart():
     if is_admin():
         c.execute("SELECT COUNT(*) as count FROM notifications WHERE user_id IS NULL AND is_read=0")
         result = c.fetchone()
-        new_notifications_count = result.get('count', 0) if result else 0
+        new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
 
     conn.close()
 
@@ -2947,19 +2947,19 @@ def admin_dashboard():
     # Statistiques
     c.execute("SELECT COUNT(*) as count FROM paintings")
     result = c.fetchone()
-    total_paintings = result.get('count', 0) if result else 0
+    total_paintings = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT COUNT(*) as count FROM orders")
     result = c.fetchone()
-    total_orders = result.get('count', 0) if result else 0
+    total_orders = safe_row_get(result, 'count', index=0, default=0)
     
     c.execute("SELECT SUM(total_price) as total FROM orders")
     result = c.fetchone()
-    total_revenue = (result.get('total') if result else 0) or 0
+    total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
     
     c.execute("SELECT COUNT(*) as count FROM users")
     result = c.fetchone()
-    total_users = result.get('count', 0) if result else 0
+    total_users = safe_row_get(result, 'count', index=0, default=0)
     
     # Dernières commandes
     c.execute("""
@@ -3008,7 +3008,7 @@ def admin_dashboard():
         WHERE user_id IS NULL AND is_read = 0
     """)
     result = c.fetchone()
-    new_notifications_count = result.get('count', 0) if result else 0
+    new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
     
     conn.close()
     
@@ -3761,8 +3761,8 @@ def api_export_full():
                 
                 # Convertir en liste de dictionnaires
                 if rows:
-                    # RealDictRow is already dict-like
-                    if rows and isinstance(rows[0], dict):
+                    # RealDictRow is dict-like, check for 'get' method for duck typing
+                    if rows and hasattr(rows[0], 'get'):
                         data[table_name] = rows
                     else:
                         columns = [description[0] for description in cur.description]
@@ -3806,11 +3806,11 @@ def api_orders():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         orders_rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is already dict-like)
+        # Convert to list of dicts (RealDictRow is dict-like)
         orders = []
         for row in orders_rows:
-            if isinstance(row, dict):
-                orders.append(row)
+            if hasattr(row, 'get'):
+                orders.append(dict(row))
             else:
                 columns = [description[0] for description in cur.description]
                 orders.append(dict(zip(columns, row)))
@@ -3871,11 +3871,11 @@ def api_users():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is already dict-like)
+        # Convert to list of dicts (RealDictRow is dict-like)
         users = []
         for row in rows:
-            if isinstance(row, dict):
-                users.append(row)
+            if hasattr(row, 'get'):
+                users.append(dict(row))
             else:
                 columns = [description[0] for description in cur.description]
                 users.append(dict(zip(columns, row)))
@@ -3909,11 +3909,11 @@ def api_paintings():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is already dict-like)
+        # Convert to list of dicts (RealDictRow is dict-like)
         paintings = []
         for row in rows:
-            if isinstance(row, dict):
-                paintings.append(row)
+            if hasattr(row, 'get'):
+                paintings.append(dict(row))
             else:
                 columns = [description[0] for description in cur.description]
                 paintings.append(dict(zip(columns, row)))
@@ -3937,11 +3937,11 @@ def api_exhibitions():
         cur = conn.cursor()
         cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions ORDER BY date DESC"))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is already dict-like)
+        # Convert to list of dicts (RealDictRow is dict-like)
         exhibitions = []
         for row in rows:
-            if isinstance(row, dict):
-                exhibitions.append(row)
+            if hasattr(row, 'get'):
+                exhibitions.append(dict(row))
             else:
                 columns = [description[0] for description in cur.description]
                 exhibitions.append(dict(zip(columns, row)))
@@ -4021,7 +4021,7 @@ def api_export_stats():
             try:
                 cur.execute(adapt_query(f"SELECT COUNT(*) as count FROM {table_name}"))
                 result = cur.fetchone()
-                count = result.get('count', 0) if isinstance(result, dict) else (result[0] if result else 0)
+                count = safe_row_get(result, 'count', index=0, default=0)
                 stats[f"{table_name}_count"] = count
             except:
                 stats[f"{table_name}_count"] = 0
@@ -4030,15 +4030,15 @@ def api_export_stats():
         try:
             cur.execute(adapt_query("SELECT SUM(total_price) as total FROM orders"))
             result = cur.fetchone()
-            total_revenue = (result.get('total') if isinstance(result, dict) else result[0]) if result else 0
-            stats['total_revenue'] = float(total_revenue or 0)
+            total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
+            stats['total_revenue'] = float(total_revenue)
         except:
             stats['total_revenue'] = 0
         
         try:
             cur.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Livrée'"))
             result = cur.fetchone()
-            stats['delivered_orders'] = (result.get('count') if isinstance(result, dict) else result[0]) if result else 0
+            stats['delivered_orders'] = safe_row_get(result, 'count', index=0, default=0)
         except:
             stats['delivered_orders'] = 0
         
