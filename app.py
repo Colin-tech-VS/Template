@@ -953,7 +953,9 @@ def merge_carts(user_id, session_id):
             # Fusion des articles
             c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
             items = c.fetchall()
-            for painting_id, qty in items:
+            for item in items:
+                painting_id = safe_row_get(item, 'painting_id', index=0)
+                qty = safe_row_get(item, 'quantity', index=1)
                 c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"),
                           (user_cart_id, painting_id))
                 row = c.fetchone()
@@ -3105,12 +3107,20 @@ def edit_painting(painting_id):
             quantity = int(quantity)
 
             # Gestion des images (principale + 3 additionnelles)
-            image_fields = {
-                'image': painting[2],
-                'image_2': painting[13],
-                'image_3': painting[14],
-                'image_4': painting[15]
-            }
+            if isinstance(painting, dict):
+                image_fields = {
+                    'image': painting.get('image'),
+                    'image_2': painting.get('image_2'),
+                    'image_3': painting.get('image_3'),
+                    'image_4': painting.get('image_4')
+                }
+            else:
+                image_fields = {
+                    'image': painting[2],
+                    'image_2': painting[13],
+                    'image_3': painting[14],
+                    'image_4': painting[15]
+                }
             
             for field_name, current_value in image_fields.items():
                 file = request.files.get(field_name)
