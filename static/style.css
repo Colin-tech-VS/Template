@@ -450,6 +450,66 @@ nav a:hover {
     border-radius: 15px;
     padding: 20px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+:root {
+    /* ensure defaults exist if dynamic CSS not loaded yet */
+    --color-primary: var(--color-primary, #1E3A8A);
+    --color-secondary: var(--color-secondary, #3B65C4);
+    --color-accent: var(--color-accent, #FF7F50);
+    --button-text-color: var(--button-text-color, #FFFFFF);
+    --content-text-color: var(--content-text-color, #000000);
+    --button-hover-color: var(--button-hover-color, #9C27B0);
+}
+
+/* Buttons and CTAs follow primary/secondary + button text */
+.btn, .btn-primary, .buy-btn, .btn-save, .preview-launch-btn, .mega-menu-cart-btn, .preview-btn, .cta {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary)) !important;
+    color: var(--button-text-color) !important;
+    border-color: var(--color-primary) !important;
+}
+.btn:hover, .btn-primary:hover, .buy-btn:hover, .btn-save:hover, .preview-launch-btn:hover, .preview-btn:hover {
+    background: var(--button-hover-color) !important;
+}
+
+/* Secondary / nav related */
+.secondary, .btn-secondary, nav, .navbar, .nav {
+    background: var(--color-secondary) !important;
+    color: var(--button-text-color) !important;
+}
+
+/* Accent usages */
+.badge, .latest-artwork .badge, .swatch-accent {
+    background: var(--color-accent) !important;
+    color: var(--button-text-color) !important;
+}
+
+/* Common headline / info mapping to primary */
+.seo-intro h1, .info h3, .artwork-card .info h3, .section h2, .favorite-btn { color: var(--color-primary) !important; }
+
+/* Ensure content text uses configured content color */
+body, p, .content, .about-text, .description, .info p, .info small { color: var(--content-text-color) !important; }
+
+/* Final forced overrides (placed at file end) to ensure dynamic palette wins over legacy hard-coded rules */
+/* Targets common components and CTA classes */
+.btn, .btn-primary, .buy-btn, .btn-save, .preview-launch-btn, .mega-menu-cart-btn, .preview-btn, .cta {
+    background: linear-gradient(90deg, var(--color-primary) , var(--color-secondary)) !important;
+    color: var(--button-text-color) !important;
+    border-color: var(--color-primary) !important;
+}
+.btn:hover, .btn-primary:hover, .buy-btn:hover, .btn-save:hover, .preview-launch-btn:hover, .preview-btn:hover {
+    background: var(--button-hover-color) !important;
+}
+.secondary, .btn-secondary, nav, .navbar, .nav {
+    background: var(--color-secondary) !important;
+    color: var(--button-text-color) !important;
+}
+.badge, .latest-artwork .badge, .swatch-accent {
+    background: var(--color-accent) !important;
+    color: var(--button-text-color) !important;
+}
+.seo-intro h1, .info h3, .artwork-card .info h3, .section h2 { color: var(--color-primary) !important; }
+body, p, .content, .about-text, .description, .info p, .info small { color: var(--content-text-color) !important; }
+
+
     text-align: center;
 }
 
@@ -1126,6 +1186,64 @@ nav a:hover {
     box-shadow: 0 8px 20px rgba(30, 58, 138, 0.15);
     transform: translateY(-4px);
 }
+
+/* ========== ABSE THEME OVERRIDES (Mega menu + Admin table) ========== */
+/* Force the mega-menu to keep the ABSE black/orange identity */
+.mega-menu,
+.user-menu,
+.mega-menu .menu,
+.mega-menu-cart-btn {
+    background: #000 !important;
+    color: #FF7F50 !important;
+}
+
+.mega-menu a,
+.mega-menu .link,
+.mega-menu .title {
+    color: #FF7F50 !important;
+}
+
+.mega-menu-cart-btn {
+    background: transparent !important;
+    border: 1px solid #FF7F50 !important;
+    color: #FF7F50 !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    text-decoration: none !important;
+}
+
+.mega-menu-cart-btn:hover {
+    background: #FF7F50 !important;
+    color: #000 !important;
+}
+
+/* Admin table: use orange header to match ABSE admin tableau */
+.admin-table thead {
+    background: #FF7F50 !important;
+    border-bottom: 2px solid rgba(0,0,0,0.08) !important;
+}
+
+.admin-table th {
+    color: #000 !important;
+}
+
+.admin-table td {
+    color: #222 !important;
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(0,0,0,0.03) !important;
+}
+
+/* Keep admin action buttons aligned with ABSE orange where appropriate */
+.admin-panel .btn-link,
+.admin-panel .btn,
+.admin .btn-save {
+    background: #FF7F50 !important;
+    color: #000 !important;
+    border: none !important;
+}
+
 
 .painting-image {
     position: relative;
