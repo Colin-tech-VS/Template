@@ -1252,6 +1252,55 @@ def api_register_preview():
             return jsonify({"success": False, "error": f"Erreur: {error_msg}"}), 500
 
 
+@app.route("/api/login-preview", methods=['POST'])
+def api_login_preview():
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '').strip()
+
+    if not email or not password:
+        return jsonify({"success": False, "error": "Email et mot de passe requis"}), 400
+
+    conn = get_db()
+    c = conn.cursor()
+
+    c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
+    user = c.fetchone()
+    
+    if not user:
+        conn.close()
+        return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
+    
+    user_id = safe_row_get(user, 'id', index=0)
+    user_password = safe_row_get(user, 'password', index=1)
+    
+    if not check_password_hash(user_password, password):
+        conn.close()
+        return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
+    
+    session["user_id"] = user_id
+
+    guest_session_id = request.cookies.get("cart_session")
+    c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=?"), (user_id,))
+    user_cart = c.fetchone()
+
+    if user_cart:
+        user_cart_session = safe_row_get(user_cart, 'session_id', index=1)
+    else:
+        user_cart_session = str(uuid.uuid4())
+        c.execute(adapt_query("INSERT INTO carts (session_id, user_id) VALUES (?, ?)"),
+                  (user_cart_session, user_id))
+        conn.commit()
+
+    if guest_session_id and guest_session_id != user_cart_session:
+        merge_carts(user_id, guest_session_id)
+
+    conn.close()
+
+    resp = make_response(jsonify({"success": True}))
+    resp.set_cookie("cart_session", user_cart_session, max_age=60*60*24*30)
+    return resp
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -1267,15 +1316,16 @@ def login():
         # Correction : vérifie le type et la présence des données
         if not user:
             conn.close()
-            return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
+            flash("Email ou mot de passe incorrect")
+            return redirect(url_for("login"))
         # user peut être tuple ou dict - use safe_row_get for compatibility
         user_id = safe_row_get(user, 'id', index=0)
         user_password = safe_row_get(user, 'password', index=1)
         if not check_password_hash(user_password, password):
             conn.close()
-            return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
+            flash("Email ou mot de passe incorrect")
+            return redirect(url_for("login"))
         session["user_id"] = user_id
-        session.modified = True
 
         # Récupérer panier invité actuel
         guest_session_id = request.cookies.get("cart_session")
@@ -1301,9 +1351,10 @@ def login():
         conn.close()
 
         # Mettre le cookie pour utiliser le panier utilisateur
-        resp = make_response(jsonify({"success": True}))
+        resp = make_response(redirect(url_for("home")))
         resp.set_cookie("cart_session", user_cart_session, max_age=60*60*24*30)
 
+        flash("Connecté avec succès !")
         return resp
 
     return render_template("login.html")

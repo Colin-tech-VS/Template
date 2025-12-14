@@ -476,7 +476,7 @@ body {
         loginBtn.textContent = 'Connexion en cours...';
         
         try {
-            const response = await fetch('/login', {
+            const response = await fetch('/api/login-preview', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -488,7 +488,6 @@ body {
             const data = await response.json();
             
             if (data.success) {
-                // Connexion réussie, rediriger vers accueil
                 window.location.href = '/';
             } else {
                 loginError.textContent = data.error || 'Email ou mot de passe incorrect';
