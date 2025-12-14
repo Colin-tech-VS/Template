@@ -427,6 +427,34 @@ def safe_row_get(row, key, index=0, default=None):
     except Exception:
         return default
 
+def convert_rows_to_dicts(rows, cur_description):
+    """Convert database rows to list of dicts, handling both RealDictRow and tuple types.
+    
+    Args:
+        rows: List of row objects from fetchall()
+        cur_description: Cursor description for column names
+    
+    Returns:
+        List of dictionaries
+    """
+    if not rows:
+        return []
+    
+    result = []
+    columns = None
+    
+    for row in rows:
+        if hasattr(row, 'get'):
+            # RealDictRow or dict-like object
+            result.append(dict(row))
+        else:
+            # Tuple - need column names
+            if columns is None:
+                columns = [description[0] for description in cur_description]
+            result.append(dict(zip(columns, row)))
+    
+    return result
+
 def get_setting(key, user_id=None):
     """
     Récupère une clé de paramètre
@@ -774,11 +802,12 @@ def get_new_notifications_count():
     conn = get_db()
     c = conn.cursor()
     c.execute("""
-        SELECT COUNT(*) 
+        SELECT COUNT(*) as count
         FROM notifications 
         WHERE user_id IS NULL AND is_read = 0
     """)
-    count = c.fetchone()[0]
+    result = c.fetchone()
+    count = safe_row_get(result, 'count', index=0, default=0)
     conn.close()
     return count
 
@@ -811,27 +840,37 @@ def migrate_db():
 
 
 def generate_invoice_pdf(order, items, total_price):
-    file_path = f"temp_invoice_{order[0]}.pdf"
+    # Extract order fields safely using safe_row_get
+    order_id = safe_row_get(order, 'id', index=0)
+    customer_name = safe_row_get(order, 'customer_name', index=1)
+    email = safe_row_get(order, 'email', index=2)
+    address = safe_row_get(order, 'address', index=3)
+    order_date = safe_row_get(order, 'order_date', index=5)
+    
+    file_path = f"temp_invoice_{order_id}.pdf"
     c = canvas.Canvas(file_path, pagesize=A4)
     width, height = A4
 
     # Titre
     c.setFont("Helvetica-Bold", 20)
-    c.drawString(50, height - 50, f"Facture #{order[0]}")
+    c.drawString(50, height - 50, f"Facture #{order_id}")
 
     # Infos client
     c.setFont("Helvetica", 12)
-    c.drawString(50, height - 90, f"Nom: {order[1]}")
-    c.drawString(50, height - 110, f"Email: {order[2]}")
-    c.drawString(50, height - 130, f"Adresse: {order[3]}")
-    c.drawString(50, height - 150, f"Date: {order[5]}")
+    c.drawString(50, height - 90, f"Nom: {customer_name}")
+    c.drawString(50, height - 110, f"Email: {email}")
+    c.drawString(50, height - 130, f"Adresse: {address}")
+    c.drawString(50, height - 150, f"Date: {order_date}")
 
     # Table des articles
     y = height - 190
     c.drawString(50, y, "Articles:")
     y -= 20
     for item in items:
-        c.drawString(60, y, f"{item[1]} x {item[4]} - {item[3]} €")
+        item_name = safe_row_get(item, 'name', index=1)
+        item_quantity = safe_row_get(item, 'quantity', index=4)
+        item_price = safe_row_get(item, 'price', index=3)
+        c.drawString(60, y, f"{item_name} x {item_quantity} - {item_price} €")
         y -= 20
 
     # Total
@@ -864,7 +903,8 @@ def get_or_create_cart(conn=None):
             c.execute(adapt_query("INSERT INTO carts (session_id) VALUES (?)"), (session_id,))
 
     c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
-    cart_id = c.fetchone()[0]
+    cart_result = c.fetchone()
+    cart_id = safe_row_get(cart_result, 'id', index=0)
 
     user_id = session.get("user_id")
     if user_id:
@@ -929,7 +969,9 @@ def merge_carts(user_id, session_id):
             # Fusion des articles
             c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
             items = c.fetchall()
-            for painting_id, qty in items:
+            for item in items:
+                painting_id = safe_row_get(item, 'painting_id', index=0)
+                qty = safe_row_get(item, 'quantity', index=1)
                 c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"),
                           (user_cart_id, painting_id))
                 row = c.fetchone()
@@ -992,17 +1034,13 @@ def is_admin():
         result = c.fetchone()
         conn.close()
         
-        # Vérification robuste: result doit être une séquence non vide
+        # Vérification robuste: result doit être non vide
         if result is None:
             print(f"[is_admin] Aucun résultat pour user_id={user_id}")
             return False
         
-        if not isinstance(result, (tuple, list)) or len(result) == 0:
-            print(f"[is_admin] Résultat mal formé pour user_id={user_id}: {type(result)}")
-            return False
-        
-        # Accès sécurisé au rôle
-        role = result[0]
+        # Accès sécurisé au rôle avec safe_row_get
+        role = safe_row_get(result, 'role', index=0)
         if role is None:
             print(f"[is_admin] Rôle NULL pour user_id={user_id}")
             return False
@@ -1099,14 +1137,14 @@ def register():
         try:
             print(f"[REGISTER] Début inscription: {email}")
             
-            c.execute(adapt_query("SELECT COUNT(*) FROM users"))
+            c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
             count_result = c.fetchone()
             print(f"[REGISTER] Count result: {count_result}")
             
             if count_result is None:
                 user_count = 0
             else:
-                user_count = count_result[0]
+                user_count = safe_row_get(count_result, 'count', index=0, default=0)
             
             print(f"[REGISTER] User count: {user_count}")
             is_first_user = (user_count == 0)
@@ -1157,10 +1195,9 @@ def login():
             conn.close()
             flash("Email ou mot de passe incorrect")
             return redirect(url_for("login"))
-        # user peut être tuple ou dict selon le curseur
-        # Par défaut psycopg2 retourne un tuple : (id, password)
-        user_id = user[0] if isinstance(user, (list, tuple)) else user['id']
-        user_password = user[1] if isinstance(user, (list, tuple)) else user['password']
+        # user peut être tuple ou dict - use safe_row_get for compatibility
+        user_id = safe_row_get(user, 'id', index=0)
+        user_password = safe_row_get(user, 'password', index=1)
         if not check_password_hash(user_password, password):
             conn.close()
             flash("Email ou mot de passe incorrect")
@@ -1176,7 +1213,7 @@ def login():
 
         if user_cart:
             # Panier utilisateur existant → récupérer session_id
-            user_cart_session = user_cart['session_id'] if isinstance(user_cart, dict) else user_cart[1]
+            user_cart_session = safe_row_get(user_cart, 'session_id', index=1)
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
@@ -1235,7 +1272,8 @@ def expositions_page():
     other_expos = []
 
     for expo in expositions:
-        expo_date = date.fromisoformat(expo[3])
+        expo_date_str = safe_row_get(expo, 'date', index=3)
+        expo_date = date.fromisoformat(expo_date_str)
         if expo_date >= today and next_expo is None:
             next_expo = expo
         else:
@@ -1423,12 +1461,13 @@ def expo_detail_page(expo_id):
 
     # Construire le chemin de l'image si elle existe
     image_url = None
-    if expo[7]:  # image field
+    expo_image = safe_row_get(expo, 'image', index=7)
+    if expo_image:  # image field
         # Vérifier si c'est déjà une URL complète
-        if expo[7].startswith("http"):
-            image_url = expo[7]
+        if expo_image.startswith("http"):
+            image_url = expo_image
         else:
-            image_url = url_for('static', filename='expo_images/' + expo[7])
+            image_url = url_for('static', filename='expo_images/' + expo_image)
 
     return render_template("expo_detail.html", expo=expo, image_url=image_url)
 
@@ -1466,20 +1505,25 @@ def admin_custom_requests():
     requests_list = c.fetchall()
     
     # OPTIMISÉ: Comptages avec requêtes rapides sur index
-    c.execute("SELECT COUNT(*) FROM custom_requests")
-    total_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM custom_requests")
+    result = c.fetchone()
+    total_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='En attente'")
-    pending_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En attente'")
+    result = c.fetchone()
+    pending_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='En cours'")
-    in_progress_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En cours'")
+    result = c.fetchone()
+    in_progress_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='Acceptée'")
-    accepted_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Acceptée'")
+    result = c.fetchone()
+    accepted_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) FROM custom_requests WHERE status='Refusée'")
-    refused_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Refusée'")
+    result = c.fetchone()
+    refused_count = safe_row_get(result, 'count', index=0, default=0)
     
     conn.close()
     
@@ -1516,13 +1560,15 @@ def delete_custom_request(request_id):
     # Récupérer les images avant suppression
     c.execute(adapt_query("SELECT reference_images FROM custom_requests WHERE id=?"), (request_id,))
     row = c.fetchone()
-    if row and row[0]:
-        import json
-        images = json.loads(row[0])
-        for image_path in images:
-            full_path = os.path.join('static', image_path)
-            if os.path.exists(full_path):
-                os.remove(full_path)
+    if row:
+        ref_images = safe_row_get(row, 'reference_images', index=0)
+        if ref_images:
+            import json
+            images = json.loads(ref_images)
+            for image_path in images:
+                full_path = os.path.join('static', image_path)
+                if os.path.exists(full_path):
+                    os.remove(full_path)
     
     c.execute(adapt_query("DELETE FROM custom_requests WHERE id=?"), (request_id,))
     conn.commit()
@@ -1622,7 +1668,7 @@ def edit_exhibition(exhibition_id):
         contact_info = request.form.get("contact_info")
         file = request.files.get("image")
 
-        image_filename = exhibition[5]  # Index de l'image dans la table
+        image_filename = safe_row_get(exhibition, 'image', index=5)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             os.makedirs(app.config['EXPO_UPLOAD_FOLDER'], exist_ok=True)
@@ -1655,10 +1701,12 @@ def remove_exhibition(exhibition_id):
     # Supprimer l'image du dossier si elle existe
     c.execute(adapt_query("SELECT image FROM exhibitions WHERE id=?"), (exhibition_id,))
     image = c.fetchone()
-    if image and image[0]:
-        image_path = os.path.join(app.config['EXPO_UPLOAD_FOLDER'], image[0])
-        if os.path.exists(image_path):
-            os.remove(image_path)
+    if image:
+        image_filename = safe_row_get(image, 'image', index=0)
+        if image_filename:
+            image_path = os.path.join(app.config['EXPO_UPLOAD_FOLDER'], image_filename)
+            if os.path.exists(image_path):
+                os.remove(image_path)
 
     c.execute(adapt_query("DELETE FROM exhibitions WHERE id=?"), (exhibition_id,))
     conn.commit()
@@ -1759,7 +1807,12 @@ def cart():
     items = c.fetchall()
     conn.close()
 
-    total_price = sum(item[3] * item[4] for item in items)
+    # Calculate total using dict keys or numeric indices for compatibility
+    total_price = sum(
+        (item.get('price') if isinstance(item, dict) else item[3]) * 
+        (item.get('quantity') if isinstance(item, dict) else item[4]) 
+        for item in items
+    )
 
     resp = make_response(render_template('cart.html', items=items, total_price=total_price))
     resp.set_cookie('cart_session', session_id, max_age=30*24*3600)
@@ -1799,7 +1852,11 @@ def checkout():
         conn.close()
         return redirect(url_for('panier'))  # Panier vide
 
-    total_price = sum(item[3] * item[4] for item in items)
+    total_price = sum(
+        (item.get('price') if isinstance(item, dict) else item[3]) * 
+        (item.get('quantity') if isinstance(item, dict) else item[4]) 
+        for item in items
+    )
 
     # Récupérer la clé Google Places depuis les settings
     google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
@@ -1818,7 +1875,13 @@ def checkout():
 
         # Vérifier la disponibilité des stocks avant paiement
         for item in items:
-            painting_id, name, image, price, qty, available_qty = item
+            if isinstance(item, dict):
+                painting_id = item.get('id')
+                name = item.get('name')
+                qty = item.get('quantity')
+                available_qty = item.get('available_qty', item.get('quantity'))
+            else:
+                painting_id, name, image, price, qty, available_qty = item
             if qty > available_qty:
                 error = f"Stock insuffisant pour {name} (reste {available_qty})"
                 resp = make_response(render_template("checkout.html", items=items, total_price=total_price, error=error, google_places_key=google_places_key))
@@ -1835,14 +1898,25 @@ def checkout():
             return resp
 
         # Créer la session Stripe
-        line_items = [{
-            'price_data': {
-                'currency': 'eur',
-                'product_data': {'name': item[1]},
-                'unit_amount': int(item[3] * 100),
-            },
-            'quantity': item[4],
-        } for item in items]
+        line_items = []
+        for item in items:
+            if isinstance(item, dict):
+                item_name = item.get('name', 'Produit')
+                item_price = item.get('price', 0)
+                item_qty = item.get('quantity', 1)
+            else:
+                item_name = item[1]
+                item_price = item[3]
+                item_qty = item[4]
+            
+            line_items.append({
+                'price_data': {
+                    'currency': 'eur',
+                    'product_data': {'name': item_name},
+                    'unit_amount': int(item_price * 100),
+                },
+                'quantity': item_qty,
+            })
 
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -2290,8 +2364,9 @@ def inject_cart():
     # --- NOTIFICATIONS ADMIN ---
     new_notifications_count = 0
     if is_admin():
-        c.execute("SELECT COUNT(*) FROM notifications WHERE user_id IS NULL AND is_read=0")
-        new_notifications_count = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) as count FROM notifications WHERE user_id IS NULL AND is_read=0")
+        result = c.fetchone()
+        new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
 
     conn.close()
 
@@ -2396,7 +2471,10 @@ def admin_notifications():
         notifications = c.fetchall()
 
         # Compter les notifications non lues
-        new_notifications_count = sum(1 for n in notifications if n[3] == 0)
+        new_notifications_count = sum(
+            1 for n in notifications 
+            if (n.get('is_read') if isinstance(n, dict) else n[3]) == 0
+        )
 
     return render_template(
         "admin/admin_notifications.html",
@@ -2487,28 +2565,31 @@ def painting_detail(painting_id):
         conn.close()
         abort(404)
     
-    # Convertir en dict pour faciliter l'accès
-    painting_dict = {
-        'id': painting[0],
-        'name': painting[1],
-        'image': painting[2],
-        'price': painting[3],
-        'quantity': painting[4],
-        'description': painting[5],
-        'description_long': painting[6],
-        'dimensions': painting[7],
-        'technique': painting[8],
-        'year': painting[9],
-        'category': painting[10],
-        'status': painting[11],
-        'image_2': painting[12],
-        'image_3': painting[13],
-        'image_4': painting[14],
-        'weight': painting[15],
-        'framed': painting[16],
-        'certificate': painting[17],
-        'unique_piece': painting[18]
-    }
+    # Convertir en dict pour faciliter l'accès si ce n'est pas déjà un dict
+    if isinstance(painting, dict):
+        painting_dict = painting
+    else:
+        painting_dict = {
+            'id': painting[0],
+            'name': painting[1],
+            'image': painting[2],
+            'price': painting[3],
+            'quantity': painting[4],
+            'description': painting[5],
+            'description_long': painting[6],
+            'dimensions': painting[7],
+            'technique': painting[8],
+            'year': painting[9],
+            'category': painting[10],
+            'status': painting[11],
+            'image_2': painting[12],
+            'image_3': painting[13],
+            'image_4': painting[14],
+            'weight': painting[15],
+            'framed': painting[16],
+            'certificate': painting[17],
+            'unique_piece': painting[18]
+        }
     
     # Récupérer des peintures similaires (même catégorie ou aléatoire)
     if painting_dict['category']:
@@ -2638,7 +2719,11 @@ def profile():
         """, (order_id,))
         items = c.fetchall()
         all_items[order_id] = items
-        order_totals[order_id] = sum(item[3] * item[4] for item in items)
+        order_totals[order_id] = sum(
+            (item.get('price') if isinstance(item, dict) else item[3]) * 
+            (item.get('quantity') if isinstance(item, dict) else item[4]) 
+            for item in items
+        )
 
     # Récupérer les peintures favorites de l'utilisateur (hors boucle)
     favorite_paintings = []
@@ -2653,29 +2738,50 @@ def profile():
     favorite_paintings = c.fetchall()
 
     # Formater les commandes pour le template
-    formatted_orders = [
-        {
-            'id': order[0],
-            'customer_name': order[1],
-            'email': order[2],
-            'address': order[3],
-            'total': order[4],
-            'date': order[5],
-            'status': order[6]
-        }
-        for order in user_orders
-    ]
+    formatted_orders = []
+    for order in user_orders:
+        if isinstance(order, dict):
+            formatted_orders.append({
+                'id': order.get('id'),
+                'customer_name': order.get('customer_name'),
+                'email': order.get('email'),
+                'address': order.get('address'),
+                'total': order.get('total_price'),
+                'date': order.get('order_date'),
+                'status': order.get('status')
+            })
+        else:
+            formatted_orders.append({
+                'id': order[0],
+                'customer_name': order[1],
+                'email': order[2],
+                'address': order[3],
+                'total': order[4],
+                'date': order[5],
+                'status': order[6]
+            })
 
     conn.close()
 
-    return render_template(
-        "profile.html",
-        user={
+    # Format user data
+    if isinstance(user, dict):
+        user_data = {
+            'id': user.get('id'),
+            'name': user.get('name'),
+            'email': user.get('email'),
+            'create_date': user.get('create_date')
+        }
+    else:
+        user_data = {
             'id': user[0],
             'name': user[1],
             'email': user[2],
             'create_date': user[3]
-        },
+        }
+
+    return render_template(
+        "profile.html",
+        user=user_data,
         orders=formatted_orders,
         all_items=all_items,
         order_totals=order_totals,
@@ -2694,7 +2800,11 @@ def download_invoice(order_id):
     if not order:
         return "Commande introuvable.", 404
 
-    total_price = sum(item[3] * item[4] for item in items)
+    total_price = sum(
+        (item.get('price') if isinstance(item, dict) else item[3]) * 
+        (item.get('quantity') if isinstance(item, dict) else item[4]) 
+        for item in items
+    )
 
     # PDF en mémoire
     pdf_buffer = BytesIO()
@@ -2706,12 +2816,28 @@ def download_invoice(order_id):
     grey_color = colors.HexColor("#333333")
     light_grey = colors.HexColor("#F5F5F5")
 
+    # Extract order fields safely
+    if isinstance(order, dict):
+        order_id = order.get('id')
+        customer_name = order.get('customer_name')
+        email = order.get('email')
+        address = order.get('address')
+        order_date = order.get('order_date')
+        status = order.get('status')
+    else:
+        order_id = order[0]
+        customer_name = order[1]
+        email = order[2]
+        address = order[3]
+        order_date = order[5]
+        status = order[6]
+
     # --- En-tête ---
     c.setFillColor(primary_color)
     c.setFont("Helvetica-Bold", 26)
     c.drawString(50, height - 50, "JB Art")
     c.setFont("Helvetica-Bold", 18)
-    c.drawString(50, height - 80, f"Facture - Commande #{order[0]}")
+    c.drawString(50, height - 80, f"Facture - Commande #{order_id}")
 
     c.setLineWidth(2)
     c.line(50, height - 95, width - 50, height - 95)
@@ -2719,18 +2845,26 @@ def download_invoice(order_id):
     # --- Infos client ---
     c.setFont("Helvetica", 12)
     c.setFillColor(grey_color)
-    c.drawString(50, height - 120, f"Nom: {order[1]}")
-    c.drawString(50, height - 140, f"Email: {order[2]}")
-    c.drawString(50, height - 160, f"Adresse: {order[3]}")
-    c.drawString(50, height - 180, f"Date: {order[5]}")
-    c.drawString(50, height - 200, f"Statut: {order[6]}")
+    c.drawString(50, height - 120, f"Nom: {customer_name}")
+    c.drawString(50, height - 140, f"Email: {email}")
+    c.drawString(50, height - 160, f"Adresse: {address}")
+    c.drawString(50, height - 180, f"Date: {order_date}")
+    c.drawString(50, height - 200, f"Statut: {status}")
 
     # --- Tableau des articles ---
     y = height - 230
     c.drawString(50, y, "Articles:")
     y -= 20
     for item in items:
-        c.drawString(60, y, f"{item[1]} x {item[4]} - {item[3]} €")
+        if isinstance(item, dict):
+            item_name = item.get('name')
+            item_quantity = item.get('quantity')
+            item_price = item.get('price')
+        else:
+            item_name = item[1]
+            item_quantity = item[4]
+            item_price = item[3]
+        c.drawString(60, y, f"{item_name} x {item_quantity} - {item_price} €")
         y -= 20
 
     # Total
@@ -2816,17 +2950,21 @@ def admin_dashboard():
     c = conn.cursor()
     
     # Statistiques
-    c.execute("SELECT COUNT(*) FROM paintings")
-    total_paintings = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM paintings")
+    result = c.fetchone()
+    total_paintings = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) FROM orders")
-    total_orders = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM orders")
+    result = c.fetchone()
+    total_orders = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT SUM(total_price) FROM orders")
-    total_revenue = c.fetchone()[0] or 0
+    c.execute("SELECT SUM(total_price) as total FROM orders")
+    result = c.fetchone()
+    total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
     
-    c.execute("SELECT COUNT(*) FROM users")
-    total_users = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) as count FROM users")
+    result = c.fetchone()
+    total_users = safe_row_get(result, 'count', index=0, default=0)
     
     # Dernières commandes
     c.execute("""
@@ -2870,11 +3008,12 @@ def admin_dashboard():
     
     # Compter les notifications non lues
     c.execute("""
-        SELECT COUNT(*) 
+        SELECT COUNT(*) as count
         FROM notifications 
         WHERE user_id IS NULL AND is_read = 0
     """)
-    new_notifications_count = c.fetchone()[0]
+    result = c.fetchone()
+    new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
     
     conn.close()
     
@@ -2973,12 +3112,20 @@ def edit_painting(painting_id):
             quantity = int(quantity)
 
             # Gestion des images (principale + 3 additionnelles)
-            image_fields = {
-                'image': painting[2],
-                'image_2': painting[13],
-                'image_3': painting[14],
-                'image_4': painting[15]
-            }
+            if isinstance(painting, dict):
+                image_fields = {
+                    'image': painting.get('image'),
+                    'image_2': painting.get('image_2'),
+                    'image_3': painting.get('image_3'),
+                    'image_4': painting.get('image_4')
+                }
+            else:
+                image_fields = {
+                    'image': painting[2],
+                    'image_2': painting[13],
+                    'image_3': painting[14],
+                    'image_4': painting[15]
+                }
             
             for field_name, current_value in image_fields.items():
                 file = request.files.get(field_name)
@@ -3041,12 +3188,14 @@ def delete_painting(painting_id):
     
     if painting:
         # Supprimer le fichier image
-        image_path = os.path.join('static', painting[0])
-        if os.path.exists(image_path):
-            try:
-                os.remove(image_path)
-            except:
-                pass
+        image_filename = painting.get('image') if isinstance(painting, dict) else painting[0]
+        if image_filename:
+            image_path = os.path.join('static', image_filename)
+            if os.path.exists(image_path):
+                try:
+                    os.remove(image_path)
+                except:
+                    pass
         
         # Supprimer de la BD
         c.execute(adapt_query("DELETE FROM paintings WHERE id=?"), (painting_id,))
@@ -3132,7 +3281,7 @@ def order_status(order_id):
 
     conn.close()
 
-    total_price = order[4]
+    total_price = safe_row_get(order, 'total_price', index=4)
 
     return render_template(
         "order_status.html",
@@ -3322,10 +3471,12 @@ def update_user_role(user_id):
     c.execute(adapt_query("SELECT email FROM users WHERE id=?"), (user_id,))
     user = c.fetchone()
     
-    if user and user[0] == 'coco.cayre@gmail.com' and role != 'admin':
-        flash("Impossible de retirer le rôle admin à l'administrateur principal.")
-        conn.close()
-        return redirect(url_for('admin_users'))
+    if user:
+        user_email = user.get('email') if isinstance(user, dict) else user[0]
+        if user_email == 'coco.cayre@gmail.com' and role != 'admin':
+            flash("Impossible de retirer le rôle admin à l'administrateur principal.")
+            conn.close()
+            return redirect(url_for('admin_users'))
     
     c.execute(adapt_query("UPDATE users SET role=? WHERE id=?"), (role, user_id))
     conn.commit()
@@ -3354,7 +3505,10 @@ def send_email_role():
     conn = get_db()
     c = conn.cursor()
     c.execute(adapt_query("SELECT email FROM users WHERE role=?"), (role,))
-    emails = [row[0] for row in c.fetchall()]
+    emails = [
+        (row.get('email') if isinstance(row, dict) else row[0]) 
+        for row in c.fetchall()
+    ]
     conn.close()
 
     if not emails:
@@ -3453,11 +3607,24 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
     items_html = ""
     for i, item in enumerate(items):
         cid = f"item{i}"
-        image_path = os.path.join("static", item[2])
+        
+        # Extract item fields safely
+        if isinstance(item, dict):
+            item_name = item.get('name', 'Produit')
+            item_image = item.get('image', '')
+            item_quantity = item.get('quantity', 1)
+            item_price = item.get('price', 0)
+        else:
+            item_name = item[1]
+            item_image = item[2]
+            item_quantity = item[4]
+            item_price = item[3]
+        
+        image_path = os.path.join("static", item_image)
         items_html += f"""
         <tr style="border-bottom: 1px solid #e0e0e0;">
             <td style="padding: 15px 10px;">
-                <img src="cid:{cid}" alt="{item[1]}" style="
+                <img src="cid:{cid}" alt="{item_name}" style="
                     width: 80px;
                     height: 80px;
                     object-fit: cover;
@@ -3466,11 +3633,11 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
                 ">
             </td>
             <td style="padding: 15px 10px;">
-                <strong style="color: #1a1a1a; font-size: 15px;">{item[1]}</strong><br>
-                <span style="color: #666; font-size: 14px;">Quantité : {item[4]}</span>
+                <strong style="color: #1a1a1a; font-size: 15px;">{item_name}</strong><br>
+                <span style="color: #666; font-size: 14px;">Quantité : {item_quantity}</span>
             </td>
             <td style="padding: 15px 10px; text-align: right;">
-                <strong style="color: {color_primary}; font-size: 16px;">{item[3]} €</strong>
+                <strong style="color: {color_primary}; font-size: 16px;">{item_price} €</strong>
             </td>
         </tr>
         """
@@ -3598,11 +3765,7 @@ def api_export_full():
                 rows = cur.fetchall()
                 
                 # Convertir en liste de dictionnaires
-                if rows:
-                    columns = [description[0] for description in cur.description]
-                    data[table_name] = [dict(zip(columns, row)) for row in rows]
-                else:
-                    data[table_name] = []
+                data[table_name] = convert_rows_to_dicts(rows, cur.description) if rows else []
             except Exception as e:
                 print(f"Erreur lors de l'export de {table_name}: {e}")
                 data[table_name] = []
@@ -3640,8 +3803,7 @@ def api_orders():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         orders_rows = cur.fetchall()
-        columns = [description[0] for description in cur.description]
-        orders = [dict(zip(columns, row)) for row in orders_rows]
+        orders = convert_rows_to_dicts(orders_rows, cur.description)
         
         # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
         order_ids = [o['id'] for o in orders]
@@ -3699,8 +3861,7 @@ def api_users():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        columns = [description[0] for description in cur.description]
-        users = [dict(zip(columns, row)) for row in rows]
+        users = convert_rows_to_dicts(rows, cur.description)
         
         site_name = get_setting("site_name") or "Site Artiste"
         for user in users:
@@ -3731,8 +3892,7 @@ def api_paintings():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        columns = [description[0] for description in cur.description]
-        paintings = [dict(zip(columns, row)) for row in rows]
+        paintings = convert_rows_to_dicts(rows, cur.description)
         
         site_name = get_setting("site_name") or "Site Artiste"
         for painting in paintings:
@@ -3753,8 +3913,7 @@ def api_exhibitions():
         cur = conn.cursor()
         cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions ORDER BY date DESC"))
         rows = cur.fetchall()
-        columns = [description[0] for description in cur.description]
-        exhibitions = [dict(zip(columns, row)) for row in rows]
+        exhibitions = convert_rows_to_dicts(rows, cur.description)
         site_name = get_setting("site_name") or "Site Artiste"
         for exhibition in exhibitions:
             exhibition["site_name"] = site_name
@@ -3829,23 +3988,26 @@ def api_export_stats():
         # Compter les enregistrements dans chaque table
         for table_name in TABLES.keys():
             try:
-                cur.execute(adapt_query(f"SELECT COUNT(*) FROM {table_name}"))
-                count = cur.fetchone()[0]
+                cur.execute(adapt_query(f"SELECT COUNT(*) as count FROM {table_name}"))
+                result = cur.fetchone()
+                count = safe_row_get(result, 'count', index=0, default=0)
                 stats[f"{table_name}_count"] = count
             except:
                 stats[f"{table_name}_count"] = 0
         
         # Statistiques supplémentaires
         try:
-            cur.execute(adapt_query("SELECT SUM(total_price) FROM orders"))
-            total_revenue = cur.fetchone()[0] or 0
+            cur.execute(adapt_query("SELECT SUM(total_price) as total FROM orders"))
+            result = cur.fetchone()
+            total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
             stats['total_revenue'] = float(total_revenue)
         except:
             stats['total_revenue'] = 0
         
         try:
-            cur.execute(adapt_query("SELECT COUNT(*) FROM orders WHERE status = 'Livrée'"))
-            stats['delivered_orders'] = cur.fetchone()[0] or 0
+            cur.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Livrée'"))
+            result = cur.fetchone()
+            stats['delivered_orders'] = safe_row_get(result, 'count', index=0, default=0)
         except:
             stats['delivered_orders'] = 0
         
