@@ -535,9 +535,31 @@
 
         // Exécuter au chargement de la page
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', applyPreviewData);
+            document.addEventListener('DOMContentLoaded', function() {
+                applyPreviewData();
+                // Après avoir appliqué les données de preview, retirer le paramètre
+                // `preview` de l'URL pour ne pas exposer d'informations sensibles.
+                try {
+                    const u = new URL(window.location.href);
+                    if (u.searchParams.has('preview')) {
+                        u.searchParams.delete('preview');
+                        history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                    }
+                } catch (e) {
+                    console.warn('Impossible de nettoyer l\'URL de preview:', e);
+                }
+            });
         } else {
             applyPreviewData();
+            try {
+                const u = new URL(window.location.href);
+                if (u.searchParams.has('preview')) {
+                    u.searchParams.delete('preview');
+                    history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                }
+            } catch (e) {
+                console.warn('Impossible de nettoyer l\'URL de preview:', e);
+            }
         }
     </script>
 </body>

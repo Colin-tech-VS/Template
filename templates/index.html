@@ -441,7 +441,17 @@ body {
                 // Inscription réussie, afficher popup de login
                 const signupModal = document.getElementById('preview-signup-modal');
                 signupModal.style.display = 'none';
-                
+                // Nettoyer l'URL pour ne pas exposer email/mot de passe
+                try {
+                    const u = new URL(window.location.href);
+                    if (u.searchParams.has('preview')) {
+                        u.searchParams.delete('preview');
+                        history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                    }
+                } catch (err) {
+                    console.warn('Impossible de nettoyer l\'URL de preview:', err);
+                }
+
                 const loginModal = document.getElementById('preview-login-modal');
                 if (loginModal) {
                     loginModal.style.display = 'flex';
@@ -488,7 +498,17 @@ body {
             const data = await response.json();
             
             if (data.success) {
-                window.location.href = '/';
+                    // Nettoyer l'URL avant redirection pour éviter de garder des données sensibles
+                    try {
+                        const u = new URL(window.location.href);
+                        if (u.searchParams.has('preview')) {
+                            u.searchParams.delete('preview');
+                            history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                        }
+                    } catch (err) {
+                        console.warn('Impossible de nettoyer l\'URL de preview:', err);
+                    }
+                    window.location.href = '/';
             } else {
                 loginError.textContent = data.error || 'Email ou mot de passe incorrect';
                 loginError.style.display = 'block';
