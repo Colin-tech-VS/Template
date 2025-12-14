@@ -1272,7 +1272,7 @@ def expositions_page():
     other_expos = []
 
     for expo in expositions:
-        expo_date_str = expo.get('date') if isinstance(expo, dict) else expo[3]
+        expo_date_str = safe_row_get(expo, 'date', index=3)
         expo_date = date.fromisoformat(expo_date_str)
         if expo_date >= today and next_expo is None:
             next_expo = expo
@@ -1461,7 +1461,7 @@ def expo_detail_page(expo_id):
 
     # Construire le chemin de l'image si elle existe
     image_url = None
-    expo_image = expo.get('image') if isinstance(expo, dict) else expo[7]
+    expo_image = safe_row_get(expo, 'image', index=7)
     if expo_image:  # image field
         # Vérifier si c'est déjà une URL complète
         if expo_image.startswith("http"):
@@ -1561,7 +1561,7 @@ def delete_custom_request(request_id):
     c.execute(adapt_query("SELECT reference_images FROM custom_requests WHERE id=?"), (request_id,))
     row = c.fetchone()
     if row:
-        ref_images = row.get('reference_images') if isinstance(row, dict) else row[0]
+        ref_images = safe_row_get(row, 'reference_images', index=0)
         if ref_images:
             import json
             images = json.loads(ref_images)
@@ -1668,7 +1668,7 @@ def edit_exhibition(exhibition_id):
         contact_info = request.form.get("contact_info")
         file = request.files.get("image")
 
-        image_filename = exhibition.get('image') if isinstance(exhibition, dict) else exhibition[5]
+        image_filename = safe_row_get(exhibition, 'image', index=5)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             os.makedirs(app.config['EXPO_UPLOAD_FOLDER'], exist_ok=True)
@@ -1702,7 +1702,7 @@ def remove_exhibition(exhibition_id):
     c.execute(adapt_query("SELECT image FROM exhibitions WHERE id=?"), (exhibition_id,))
     image = c.fetchone()
     if image:
-        image_filename = image.get('image') if isinstance(image, dict) else image[0]
+        image_filename = safe_row_get(image, 'image', index=0)
         if image_filename:
             image_path = os.path.join(app.config['EXPO_UPLOAD_FOLDER'], image_filename)
             if os.path.exists(image_path):
@@ -3281,7 +3281,7 @@ def order_status(order_id):
 
     conn.close()
 
-    total_price = order.get('total_price') if isinstance(order, dict) else order[4]
+    total_price = safe_row_get(order, 'total_price', index=4)
 
     return render_template(
         "order_status.html",
