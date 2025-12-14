@@ -209,7 +209,8 @@
                 <h2>🎭 Thème des Couleurs</h2>
                 <p class="tab-description">Personnalisez la palette de votre site</p>
 
-                <div class="color-grid">
+                <div class="design-layout">
+                    <div class="color-grid">
                     <div class="color-item">
                         <label for="primary_color">Couleur primaire</label>
                         <input type="color" name="primary_color" id="primary_color" value="{{ settings['primary_color'] }}" class="color-picker">
@@ -245,6 +246,33 @@
                         <input type="color" name="button_hover_color" id="button_hover_color" value="{{ settings.get('button_hover_color', '#9C27B0') }}" class="color-picker">
                         <span class="color-value">{{ settings.get('button_hover_color', '#9C27B0') }}</span>
                     </div>
+                    </div>
+
+                    <aside class="preview-column" aria-label="Aperçu des couleurs">
+                        <div id="color_preview_panel_wrapper">
+                            <h3>Aperçu des couleurs appliquées</h3>
+                            <p class="section-hint">Visualisez la palette actuelle du site. Les changements via les sélecteurs de couleur mettent à jour cet aperçu en direct.</p>
+
+                            <div class="preview-card" id="color_preview_card">
+                                <div class="preview-navbar">Logo</div>
+                                <div class="preview-hero">
+                                    <h4>Bienvenue — Aperçu</h4>
+                                    <p class="preview-content">Ceci est un exemple de texte pour vérifier la couleur du contenu.</p>
+                                    <div class="preview-actions">
+                                        <button class="preview-btn">Call to action</button>
+                                        <button class="preview-btn preview-secondary">Secondaire</button>
+                                    </div>
+                                </div>
+                                <div class="preview-swatches">
+                                    <div class="swatch"><div class="swatch-sample swatch-primary"></div><span>Primaire</span></div>
+                                    <div class="swatch"><div class="swatch-sample swatch-secondary"></div><span>Secondaire</span></div>
+                                    <div class="swatch"><div class="swatch-sample swatch-accent"></div><span>Accent</span></div>
+                                    <div class="swatch"><div class="swatch-sample swatch-button-text"></div><span>Texte bouton</span></div>
+                                    <div class="swatch"><div class="swatch-sample swatch-content-text"></div><span>Texte contenu</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             </div>
 
@@ -256,32 +284,7 @@
     </div>
 </section>
 
-    <!-- LIVE COLOR PREVIEW (placed here to appear under the Design tab) -->
-    <div style="max-width:1000px;margin:10px auto 40px;padding:0 20px;">
-        <div id="color_preview_panel_wrapper">
-            <h3>Aperçu des couleurs appliquées</h3>
-            <p class="section-hint">Visualisez la palette actuelle du site. Les changements via les sélecteurs de couleur mettent à jour cet aperçu en direct.</p>
-
-            <div class="preview-card" id="color_preview_card">
-                <div class="preview-navbar">Logo</div>
-                <div class="preview-hero">
-                    <h4>Bienvenue — Aperçu</h4>
-                    <p class="preview-content">Ceci est un exemple de texte pour vérifier la couleur du contenu.</p>
-                    <div class="preview-actions">
-                        <button class="preview-btn">Call to action</button>
-                        <button class="preview-btn preview-secondary">Secondaire</button>
-                    </div>
-                </div>
-                <div class="preview-swatches">
-                    <div class="swatch"><div class="swatch-sample swatch-primary"></div><span>Primaire</span></div>
-                    <div class="swatch"><div class="swatch-sample swatch-secondary"></div><span>Secondaire</span></div>
-                    <div class="swatch"><div class="swatch-sample swatch-accent"></div><span>Accent</span></div>
-                    <div class="swatch"><div class="swatch-sample swatch-button-text"></div><span>Texte bouton</span></div>
-                    <div class="swatch"><div class="swatch-sample swatch-content-text"></div><span>Texte contenu</span></div>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- live preview moved into Design tab for immediate visibility -->
 
 <style>
 * {
@@ -611,6 +614,33 @@
 }
 
 /* ------------------ Preview styles ------------------ */
+.design-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+.color-grid {
+    flex: 1 1 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 18px;
+}
+.preview-column {
+    width: 380px;
+    flex: 0 0 380px;
+    position: sticky;
+    top: 90px;
+    align-self: start;
+}
+.preview-card {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.preview-hero { padding: 20px; }
+.preview-swatches { flex-wrap: wrap; }
+
 .preview-card {
     border: 1px solid #e6eef8;
     border-radius: 10px;
@@ -669,6 +699,15 @@ document.querySelectorAll('.tab-link').forEach(button => {
         
         document.getElementById(tabId).classList.add('active');
         this.classList.add('active');
+        // when switching to design tab, ensure preview sync
+        if (tabId === 'design') {
+            // refresh colors from dynamic CSS and ensure preview visible on small screens
+            setTimeout(() => {
+                if (typeof loadPreviewColorsFromDynamicCss === 'function') loadPreviewColorsFromDynamicCss();
+                const previewCol = document.querySelector('.preview-column');
+                if (previewCol && window.innerWidth < 900) previewCol.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+        }
     });
 });
 
