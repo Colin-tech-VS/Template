@@ -1360,6 +1360,15 @@ def login():
     return render_template("login.html")
 
 
+@app.route('/api/session-info')
+def api_session_info():
+    """Return basic session info for client-side checks (used by preview modals)."""
+    return jsonify({
+        "logged_in": bool(session.get('user_id')),
+        "user_id": session.get('user_id')
+    })
+
+
 @app.route("/logout")
 def logout():
     session.pop("user_id", None)

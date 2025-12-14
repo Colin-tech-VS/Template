@@ -438,20 +438,38 @@ body {
             const data = await response.json();
             
             if (data.success) {
-                // Inscription réussie, afficher popup de login
+                // Inscription réussie — tenter une connexion automatique
                 const signupModal = document.getElementById('preview-signup-modal');
-                signupModal.style.display = 'none';
-                // Nettoyer l'URL pour ne pas exposer email/mot de passe
+                if (signupModal) signupModal.style.display = 'none';
+
+                // Tenter auto-login via l'API de preview (envoi des mêmes identifiants)
                 try {
-                    const u = new URL(window.location.href);
-                    if (u.searchParams.has('preview')) {
-                        u.searchParams.delete('preview');
-                        history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                    const loginResp = await fetch('/api/login-preview', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        credentials: 'same-origin',
+                        body: new URLSearchParams({ email, password })
+                    });
+                    const loginData = await loginResp.json().catch(() => ({}));
+                    if (loginData && loginData.success) {
+                        // Nettoyer l'URL et recharger la page
+                        try {
+                            const u = new URL(window.location.href);
+                            if (u.searchParams.has('preview')) {
+                                u.searchParams.delete('preview');
+                                history.replaceState(null, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + u.hash);
+                            }
+                        } catch (err) {
+                            console.warn('Impossible de nettoyer l\'URL de preview:', err);
+                        }
+                        window.location.href = '/';
+                        return;
                     }
                 } catch (err) {
-                    console.warn('Impossible de nettoyer l\'URL de preview:', err);
+                    console.warn('Auto-login failed:', err);
                 }
 
+                // Si auto-login échoue, afficher la modal de connexion (pré-remplie)
                 const loginModal = document.getElementById('preview-login-modal');
                 if (loginModal) {
                     loginModal.style.display = 'flex';
@@ -523,6 +541,27 @@ body {
             loginBtn.textContent = 'Se connecter';
         }
     });
+</script>
+
+<script>
+    // Vérifier l'état de session côté serveur pour éviter d'afficher les modals si
+    // l'utilisateur est déjà connecté (solve race conditions avec les requêtes AJAX).
+    (function() {
+        try {
+            fetch('/api/session-info', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.logged_in) {
+                        const signup = document.getElementById('preview-signup-modal');
+                        const login = document.getElementById('preview-login-modal');
+                        if (signup) signup.style.display = 'none';
+                        if (login) login.style.display = 'none';
+                    }
+                }).catch(() => {});
+        } catch (e) {
+            // noop
+        }
+    })();
 </script>
 
 <div id="preview-login-modal" style="
