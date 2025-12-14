@@ -3901,10 +3901,8 @@ def dynamic_colors():
             color: var(--button-text-color) !important;
         }}
 
-        /* Headings and important elements use primary */
-        h1, h2, h3, h4, h5, h6 {{
-            color: var(--color-primary) !important;
-        }}
+        /* Keep headings default; use utility classes for primary text */
+        /* Removed global heading color to avoid overriding content text color */
 
         /* Navigation / secondary areas */
         nav, .navbar, .nav {{
