@@ -3800,8 +3800,8 @@ def dynamic_colors():
         content_text_color = get_setting("content_text_color") or "#000000"
         button_hover_color = get_setting("button_hover_color") or "#9C27B0"
         
-        # Générer le CSS
         css = f"""
+        /* Variables CSS */
         :root {{
             --color-primary: {color_primary};
             --color-secondary: {color_secondary};
@@ -3811,17 +3811,88 @@ def dynamic_colors():
             --button-hover-color: {button_hover_color};
         }}
         
-        * {{
-            --color-primary: {color_primary} !important;
-            --color-secondary: {color_secondary} !important;
-            --color-accent: {accent_color} !important;
+        /* Apply colors to common elements */
+        a {{
+            color: {color_primary} !important;
+        }}
+        
+        a:hover {{
+            color: {button_hover_color} !important;
+        }}
+        
+        button, input[type="button"], input[type="submit"], [role="button"] {{
+            background-color: {color_primary} !important;
+            color: {button_text_color} !important;
+            border-color: {color_primary} !important;
+        }}
+        
+        button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover {{
+            background-color: {button_hover_color} !important;
+            border-color: {button_hover_color} !important;
+        }}
+        
+        h1, h2, h3, h4, h5, h6 {{
+            color: {color_primary} !important;
+        }}
+        
+        .btn, .btn-primary, .primary, .cta {{
+            background-color: {color_primary} !important;
+            color: {button_text_color} !important;
+            border-color: {color_primary} !important;
+        }}
+        
+        .btn:hover, .btn-primary:hover, .primary:hover, .cta:hover {{
+            background-color: {button_hover_color} !important;
+            border-color: {button_hover_color} !important;
+        }}
+        
+        nav, .navbar, .nav {{
+            background-color: {color_secondary} !important;
+        }}
+        
+        .btn-secondary, .secondary {{
+            background-color: {color_secondary} !important;
+            color: {button_text_color} !important;
+            border-color: {color_secondary} !important;
+        }}
+        
+        .btn-secondary:hover, .secondary:hover {{
+            background-color: {color_primary} !important;
+            border-color: {color_primary} !important;
+        }}
+        
+        body {{
+            color: {content_text_color} !important;
+        }}
+        
+        .accent {{
+            color: {accent_color} !important;
+        }}
+        
+        .bg-primary {{
+            background-color: {color_primary} !important;
+        }}
+        
+        .bg-secondary {{
+            background-color: {color_secondary} !important;
+        }}
+        
+        .text-primary {{
+            color: {color_primary} !important;
+        }}
+        
+        .text-secondary {{
+            color: {color_secondary} !important;
         }}
         """
         response = make_response(css)
         response.mimetype = 'text/css'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
         return response
     except Exception as e:
-        print(f"[SAAS] Erreur génération CSS couleurs: {e}")
+        print(f"[DYNAMIC_COLORS] Erreur génération CSS couleurs: {e}")
         return "", 500
 
 # Correction du décorateur require_api_key pour accepter la clé API en header ou paramètre GET
