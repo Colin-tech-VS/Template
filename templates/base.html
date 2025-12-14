@@ -74,7 +74,7 @@
         }
         
         .user-menu-links a {
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
             text-decoration: none;
             padding: 10px 12px;
             border-radius: 6px;
@@ -91,7 +91,7 @@
         
         .user-menu-section-title {
             font-weight: 700;
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
             margin-top: 8px;
             margin-bottom: 5px;
             font-size: 12px;
@@ -131,7 +131,7 @@
         }
         
         .cart-item:hover {
-            border-color: #1E3A8A;
+            border-color: var(--color-primary, #1E3A8A);
             box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1);
         }
         
@@ -159,7 +159,7 @@
         
         .cart-item-details p:first-child {
             font-weight: 600;
-            color: #1E3A8A;
+            color: var(--color-primary, #1E3A8A);
             margin-bottom: 4px;
         }
         
@@ -204,7 +204,7 @@
 
         /* PREVIEW CTA (floating bottom-left button) */
         .preview-fab {position: fixed; left: 18px; bottom: 18px; z-index: 1400;}
-        .preview-fab .preview-launch-btn {display:flex; align-items:center; gap:10px; padding:12px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; border-radius:14px; text-decoration:none; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:2px solid rgba(255,255,255,0.1); transition:transform 0.15s ease, box-shadow 0.15s ease;}
+        .preview-fab .preview-launch-btn {display:flex; align-items:center; gap:10px; padding:12px 16px; background: linear-gradient(135deg, var(--color-primary, #1e3a8a), var(--color-secondary, #2563eb)); color:var(--button-text-color, #fff); border-radius:14px; text-decoration:none; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,0.2); border:2px solid rgba(255,255,255,0.1); transition:transform 0.15s ease, box-shadow 0.15s ease;}
         .preview-fab .preview-launch-btn:hover {transform: translateY(-2px); box-shadow:0 14px 34px rgba(0,0,0,0.25);} 
         .preview-price {background: rgba(255,255,255,0.16); padding:8px 12px; border-radius:10px; font-weight:700; letter-spacing:0.2px;}
         @media (max-width: 768px) {
@@ -566,7 +566,7 @@
     #cookie-consent-banner .cc-text {flex:1; color:#222; font-size:14px}
     #cookie-consent-banner .cc-actions {display:flex; gap:10px}
     #cookie-consent-banner .cc-btn {padding:10px 14px; border-radius:8px; border:none; cursor:pointer; font-weight:600}
-    #cookie-consent-banner .cc-accept {background: linear-gradient(90deg,#1E3A8A,#3B65C4); color:#fff}
+    #cookie-consent-banner .cc-accept {background: linear-gradient(90deg,var(--color-primary, #1E3A8A),var(--color-secondary, #3B65C4)); color:var(--button-text-color, #fff)}
     #cookie-consent-banner .cc-decline {background:#eee; color:#333}
     #cookie-consent-toast {position:fixed; right:18px; bottom:18px; z-index:2999}
     #cookie-manage-btn {position: fixed; right: 18px; bottom: 80px; z-index: 2950; background: rgba(0,0,0,0.06); border-radius: 12px; padding:8px 10px; font-size:13px; cursor:pointer;}
@@ -630,6 +630,37 @@
         });
     })();
     </script>
+
+        <!-- Runtime color normalizer: replace inline hard-coded palette hexes with CSS variables -->
+        <script>
+        (function(){
+            const mapping = {
+                '#1E3A8A': 'var(--color-primary, #1E3A8A)',
+                '#3B65C4': 'var(--color-secondary, #3B65C4)',
+                '#FF7F50': 'var(--color-accent, #FF7F50)',
+                '#FF4500': 'var(--color-accent, #FF7F50)',
+                '#9C27B0': 'var(--button-hover-color, #9C27B0)'
+            };
+
+            function normalizeInlineStyles(){
+                document.querySelectorAll('[style]').forEach(el=>{
+                    let s = el.getAttribute('style');
+                    let changed = false;
+                    Object.keys(mapping).forEach(hex=>{
+                        const re = new RegExp(hex, 'gi');
+                        if(re.test(s)){
+                            s = s.replace(re, mapping[hex]);
+                            changed = true;
+                        }
+                    });
+                    if(changed) el.setAttribute('style', s);
+                });
+            }
+
+            if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', normalizeInlineStyles);
+            else normalizeInlineStyles();
+        })();
+        </script>
 
 </body>
 </html>
