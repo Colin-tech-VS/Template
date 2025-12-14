@@ -485,11 +485,13 @@ body {
                 body: new URLSearchParams({ email, password })
             });
             
-            if (response.ok) {
+            const data = await response.json();
+            
+            if (data.success) {
                 // Connexion réussie, rediriger vers accueil
                 window.location.href = '/';
             } else {
-                loginError.textContent = 'Email ou mot de passe incorrect';
+                loginError.textContent = data.error || 'Email ou mot de passe incorrect';
                 loginError.style.display = 'block';
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'Se connecter';

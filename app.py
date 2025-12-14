@@ -1267,15 +1267,13 @@ def login():
         # Correction : vérifie le type et la présence des données
         if not user:
             conn.close()
-            flash("Email ou mot de passe incorrect")
-            return redirect(url_for("login"))
+            return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
         # user peut être tuple ou dict - use safe_row_get for compatibility
         user_id = safe_row_get(user, 'id', index=0)
         user_password = safe_row_get(user, 'password', index=1)
         if not check_password_hash(user_password, password):
             conn.close()
-            flash("Email ou mot de passe incorrect")
-            return redirect(url_for("login"))
+            return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
         session["user_id"] = user_id
 
         # Récupérer panier invité actuel
@@ -1302,10 +1300,9 @@ def login():
         conn.close()
 
         # Mettre le cookie pour utiliser le panier utilisateur
-        resp = make_response(redirect(url_for("home")))
+        resp = make_response(jsonify({"success": True}))
         resp.set_cookie("cart_session", user_cart_session, max_age=60*60*24*30)
 
-        flash("Connecté avec succès !")
         return resp
 
     return render_template("login.html")
