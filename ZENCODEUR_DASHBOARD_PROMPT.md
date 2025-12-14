@@ -6,6 +6,123 @@
 
 ---
 
+## 🔒 VÉRIFICATION CRITIQUE: ISOLATION DES DONNÉES (SAAS MULTI-TENANT)
+
+### ⚠️ CHANGEMENT MAJEUR EFFECTUÉ
+
+Le Template vient d'implémenter **l'isolation complète des données par site** pour le mode SaaS/Preview:
+
+- **Colonnes ajoutées:** `site_id` aux tables `users`, `paintings`, `orders`, `exhibitions`, `custom_requests`
+- **Fonction créée:** `get_current_site_id()` détecte le site par domaine preview
+- **Routes mises à jour:** `home()`, `about()`, `boutique()` filtrent par `site_id`
+- **Registration:** Crée un entry `saas_sites` + associe users au site
+
+### ✅ CE QU'IL FAUT VÉRIFIER SUR LE DASHBOARD
+
+**AVANT d'importer les données du Template, le Dashboard DOIT:**
+
+1. **Vérifier que les colonnes `site_id` existent** dans les tables
+2. **Filtrer par `site_id`** lors de l'import (ne pas importer les données d'autres sites!)
+3. **Créer un test multi-site** pour valider l'isolation
+
+### 🧪 PROCÉDURE DE VÉRIFICATION DASHBOARD
+
+#### **Test 1: Créer 2 previews indépendantes**
+
+```bash
+# Preview 1
+curl -X POST https://preview-artiste1.com/api/register-preview \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Artiste 1", "email":"artiste1@test.fr", "password":"Test1234"}'
+
+# Créer des peintures sur preview 1
+# ...
+
+# Preview 2
+curl -X POST https://preview-artiste2.com/api/register-preview \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Artiste 2", "email":"artiste2@test.fr", "password":"Test1234"}'
+
+# Créer des peintures DIFFÉRENTES sur preview 2
+# ...
+```
+
+#### **Test 2: Vérifier l'isolation des données**
+
+```javascript
+// Sur Preview 1, appeler l'API d'export (si elle existe)
+GET /api/export/paintings
+// DOIT retourner SEULEMENT les peintures de Preview 1
+// Ne doit PAS contenir les peintures de Preview 2 ❌
+
+// Sur Preview 2
+GET /api/export/paintings
+// DOIT retourner SEULEMENT les peintures de Preview 2
+// Ne doit PAS contenir les peintures de Preview 1 ❌
+```
+
+#### **Test 3: Vérifier le Dashboard**
+
+```bash
+# Dashboard doit importer AVEC filtrage par site_id
+# Pseudo-code:
+for each preview in previews:
+    site_id = preview.get_id()
+    paintings = import_from_template(site_id, filter_by_site_id=site_id)
+    # Vérifier que ZÉRO peinture d'autres sites ne sont importées
+    
+    users = import_users(site_id, filter_by_site_id=site_id)
+    # Vérifier que ZÉRO utilisateur d'autres sites ne sont importés
+```
+
+#### **Test 4: Vérifier la base de données PostgreSQL**
+
+```sql
+-- Vérifier que chaque table a site_id
+SELECT column_name FROM information_schema.columns 
+WHERE table_name='paintings' AND column_name='site_id';
+-- Doit retourner: site_id ✓
+
+-- Vérifier l'isolation
+SELECT COUNT(*) as site1_paintings FROM paintings WHERE site_id=1;
+SELECT COUNT(*) as site2_paintings FROM paintings WHERE site_id=2;
+-- Les deux doivent être différents (et non mélangés) ✓
+
+-- Vérifier les users
+SELECT * FROM users WHERE site_id=1;
+SELECT * FROM users WHERE site_id=2;
+-- Chaque site doit avoir ses propres users ✓
+```
+
+#### **Test 5: Vérifier que les migrations n'ont rien cassé**
+
+- [ ] Mode single-site (pas de preview) fonctionne toujours
+- [ ] Routes `/admin/paintings` affichent les peintures du site courant UNIQUEMENT
+- [ ] Login/Register associe l'user au bon site
+- [ ] Export API retourne les données du site demandé UNIQUEMENT
+
+### 🚨 POINTS CRITIQUES À VÉRIFIER
+
+| Composant | À Vérifier | État |
+|-----------|-----------|------|
+| `get_current_site_id()` | Détecte correctement le site par domaine | ❓ |
+| `home()` route | Filtre paintings par site_id | ❓ |
+| `/api/register-preview` | Crée saas_sites + associe user | ❓ |
+| Tables DB | Colonnes site_id existent | ❓ |
+| Export API | Filtre par site_id | ❓ |
+| Dashboard import | Filtre par site_id | ❓ |
+
+### 📝 CHECKLIST DASHBOARD
+
+- [ ] Ajouter colonne `site_id` aux tables d'import (users, paintings, orders, etc.)
+- [ ] Créer helper `get_site_id_from_url()` équivalent
+- [ ] Modifier CHAQUE requête SELECT pour filtrer `WHERE site_id={site_id}`
+- [ ] Tester import multi-site (vérifier zéro cross-contamination)
+- [ ] Ajouter logs: `[IMPORT] user_id=X site_id=Y imported Y paintings`
+- [ ] Écrire test automatisé pour valider l'isolation
+
+---
+
 ## 🎯 Objectif global
 
 Créer un système de synchronisation bidirectionnel Dashboard ↔ Template:

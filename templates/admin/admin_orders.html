@@ -51,42 +51,42 @@
                 <div class="order-item">
                     <div class="order-header">
                         <div class="order-info">
-                            <h3>Commande #{{ order[0] }}</h3>
-                            <p class="order-date">{{ order[5] }}</p>
+                            <h3>Commande #{{ order.id }}</h3>
+                            <p class="order-date">{{ order.order_date }}</p>
                         </div>
                         <div class="order-amount">
-                            <span class="amount">{{ "%.2f"|format(order[4]) }} €</span>
-                            <span class="status status-{{ order[6]|lower|replace(' ', '-') }}">{{ order[6] }}</span>
+                            <span class="amount">{{ "%.2f"|format(order.total_price) }} €</span>
+                            <span class="status status-{{ order.status|lower|replace(' ', '-') }}">{{ order.status }}</span>
                         </div>
                     </div>
 
                     <div class="order-details">
                         <div class="detail-row">
                             <span class="label">Client:</span>
-                            <span class="value">{{ order[1] }}</span>
+                            <span class="value">{{ order.customer_name }}</span>
                         </div>
                         <div class="detail-row">
                             <span class="label">Email:</span>
-                            <span class="value">{{ order[2] }}</span>
+                            <span class="value">{{ order.email }}</span>
                         </div>
                         <div class="detail-row">
                             <span class="label">Adresse:</span>
-                            <span class="value">{{ order[3] }}</span>
+                            <span class="value">{{ order.address }}</span>
                         </div>
                     </div>
 
-                    {% if all_items[order[0]] %}
+                    {% if all_items[order.id] %}
                     <div class="order-items">
                         <div class="items-header">Articles de la commande :</div>
                         <ul class="items-list">
-                            {% for item in all_items[order[0]] %}
+                            {% for item in all_items[order.id] %}
                             <li>
-                                <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}" class="item-thumb">
+                                <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}" class="item-thumb">
                                 <div class="item-info">
-                                    <span class="item-name">{{ item[1] }}</span>
-                                    <span class="item-qty">x{{ item[4] }} @ {{ item[3] }} €</span>
+                                    <span class="item-name">{{ item.name }}</span>
+                                    <span class="item-qty">x{{ item.quantity }} @ {{ item.price }} €</span>
                                 </div>
-                                <span class="item-total">{{ "%.2f"|format(item[3] * item[4]) }} €</span>
+                                <span class="item-total">{{ "%.2f"|format(item.price * item.quantity) }} €</span>
                             </li>
                             {% endfor %}
                         </ul>
@@ -99,13 +99,13 @@
                             <strong>Changer le statut :</strong>
                             {% set statuses = ['En cours', 'Confirmée', 'Expédiée', 'Livrée', 'Annulée'] %}
                             {% for status in statuses %}
-                                {% if status != order[6] %}
-                                    <a href="{{ url_for('update_order_status', order_id=order[0], status=status) }}" class="status-link">{{ status }}</a>
+                                {% if status != order.status %}
+                                    <a href="{{ url_for('update_order_status', order_id=order.id, status=status) }}" class="status-link">{{ status }}</a>
                                 {% endif %}
                             {% endfor %}
                         </div>
 
-                        <a href="{{ url_for('admin_order_detail', order_id=order[0]) }}" class="btn-link" style="margin-left:10px;">Voir détails</a>
+                        <a href="{{ url_for('admin_order_detail', order_id=order.id) }}" class="btn-link" style="margin-left:10px;">Voir détails</a>
                     </div>
                 </div>
                 {% endfor %}

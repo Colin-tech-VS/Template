@@ -192,27 +192,27 @@ body {
     <h2 id="latest-creations">Dernières créations</h2>
     <div class="latest-gallery">
         {% for painting in latest_paintings %}
-            {% if painting[4] > 0 %}
+            {% if painting.quantity > 0 %}
             <article class="latest-artwork">
                 <span class="badge" aria-label="Nouvelle œuvre">Nouveau</span>
                 <div class="artwork-image-wrapper">
-                    <img src="{{ url_for('static', filename=painting[2]) }}" 
-                         alt="Peinture '{{ painting[1] }}' par l'artiste">
-                    {% if painting[0] in favorite_ids %}
-                        <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
+                    <img src="{{ url_for('static', filename=painting.image) }}" 
+                         alt="Peinture '{{ painting.name }}' par l'artiste">
+                    {% if painting.id in favorite_ids %}
+                        <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active">❤️</a>
                     {% else %}
-                        <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn">🤍</a>
+                        <a href="{{ url_for('add_favorite', painting_id=painting.id) }}" class="favorite-btn">🤍</a>
                     {% endif %}
                 </div>
                 <div class="info">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3>{{ painting[1] }}</h3>
-                        <span>{{ painting[3] }} €</span>
+                        <h3>{{ painting.name }}</h3>
+                        <span>{{ painting.price }} €</span>
                     </div>
-                    <small class="description">{{ painting[5] or 'Aucune description disponible.' }}</small>
+                    <small class="description">{{ painting.description or 'Aucune description disponible.' }}</small>
                     <button class="buy-btn" 
-                            onclick="location.href='/add_to_cart/{{ painting[0] }}'" 
-                            aria-label="Ajouter {{ painting[1] }} au panier">
+                            onclick="location.href='/add_to_cart/{{ painting.id }}'" 
+                            aria-label="Ajouter {{ painting.name }} au panier">
                         Ajouter au panier
                     </button>
                 </div>
@@ -228,29 +228,29 @@ body {
     <div class="latest-gallery">
         {% for painting in paintings[:4] %}
         <article class="latest-artwork">
-            {% if painting[4] == 0 %}
+            {% if painting.quantity == 0 %}
                 <span class="badge" style="background:#FF6347;">Rupture</span>
             {% endif %}
             <div class="artwork-image-wrapper">
-                <img src="{{ url_for('static', filename=painting[2]) }}" 
-                     alt="Peinture '{{ painting[1] }}' disponible en boutique">
-                {% if painting[0] in favorite_ids %}
-                    <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active">❤️</a>
+                <img src="{{ url_for('static', filename=painting.image) }}" 
+                     alt="Peinture '{{ painting.name }}' disponible en boutique">
+                {% if painting.id in favorite_ids %}
+                    <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active">❤️</a>
                 {% else %}
-                    <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn">🤍</a>
+                    <a href="{{ url_for('add_favorite', painting_id=painting.id) }}" class="favorite-btn">🤍</a>
                 {% endif %}
             </div>
             <div class="info">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3>{{ painting[1] }}</h3>
-                    <span>{{ painting[3] }} €</span>
+                    <h3>{{ painting.name }}</h3>
+                    <span>{{ painting.price }} €</span>
                 </div>
-                <p class="stock">Stock : {{ painting[4] }}</p>
-                <small class="description">{{ painting[5] or 'Aucune description disponible.' }}</small>
-                {% if painting[4] > 0 %}
+                <p class="stock">Stock : {{ painting.quantity }}</p>
+                <small class="description">{{ painting.description or 'Aucune description disponible.' }}</small>
+                {% if painting.quantity > 0 %}
                     <button class="buy-btn" 
-                            onclick="location.href='/add_to_cart/{{ painting[0] }}'" 
-                            aria-label="Ajouter {{ painting[1] }} au panier">
+                            onclick="location.href='/add_to_cart/{{ painting.id }}'" 
+                            aria-label="Ajouter {{ painting.name }} au panier">
                         Ajouter au panier
                     </button>
                 {% else %}
@@ -265,5 +265,196 @@ body {
         <a href="{{ url_for('boutique') }}" class="btn-primary">Voir la boutique complète</a>
     </div>
 </section>
+
+<!-- MODAL D'INSCRIPTION EN PREVIEW -->
+{% if is_preview_host and not session.get('user_id') %}
+<div id="preview-signup-modal" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+">
+    <div style="
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    ">
+        <h2 style="text-align: center; margin: 0 0 30px 0; font-size: 28px;">
+            Bienvenue sur {{ site_settings.site_name }} ! 👋
+        </h2>
+        
+        <p style="text-align: center; color: #666; margin: 0 0 25px 0;">
+            Inscrivez-vous pour accéder à la prévisualisation complète
+        </p>
+        
+        <form id="preview-signup-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <label for="signup-name" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                    Votre nom
+                </label>
+                <input 
+                    type="text"
+                    id="signup-name"
+                    name="name"
+                    placeholder="Jean Dupont"
+                    required
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        font-family: 'Poppins', sans-serif;
+                    "
+                >
+            </div>
+            
+            <div>
+                <label for="signup-email" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                    Email
+                </label>
+                <input 
+                    type="email"
+                    id="signup-email"
+                    name="email"
+                    placeholder="votre@email.com"
+                    required
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        font-family: 'Poppins', sans-serif;
+                    "
+                >
+            </div>
+            
+            <div>
+                <label for="signup-password" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                    Mot de passe (min. 6 caractères)
+                </label>
+                <input 
+                    type="password"
+                    id="signup-password"
+                    name="password"
+                    placeholder="••••••"
+                    minlength="6"
+                    required
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        font-family: 'Poppins', sans-serif;
+                    "
+                >
+            </div>
+            
+            <div id="signup-error" style="
+                display: none;
+                padding: 12px;
+                background: #fee;
+                border-left: 4px solid #f44;
+                border-radius: 6px;
+                color: #c00;
+                font-size: 14px;
+                margin-top: 10px;
+            "></div>
+            
+            <button 
+                type="submit"
+                id="signup-submit-btn"
+                style="
+                    padding: 14px;
+                    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-weight: 700;
+                    font-size: 16px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    margin-top: 10px;
+                    font-family: 'Poppins', sans-serif;
+                "
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(30,58,138,0.3)';"
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+            >
+                S'inscrire
+            </button>
+            
+            <p style="text-align: center; color: #999; font-size: 13px; margin: 10px 0 0 0;">
+                Le premier utilisateur inscrit sera administrateur
+            </p>
+        </form>
+    </div>
+</div>
+
+<style>
+    #preview-signup-form input:focus {
+        outline: none;
+        border-color: #1E3A8A;
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    }
+</style>
+
+<script>
+    document.getElementById('preview-signup-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const errorDiv = document.getElementById('signup-error');
+        const submitBtn = document.getElementById('signup-submit-btn');
+        
+        errorDiv.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Inscription en cours...';
+        
+        try {
+            const response = await fetch('/api/register-preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, email, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Inscription réussie, rediriger vers login
+                window.location.href = data.next_url;
+            } else {
+                errorDiv.textContent = data.error || 'Une erreur est survenue';
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'S\'inscrire';
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            errorDiv.textContent = 'Une erreur réseau est survenue';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'S\'inscrire';
+        }
+    });
+</script>
+{% endif %}
 
 {% endblock %}

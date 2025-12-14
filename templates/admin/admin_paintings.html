@@ -44,23 +44,23 @@
                 {% for painting in paintings %}
                 <div class="painting-card">
                     <div class="painting-image">
-                        <img src="{{ url_for('static', filename=painting[2]) }}" alt="{{ painting[1] }}">
+                        <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}">
                         <div class="painting-overlay">
-                            <a href="{{ url_for('edit_painting', painting_id=painting[0]) }}" class="btn-overlay">✏️ Éditer</a>
-                            <a href="{{ url_for('delete_painting', painting_id=painting[0]) }}" class="btn-overlay btn-danger" onclick="return confirm('Êtes-vous sûr ?')">🗑️ Supprimer</a>
+                            <a href="{{ url_for('edit_painting', painting_id=painting.id) }}" class="btn-overlay">✏️ Éditer</a>
+                            <a href="{{ url_for('delete_painting', painting_id=painting.id) }}" class="btn-overlay btn-danger" onclick="return confirm('Êtes-vous sûr ?')">🗑️ Supprimer</a>
                         </div>
                     </div>
                     <div class="painting-info">
-                        <h3>{{ painting[1] }}</h3>
+                        <h3>{{ painting.name }}</h3>
                         <div class="painting-details">
                             <span class="detail">
-                                💰 {{ painting[3] }} €
+                                💰 {{ painting.price }} €
                             </span>
-                            <span class="detail {% if painting[4] == 0 %}out-of-stock{% endif %}">
-                                📦 {{ painting[4] }} unité{{ 's' if painting[4] > 1 else '' }}
+                            <span class="detail {% if painting.quantity == 0 %}out-of-stock{% endif %}">
+                                📦 {{ painting.quantity }} unité{{ 's' if painting.quantity > 1 else '' }}
                             </span>
                         </div>
-                        <p class="painting-id">ID: {{ painting[0] }}</p>
+                        <p class="painting-id">ID: {{ painting.id }}</p>
                     </div>
                 </div>
                 {% endfor %}

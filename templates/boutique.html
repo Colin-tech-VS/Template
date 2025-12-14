@@ -161,30 +161,30 @@
     <div class="latest-gallery">
         {% for painting in paintings %}
         <article class="latest-artwork">
-            {% if painting[4] == 0 %}
+            {% if painting.quantity == 0 %}
                 <div class="badge" style="background:linear-gradient(90deg, #FF7F50, #FF4500); color:white; font-weight:700; text-transform:uppercase;" aria-label="Rupture de stock">Rupture</div>
             {% endif %}
-            <a href="{{ url_for('painting_detail', painting_id=painting[0]) }}" style="text-decoration: none; color: inherit;">
+            <a href="{{ url_for('painting_detail', painting_id=painting.id) }}" style="text-decoration: none; color: inherit;">
                 <div class="artwork-image-wrapper">
-                    <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}' disponible à la vente">
+                    <img src="{{ url_for('static', filename=painting.image) }}" alt="Peinture '{{ painting.name }}' disponible à la vente">
                 </div>
             </a>
-            {% if painting[0] in favorite_ids %}
-                <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+            {% if painting.id in favorite_ids %}
+                <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
             {% else %}
-                <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+                <a href="{{ url_for('add_favorite', painting_id=painting.id) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
             {% endif %}
             <div class="info">
-                <a href="{{ url_for('painting_detail', painting_id=painting[0]) }}" style="text-decoration: none; color: inherit;">
+                <a href="{{ url_for('painting_detail', painting_id=painting.id) }}" style="text-decoration: none; color: inherit;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3>{{ painting[1] }}</h3>
-                        <span>{{ painting[3] }} €</span>
+                        <h3>{{ painting.name }}</h3>
+                        <span>{{ painting.price }} €</span>
                     </div>
-                    <p class="stock">Stock : {{ painting[4] }}</p>
-                    <small>{{ painting[5] or 'Aucune description disponible.' }}</small>
+                    <p class="stock">Stock : {{ painting.quantity }}</p>
+                    <small>{{ painting.description or 'Aucune description disponible.' }}</small>
                 </a>
-                {% if painting[4] > 0 %}
-                    <button onclick="location.href='/add_to_cart/{{ painting[0] }}'" class="buy-btn" aria-label="Ajouter {{ painting[1] }} au panier">Ajouter au panier</button>
+                {% if painting.quantity > 0 %}
+                    <button onclick="location.href='/add_to_cart/{{ painting.id }}'" class="buy-btn" aria-label="Ajouter {{ painting.name }} au panier">Ajouter au panier</button>
                 {% else %}
                     <button disabled>Indisponible</button>
                 {% endif %}

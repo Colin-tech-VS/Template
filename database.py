@@ -23,9 +23,9 @@ perf_logger = logging.getLogger('db.performance')
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL') or os.environ.get('DATABASE_URL')
 
 if not DATABASE_URL:
-    print("⚠️  ATTENTION: Aucune connexion PostgreSQL/Supabase configurée!")
-    print("⚠️  Définissez SUPABASE_DB_URL ou DATABASE_URL dans les variables d'environnement")
-    print("⚠️  Format: postgresql://user:password@host:port/database")
+    print("[WARNING] Aucune connexion PostgreSQL/Supabase configurée!")
+    print("[WARNING] Définissez SUPABASE_DB_URL ou DATABASE_URL dans les variables d'environnement")
+    print("[WARNING] Format: postgresql://user:password@host:port/database")
     # En production, on doit avoir une DB URL
     # En développement local, utiliser une DB Supabase de test
     raise ValueError("DATABASE_URL non définie - impossible de démarrer sans base de données")

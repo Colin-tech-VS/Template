@@ -168,19 +168,19 @@
     {% if paintings %}
     <div class="gallery-grid" data-gallery id="gallery-grid">
         {% for p in paintings %}
-        <article class="gallery-card" data-painting-id="{{ p[0] }}" {% if user_is_admin %}draggable="true"{% endif %}>
-            <a href="{{ url_for('painting_detail', painting_id=p[0]) }}" style="text-decoration: none; color: inherit; display: block; width: 100%; height: 100%;" class="card-link">
+        <article class="gallery-card" data-painting-id="{{ p.id }}" {% if user_is_admin %}draggable="true"{% endif %}>
+            <a href="{{ url_for('painting_detail', painting_id=p.id) }}" style="text-decoration: none; color: inherit; display: block; width: 100%; height: 100%;" class="card-link">
                 <div class="gallery-image-wrapper">
-                    <img src="{{ url_for('static', filename=p[2]) }}" alt="Peinture '{{ p[1] }}' par l'artiste">
+                    <img src="{{ url_for('static', filename=p.image) }}" alt="Peinture '{{ p.name }}' par l'artiste">
                     <div class="gallery-overlay">
-                        <span class="gallery-title">{{ p[1] }}</span>
+                        <span class="gallery-title">{{ p.name }}</span>
                     </div>
                 </div>
             </a>
-            {% if p[0] in favorite_ids %}
-                <a href="{{ url_for('remove_favorite', painting_id=p[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+            {% if p.id in favorite_ids %}
+                <a href="{{ url_for('remove_favorite', painting_id=p.id) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
             {% else %}
-                <a href="{{ url_for('add_favorite', painting_id=p[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+                <a href="{{ url_for('add_favorite', painting_id=p.id) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
             {% endif %}
             {% if user_is_admin %}
             <div class="drag-indicator">⋮⋮</div>

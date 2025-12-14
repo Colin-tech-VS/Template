@@ -55,21 +55,21 @@
                 <tbody>
                     {% for exhibition in exhibitions %}
                     <tr>
-                        <td>#{{ exhibition[0] }}</td>
-                        <td>{{ exhibition[1] }}</td>
-                        <td>{{ exhibition[2] }}</td>
-                        <td>{{ exhibition[3] }}</td>
+                        <td>#{{ exhibition.id }}</td>
+                        <td>{{ exhibition.title }}</td>
+                        <td>{{ exhibition.location }}</td>
+                        <td>{{ exhibition.date }}</td>
                         <td>
-                            {% if exhibition[7] %}
-                                {{ exhibition[7] }}{% if exhibition[8] %} - {{ exhibition[8] }}{% endif %}
+                            {% if exhibition.start_time %}
+                                {{ exhibition.start_time }}{% if exhibition.end_time %} - {{ exhibition.end_time }}{% endif %}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
-                        <td>{{ exhibition[10] if exhibition[10] else '-' }}</td>
+                        <td>{{ exhibition.organizer if exhibition.organizer else '-' }}</td>
                         <td>
-                            <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition[0]) }}" class="btn-link">Éditer</a>
-                            <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition[0]) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette exhibition ?');">
+                            <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition.id) }}" class="btn-link">Éditer</a>
+                            <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette exhibition ?');">
                                 <button type="submit" class="btn-link btn-danger">Supprimer</button>
                             </form>
                         </td>

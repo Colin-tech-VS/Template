@@ -186,14 +186,14 @@
         {% for painting in paintings[:6] %}
         <article class="artwork-card">
             <div class="artwork-image-wrapper">
-                <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}' par l'artiste">
+                <img src="{{ url_for('static', filename=painting.image) }}" alt="Peinture '{{ painting.name }}' par l'artiste">
                 <div class="artwork-overlay">
-                    <span class="artwork-name">{{ painting[1] }}</span>
+                    <span class="artwork-name">{{ painting.name }}</span>
                 </div>
-                {% if painting[0] in favorite_ids %}
-                    <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
+                {% if painting.id in favorite_ids %}
+                    <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
                 {% else %}
-                    <a href="{{ url_for('add_favorite', painting_id=painting[0]) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
+                    <a href="{{ url_for('add_favorite', painting_id=painting.id) }}" class="favorite-btn" title="Ajouter aux favoris">🤍</a>
                 {% endif %}
             </div>
         </article>

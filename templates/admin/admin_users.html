@@ -83,27 +83,27 @@
                     </thead>
                     <tbody>
                         {% for user in users %}
-                        <tr class="{% if user[3] == 'admin' %}admin-row{% endif %}">
-                            <td class="id">{{ user[0] }}</td>
-                            <td class="name">{{ user[1] }}</td>
-                            <td class="email">{{ user[2] }}</td>
+                        <tr class="{% if user.role == 'admin' %}admin-row{% endif %}">
+                            <td class="id">{{ user.id }}</td>
+                            <td class="name">{{ user.name }}</td>
+                            <td class="email">{{ user.email }}</td>
                             <td>
-                                <span class="role-badge role-{{ user[3] }}">
-                                    {% if user[3] == 'admin' %}👑
-                                    {% elif user[3] == 'partenaire' %}🤝
+                                <span class="role-badge role-{{ user.role }}">
+                                    {% if user.role == 'admin' %}👑
+                                    {% elif user.role == 'partenaire' %}🤝
                                     {% else %}👤
                                     {% endif %}
-                                    {{ user[3]|capitalize }}
+                                    {{ user.role|capitalize }}
                                 </span>
                             </td>
-                            <td class="date">{{ user[4] }}</td>
+                            <td class="date">{{ user.create_date }}</td>
                             <td class="contact">
-                                <a href="mailto:{{ user[2] }}" class="btn-action btn-contact">✉ Contacter</a>
+                                <a href="mailto:{{ user.email }}" class="btn-action btn-contact">✉ Contacter</a>
                             </td>
                             <td class="actions">
-                                {% if user[3] == 'admin' %}
-                                    {% if user[2] != 'coco.cayre@gmail.com' %}
-                                        <form method="post" action="{{ url_for('update_user_role', user_id=user[0]) }}" style="display:inline;" onsubmit="return confirm('Retirer le rôle admin à cet utilisateur ?')">
+                                {% if user.role == 'admin' %}
+                                    {% if user.email != 'coco.cayre@gmail.com' %}
+                                        <form method="post" action="{{ url_for('update_user_role', user_id=user.id) }}" style="display:inline;" onsubmit="return confirm('Retirer le rôle admin à cet utilisateur ?')">
                                             <input type="hidden" name="role" value="user">
                                             <button type="submit" class="btn-action btn-danger">Retirer admin</button>
                                         </form>
@@ -111,11 +111,11 @@
                                         <span class="badge-locked">🔒 Admin principal</span>
                                     {% endif %}
                                 {% else %}
-                                    <form method="post" action="{{ url_for('update_user_role', user_id=user[0]) }}" style="display:inline;">
+                                    <form method="post" action="{{ url_for('update_user_role', user_id=user.id) }}" style="display:inline;">
                                         <select name="role" onchange="this.form.submit()" class="role-select">
-                                            <option value="user" {% if user[3]=='user' %}selected{% endif %}>Utilisateur</option>
-                                            <option value="partenaire" {% if user[3]=='partenaire' %}selected{% endif %}>Partenaire</option>
-                                            <option value="admin" {% if user[3]=='admin' %}selected{% endif %}>Admin</option>
+                                            <option value="user" {% if user.role=='user' %}selected{% endif %}>Utilisateur</option>
+                                            <option value="partenaire" {% if user.role=='partenaire' %}selected{% endif %}>Partenaire</option>
+                                            <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
                                         </select>
                                     </form>
                                 {% endif %}
