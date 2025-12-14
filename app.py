@@ -3869,80 +3869,74 @@ def dynamic_colors():
             --content-text-color: {content_text_color};
             --button-hover-color: {button_hover_color};
         }}
-        
-        /* Apply colors to common elements */
+
+        /* Links use the button/text color (per admin setting) */
         a {{
-            color: {color_primary} !important;
+            color: var(--button-text-color) !important;
+            text-decoration: underline;
         }}
-        
-        a:hover {{
-            color: {button_hover_color} !important;
+
+        a:hover, a:focus {{
+            color: var(--button-hover-color) !important;
         }}
-        
-        button, input[type="button"], input[type="submit"], [role="button"] {{
-            background-color: {color_primary} !important;
-            color: {button_text_color} !important;
-            border-color: {color_primary} !important;
+
+        /* Buttons and actionable elements use primary by default */
+        button, input[type="button"], input[type="submit"], [role="button"], .btn, .btn-primary, .primary, .cta {{
+            background-color: var(--color-primary) !important;
+            color: var(--button-text-color) !important;
+            border-color: var(--color-primary) !important;
         }}
-        
-        button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover {{
-            background-color: {button_hover_color} !important;
-            border-color: {button_hover_color} !important;
-        }}
-        
-        h1, h2, h3, h4, h5, h6 {{
-            color: {color_primary} !important;
-        }}
-        
-        .btn, .btn-primary, .primary, .cta {{
-            background-color: {color_primary} !important;
-            color: {button_text_color} !important;
-            border-color: {color_primary} !important;
-        }}
-        
+
+        /* Hover state for buttons */
+        button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover,
         .btn:hover, .btn-primary:hover, .primary:hover, .cta:hover {{
-            background-color: {button_hover_color} !important;
-            border-color: {button_hover_color} !important;
+            background-color: var(--button-hover-color) !important;
+            border-color: var(--button-hover-color) !important;
         }}
-        
+
+        /* Active state uses accent color */
+        button:active, .btn:active, .btn.active, .primary:active, .primary.active, .cta:active {{
+            background-color: var(--color-accent) !important;
+            border-color: var(--color-accent) !important;
+            color: var(--button-text-color) !important;
+        }}
+
+        /* Headings and important elements use primary */
+        h1, h2, h3, h4, h5, h6 {{
+            color: var(--color-primary) !important;
+        }}
+
+        /* Navigation / secondary areas */
         nav, .navbar, .nav {{
-            background-color: {color_secondary} !important;
+            background-color: var(--color-secondary) !important;
         }}
-        
+
         .btn-secondary, .secondary {{
-            background-color: {color_secondary} !important;
-            color: {button_text_color} !important;
-            border-color: {color_secondary} !important;
+            background-color: var(--color-secondary) !important;
+            color: var(--button-text-color) !important;
+            border-color: var(--color-secondary) !important;
         }}
-        
+
         .btn-secondary:hover, .secondary:hover {{
-            background-color: {button_hover_color} !important;
-            border-color: {button_hover_color} !important;
+            background-color: var(--button-hover-color) !important;
+            border-color: var(--button-hover-color) !important;
         }}
-        
+
+        /* Site text color (content), but preserve buttons/links which override */
         body {{
-            color: {content_text_color} !important;
+            color: var(--content-text-color) !important;
         }}
-        
+
+        /* Accent utility */
         .accent {{
-            color: {accent_color} !important;
+            color: var(--color-accent) !important;
         }}
-        
-        .bg-primary {{
-            background-color: {color_primary} !important;
-        }}
-        
-        .bg-secondary {{
-            background-color: {color_secondary} !important;
-        }}
-        
-        .text-primary {{
-            color: {color_primary} !important;
-        }}
-        
-        .text-secondary {{
-            color: {color_secondary} !important;
-        }}
+
+        /* Helpers */
+        .bg-primary {{ background-color: var(--color-primary) !important; }}
+        .bg-secondary {{ background-color: var(--color-secondary) !important; }}
+        .text-primary {{ color: var(--color-primary) !important; }}
+        .text-secondary {{ color: var(--color-secondary) !important; }}
         """
         response = make_response(css)
         response.mimetype = 'text/css'
