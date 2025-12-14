@@ -1213,13 +1213,32 @@ def api_register_preview():
                       (name, email, hashed_password, 'user'))
             print(f"[REGISTER-PREVIEW] Utilisateur {email} créé avec rôle 'user'")
         
+        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+        user_result = c.fetchone()
+        user_id = safe_row_get(user_result, 'id', index=0)
+        
+        current_domain = request.host
+        c.execute(adapt_query("SELECT id FROM saas_sites WHERE sandbox_url LIKE ?"), 
+                 (f"%{current_domain}%",))
+        existing_site = c.fetchone()
+        
+        if existing_site:
+            site_id = safe_row_get(existing_site, 'id', index=0)
+            c.execute(adapt_query("UPDATE saas_sites SET user_id=?, status=? WHERE id=?"),
+                     (user_id, 'active', site_id))
+        else:
+            c.execute(adapt_query("INSERT INTO saas_sites (user_id, sandbox_url, status) VALUES (?, ?, ?)"),
+                     (user_id, current_domain, 'active'))
+        
         conn.commit()
         conn.close()
         print(f"[REGISTER-PREVIEW] Inscription réussie pour {email}")
         
         return jsonify({
             "success": True,
-            "next_url": url_for('login')
+            "user_id": user_id,
+            "is_first_user": is_first_user,
+            "show_login_modal": True
         })
     except Exception as e:
         conn.close()

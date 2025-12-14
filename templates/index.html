@@ -438,8 +438,16 @@ body {
             const data = await response.json();
             
             if (data.success) {
-                // Inscription réussie, rediriger vers login
-                window.location.href = data.next_url;
+                // Inscription réussie, afficher popup de login
+                const signupModal = document.getElementById('preview-signup-modal');
+                signupModal.style.display = 'none';
+                
+                const loginModal = document.getElementById('preview-login-modal');
+                if (loginModal) {
+                    loginModal.style.display = 'flex';
+                    document.getElementById('login-email').value = email;
+                    document.getElementById('login-password').focus();
+                }
             } else {
                 errorDiv.textContent = data.error || 'Une erreur est survenue';
                 errorDiv.style.display = 'block';
@@ -454,7 +462,166 @@ body {
             submitBtn.textContent = 'S\'inscrire';
         }
     });
+
+    document.getElementById('preview-login-form')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const loginError = document.getElementById('login-error');
+        const loginBtn = document.getElementById('login-submit-btn');
+        
+        loginError.style.display = 'none';
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Connexion en cours...';
+        
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({ email, password })
+            });
+            
+            if (response.ok) {
+                // Connexion réussie, rediriger vers accueil
+                window.location.href = '/';
+            } else {
+                loginError.textContent = 'Email ou mot de passe incorrect';
+                loginError.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Se connecter';
+            }
+        } catch (error) {
+            console.error('Erreur:', error);
+            loginError.textContent = 'Une erreur réseau est survenue';
+            loginError.style.display = 'block';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Se connecter';
+        }
+    });
 </script>
+
+<div id="preview-login-modal" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+">
+    <div style="
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    ">
+        <h2 style="text-align: center; margin: 0 0 30px 0; font-size: 28px;">
+            Bienvenue ! 🎉
+        </h2>
+        
+        <p style="text-align: center; color: #666; margin: 0 0 25px 0;">
+            Votre compte a été créé avec succès. Veuillez vous connecter.
+        </p>
+        
+        <form id="preview-login-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <label for="login-email" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                    Email
+                </label>
+                <input 
+                    type="email"
+                    id="login-email"
+                    name="email"
+                    placeholder="votre@email.com"
+                    required
+                    readonly
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        font-family: 'Poppins', sans-serif;
+                        background: #f5f5f5;
+                    "
+                >
+            </div>
+            
+            <div>
+                <label for="login-password" style="display: block; margin-bottom: 8px; font-weight: 600;">
+                    Mot de passe
+                </label>
+                <input 
+                    type="password"
+                    id="login-password"
+                    name="password"
+                    placeholder="••••••"
+                    required
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                        font-family: 'Poppins', sans-serif;
+                    "
+                >
+            </div>
+            
+            <div id="login-error" style="
+                display: none;
+                padding: 12px;
+                background: #fee;
+                border-left: 4px solid #f44;
+                border-radius: 6px;
+                color: #c00;
+                font-size: 14px;
+                margin-top: 10px;
+            "></div>
+            
+            <button 
+                type="submit"
+                id="login-submit-btn"
+                style="
+                    padding: 14px;
+                    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-weight: 700;
+                    font-size: 16px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    margin-top: 10px;
+                    font-family: 'Poppins', sans-serif;
+                "
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(30,58,138,0.3)';"
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+            >
+                Se connecter
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    #preview-login-form input:focus {
+        outline: none;
+        border-color: #1E3A8A;
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    }
+</style>
+
 {% endif %}
 
 {% endblock %}
