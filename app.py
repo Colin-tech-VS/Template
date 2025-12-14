@@ -3857,8 +3857,8 @@ def dynamic_colors():
         }}
         
         .btn-secondary:hover, .secondary:hover {{
-            background-color: {color_primary} !important;
-            border-color: {color_primary} !important;
+            background-color: {button_hover_color} !important;
+            border-color: {button_hover_color} !important;
         }}
         
         body {{
