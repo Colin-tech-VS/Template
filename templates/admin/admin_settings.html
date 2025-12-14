@@ -256,6 +256,33 @@
     </div>
 </section>
 
+    <!-- LIVE COLOR PREVIEW (placed here to appear under the Design tab) -->
+    <div style="max-width:1000px;margin:10px auto 40px;padding:0 20px;">
+        <div id="color_preview_panel_wrapper">
+            <h3>Aperçu des couleurs appliquées</h3>
+            <p class="section-hint">Visualisez la palette actuelle du site. Les changements via les sélecteurs de couleur mettent à jour cet aperçu en direct.</p>
+
+            <div class="preview-card" id="color_preview_card">
+                <div class="preview-navbar">Logo</div>
+                <div class="preview-hero">
+                    <h4>Bienvenue — Aperçu</h4>
+                    <p class="preview-content">Ceci est un exemple de texte pour vérifier la couleur du contenu.</p>
+                    <div class="preview-actions">
+                        <button class="preview-btn">Call to action</button>
+                        <button class="preview-btn preview-secondary">Secondaire</button>
+                    </div>
+                </div>
+                <div class="preview-swatches">
+                    <div class="swatch"><div class="swatch-sample swatch-primary"></div><span>Primaire</span></div>
+                    <div class="swatch"><div class="swatch-sample swatch-secondary"></div><span>Secondaire</span></div>
+                    <div class="swatch"><div class="swatch-sample swatch-accent"></div><span>Accent</span></div>
+                    <div class="swatch"><div class="swatch-sample swatch-button-text"></div><span>Texte bouton</span></div>
+                    <div class="swatch"><div class="swatch-sample swatch-content-text"></div><span>Texte contenu</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <style>
 * {
     box-sizing: border-box;
@@ -582,6 +609,46 @@
         flex: 1;
     }
 }
+
+/* ------------------ Preview styles ------------------ */
+.preview-card {
+    border: 1px solid #e6eef8;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(15,23,42,0.06);
+}
+.preview-navbar {
+    padding: 12px 18px;
+    background: var(--color-secondary, #3B65C4);
+    color: var(--button-text-color, #fff);
+    font-weight: 700;
+}
+.preview-hero {
+    padding: 24px;
+    background: linear-gradient(180deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
+    color: var(--button-text-color, #fff);
+}
+.preview-hero h4 { margin: 0 0 8px; }
+.preview-content { color: var(--content-text-color, #000); margin-bottom: 12px; }
+.preview-actions { display:flex; gap:12px; }
+.preview-btn {
+    padding: 10px 16px;
+    background: var(--color-primary, #1E3A8A);
+    color: var(--button-text-color, #fff);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.preview-btn.preview-secondary { background: var(--color-secondary, #3B65C4); }
+.preview-btn:hover { background: var(--button-hover-color, #9C27B0); }
+.preview-swatches { display:flex; gap:12px; padding:14px; align-items:center; }
+.swatch { display:flex; align-items:center; gap:8px; font-size:13px; color:#374151; }
+.swatch-sample { width:28px; height:20px; border-radius:4px; border:1px solid rgba(0,0,0,0.08); }
+.swatch-primary { background: var(--color-primary, #1E3A8A); }
+.swatch-secondary { background: var(--color-secondary, #3B65C4); }
+.swatch-accent { background: var(--color-accent, #FF7F50); }
+.swatch-button-text { background: var(--button-text-color, #fff); border:1px solid #e2e8f0; }
+.swatch-content-text { background: var(--content-text-color, #000); }
 </style>
 
 <script>
@@ -669,8 +736,56 @@ document.querySelectorAll('.color-picker').forEach(picker => {
     if (valueDisplay) {
         picker.addEventListener('change', function() {
             valueDisplay.textContent = this.value.toUpperCase();
+            // update live preview variables when user changes a picker
+            const preview = document.getElementById('color_preview_card');
+            if (preview) {
+                const name = this.id; // e.g. primary_color
+                // map input id to CSS variable name
+                const map = {
+                    primary_color: '--color-primary',
+                    secondary_color: '--color-secondary',
+                    accent_color: '--color-accent',
+                    button_text_color: '--button-text-color',
+                    content_text_color: '--content-text-color',
+                    button_hover_color: '--button-hover-color'
+                };
+                const varName = map[name];
+                if (varName) preview.style.setProperty(varName, this.value);
+                // also update swatches if present
+                document.querySelectorAll('.swatch-primary').forEach(el=>el.style.background=this.value);
+            }
         });
     }
+});
+
+// Load colors from the server-generated dynamic CSS and apply to preview
+function loadPreviewColorsFromDynamicCss() {
+    fetch('/dynamic-colors.css', { cache: 'no-store' })
+        .then(r => r.text())
+        .then(text => {
+            // parse CSS variables from :root
+            const vars = {};
+            const rx = /--([a-z0-9-]+)\s*:\s*([^;]+);/gi;
+            let m;
+            while ((m = rx.exec(text)) !== null) {
+                vars[m[1]] = m[2].trim();
+            }
+            const preview = document.getElementById('color_preview_card');
+            if (preview) {
+                Object.keys(vars).forEach(k => preview.style.setProperty('--' + k, vars[k]));
+                // update swatches
+                if (vars['color-primary']) document.querySelectorAll('.swatch-primary').forEach(el=>el.style.background=vars['color-primary']);
+                if (vars['color-secondary']) document.querySelectorAll('.swatch-secondary').forEach(el=>el.style.background=vars['color-secondary']);
+                if (vars['color-accent']) document.querySelectorAll('.swatch-accent').forEach(el=>el.style.background=vars['color-accent']);
+                if (vars['button-text-color']) document.querySelectorAll('.swatch-button-text').forEach(el=>el.style.background=vars['button-text-color']);
+                if (vars['content-text-color']) document.querySelectorAll('.swatch-content-text').forEach(el=>el.style.background=vars['content-text-color']);
+            }
+        })
+        .catch(e => console.warn('Could not load dynamic colors preview:', e));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadPreviewColorsFromDynamicCss();
 });
 
 document.addEventListener('DOMContentLoaded', loadApiKey);
