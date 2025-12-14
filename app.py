@@ -2544,6 +2544,7 @@ def inject_cart():
         "expositions_title": get_setting("expositions_title") or "Expositions",
         "expositions_description": get_setting("expositions_description") or "Découvrez les expositions passées et à venir.",
         "ga4_property": get_setting("ga4_property") or "",
+        "site_about": get_setting("site_about") or get_setting("about_biography_text") or "",
     }
 
     # Si on est en preview, on réécrit les contenus principaux pour la template de preview
