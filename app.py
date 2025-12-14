@@ -1275,6 +1275,7 @@ def login():
             conn.close()
             return jsonify({"success": False, "error": "Email ou mot de passe incorrect"}), 401
         session["user_id"] = user_id
+        session.modified = True
 
         # Récupérer panier invité actuel
         guest_session_id = request.cookies.get("cart_session")
