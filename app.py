@@ -812,19 +812,12 @@ def migrate_db():
 
 
 def generate_invoice_pdf(order, items, total_price):
-    # Extract order fields safely
-    if isinstance(order, dict):
-        order_id = order.get('id')
-        customer_name = order.get('customer_name')
-        email = order.get('email')
-        address = order.get('address')
-        order_date = order.get('order_date')
-    else:
-        order_id = order[0]
-        customer_name = order[1]
-        email = order[2]
-        address = order[3]
-        order_date = order[5]
+    # Extract order fields safely using safe_row_get
+    order_id = safe_row_get(order, 'id', index=0)
+    customer_name = safe_row_get(order, 'customer_name', index=1)
+    email = safe_row_get(order, 'email', index=2)
+    address = safe_row_get(order, 'address', index=3)
+    order_date = safe_row_get(order, 'order_date', index=5)
     
     file_path = f"temp_invoice_{order_id}.pdf"
     c = canvas.Canvas(file_path, pagesize=A4)
@@ -846,14 +839,9 @@ def generate_invoice_pdf(order, items, total_price):
     c.drawString(50, y, "Articles:")
     y -= 20
     for item in items:
-        if isinstance(item, dict):
-            item_name = item.get('name')
-            item_quantity = item.get('quantity')
-            item_price = item.get('price')
-        else:
-            item_name = item[1]
-            item_quantity = item[4]
-            item_price = item[3]
+        item_name = safe_row_get(item, 'name', index=1)
+        item_quantity = safe_row_get(item, 'quantity', index=4)
+        item_price = safe_row_get(item, 'price', index=3)
         c.drawString(60, y, f"{item_name} x {item_quantity} - {item_price} €")
         y -= 20
 
@@ -1027,15 +1015,8 @@ def is_admin():
             print(f"[is_admin] Résultat mal formé pour user_id={user_id}: {type(result)}")
             return False
         
-        # Accès sécurisé au rôle avec RealDictCursor
-        if isinstance(result, dict):
-            role = result.get('role')
-        elif isinstance(result, (tuple, list)) and len(result) > 0:
-            role = result[0]
-        else:
-            print(f"[is_admin] Résultat mal formé pour user_id={user_id}: {type(result)}")
-            return False
-        
+        # Accès sécurisé au rôle avec safe_row_get
+        role = safe_row_get(result, 'role', index=0)
         if role is None:
             print(f"[is_admin] Rôle NULL pour user_id={user_id}")
             return False
@@ -1190,9 +1171,9 @@ def login():
             conn.close()
             flash("Email ou mot de passe incorrect")
             return redirect(url_for("login"))
-        # user peut être tuple ou dict selon le curseur - avec RealDictCursor c'est un dict
-        user_id = user.get('id') if isinstance(user, dict) else user[0]
-        user_password = user.get('password') if isinstance(user, dict) else user[1]
+        # user peut être tuple ou dict - use safe_row_get for compatibility
+        user_id = safe_row_get(user, 'id', index=0)
+        user_password = safe_row_get(user, 'password', index=1)
         if not check_password_hash(user_password, password):
             conn.close()
             flash("Email ou mot de passe incorrect")
@@ -1208,7 +1189,7 @@ def login():
 
         if user_cart:
             # Panier utilisateur existant → récupérer session_id
-            user_cart_session = user_cart.get('session_id') if isinstance(user_cart, dict) else user_cart[1]
+            user_cart_session = safe_row_get(user_cart, 'session_id', index=1)
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
@@ -3762,8 +3743,8 @@ def api_export_full():
                 # Convertir en liste de dictionnaires
                 if rows:
                     # RealDictRow is dict-like, check for 'get' method for duck typing
-                    if rows and hasattr(rows[0], 'get'):
-                        data[table_name] = rows
+                    if hasattr(rows[0], 'get'):
+                        data[table_name] = [dict(row) for row in rows]
                     else:
                         columns = [description[0] for description in cur.description]
                         data[table_name] = [dict(zip(columns, row)) for row in rows]
@@ -3808,11 +3789,13 @@ def api_orders():
         orders_rows = cur.fetchall()
         # Convert to list of dicts (RealDictRow is dict-like)
         orders = []
+        columns = None
         for row in orders_rows:
             if hasattr(row, 'get'):
                 orders.append(dict(row))
             else:
-                columns = [description[0] for description in cur.description]
+                if columns is None:
+                    columns = [description[0] for description in cur.description]
                 orders.append(dict(zip(columns, row)))
         
         # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
@@ -3873,11 +3856,13 @@ def api_users():
         rows = cur.fetchall()
         # Convert to list of dicts (RealDictRow is dict-like)
         users = []
+        columns = None
         for row in rows:
             if hasattr(row, 'get'):
                 users.append(dict(row))
             else:
-                columns = [description[0] for description in cur.description]
+                if columns is None:
+                    columns = [description[0] for description in cur.description]
                 users.append(dict(zip(columns, row)))
         
         site_name = get_setting("site_name") or "Site Artiste"
@@ -3911,11 +3896,13 @@ def api_paintings():
         rows = cur.fetchall()
         # Convert to list of dicts (RealDictRow is dict-like)
         paintings = []
+        columns = None
         for row in rows:
             if hasattr(row, 'get'):
                 paintings.append(dict(row))
             else:
-                columns = [description[0] for description in cur.description]
+                if columns is None:
+                    columns = [description[0] for description in cur.description]
                 paintings.append(dict(zip(columns, row)))
         
         site_name = get_setting("site_name") or "Site Artiste"
@@ -3939,11 +3926,13 @@ def api_exhibitions():
         rows = cur.fetchall()
         # Convert to list of dicts (RealDictRow is dict-like)
         exhibitions = []
+        columns = None
         for row in rows:
             if hasattr(row, 'get'):
                 exhibitions.append(dict(row))
             else:
-                columns = [description[0] for description in cur.description]
+                if columns is None:
+                    columns = [description[0] for description in cur.description]
                 exhibitions.append(dict(zip(columns, row)))
         site_name = get_setting("site_name") or "Site Artiste"
         for exhibition in exhibitions:
