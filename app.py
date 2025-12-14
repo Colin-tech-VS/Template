@@ -1296,7 +1296,7 @@ def api_login_preview():
 
     conn.close()
 
-    resp = make_response(jsonify({"success": True}))
+    resp = jsonify({"success": True})
     resp.set_cookie("cart_session", user_cart_session, max_age=60*60*24*30)
     return resp
 
