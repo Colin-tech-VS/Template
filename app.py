@@ -3774,9 +3774,12 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
 def dynamic_colors():
     """Génère dynamiquement le CSS des couleurs du site"""
     try:
-        color_primary = get_setting("color_primary") or "#6366f1"
-        color_secondary = get_setting("color_secondary") or "#8b5cf6"
-        accent_color = get_setting("accent_color") or "#ff5722"
+        color_primary = get_setting("primary_color") or "#1E3A8A"
+        color_secondary = get_setting("secondary_color") or "#3B65C4"
+        accent_color = get_setting("accent_color") or "#FF7F50"
+        button_text_color = get_setting("button_text_color") or "#FFFFFF"
+        content_text_color = get_setting("content_text_color") or "#000000"
+        button_hover_color = get_setting("button_hover_color") or "#9C27B0"
         
         # Générer le CSS
         css = f"""
@@ -3784,6 +3787,15 @@ def dynamic_colors():
             --color-primary: {color_primary};
             --color-secondary: {color_secondary};
             --color-accent: {accent_color};
+            --button-text-color: {button_text_color};
+            --content-text-color: {content_text_color};
+            --button-hover-color: {button_hover_color};
+        }}
+        
+        * {{
+            --color-primary: {color_primary} !important;
+            --color-secondary: {color_secondary} !important;
+            --color-accent: {accent_color} !important;
         }}
         """
         response = make_response(css)
