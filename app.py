@@ -427,6 +427,34 @@ def safe_row_get(row, key, index=0, default=None):
     except Exception:
         return default
 
+def convert_rows_to_dicts(rows, cur_description):
+    """Convert database rows to list of dicts, handling both RealDictRow and tuple types.
+    
+    Args:
+        rows: List of row objects from fetchall()
+        cur_description: Cursor description for column names
+    
+    Returns:
+        List of dictionaries
+    """
+    if not rows:
+        return []
+    
+    result = []
+    columns = None
+    
+    for row in rows:
+        if hasattr(row, 'get'):
+            # RealDictRow or dict-like object
+            result.append(dict(row))
+        else:
+            # Tuple - need column names
+            if columns is None:
+                columns = [description[0] for description in cur_description]
+            result.append(dict(zip(columns, row)))
+    
+    return result
+
 def get_setting(key, user_id=None):
     """
     Récupère une clé de paramètre
@@ -876,7 +904,7 @@ def get_or_create_cart(conn=None):
 
     c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
     cart_result = c.fetchone()
-    cart_id = safe_row_get(cart_result, 'id', index=0) if cart_result else None
+    cart_id = safe_row_get(cart_result, 'id', index=0)
 
     user_id = session.get("user_id")
     if user_id:
@@ -1006,13 +1034,9 @@ def is_admin():
         result = c.fetchone()
         conn.close()
         
-        # Vérification robuste: result doit être une séquence non vide
+        # Vérification robuste: result doit être non vide
         if result is None:
             print(f"[is_admin] Aucun résultat pour user_id={user_id}")
-            return False
-        
-        if not isinstance(result, (tuple, list)) or len(result) == 0:
-            print(f"[is_admin] Résultat mal formé pour user_id={user_id}: {type(result)}")
             return False
         
         # Accès sécurisé au rôle avec safe_row_get
@@ -3741,15 +3765,7 @@ def api_export_full():
                 rows = cur.fetchall()
                 
                 # Convertir en liste de dictionnaires
-                if rows:
-                    # RealDictRow is dict-like, check for 'get' method for duck typing
-                    if hasattr(rows[0], 'get'):
-                        data[table_name] = [dict(row) for row in rows]
-                    else:
-                        columns = [description[0] for description in cur.description]
-                        data[table_name] = [dict(zip(columns, row)) for row in rows]
-                else:
-                    data[table_name] = []
+                data[table_name] = convert_rows_to_dicts(rows, cur.description) if rows else []
             except Exception as e:
                 print(f"Erreur lors de l'export de {table_name}: {e}")
                 data[table_name] = []
@@ -3787,16 +3803,7 @@ def api_orders():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         orders_rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is dict-like)
-        orders = []
-        columns = None
-        for row in orders_rows:
-            if hasattr(row, 'get'):
-                orders.append(dict(row))
-            else:
-                if columns is None:
-                    columns = [description[0] for description in cur.description]
-                orders.append(dict(zip(columns, row)))
+        orders = convert_rows_to_dicts(orders_rows, cur.description)
         
         # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
         order_ids = [o['id'] for o in orders]
@@ -3854,16 +3861,7 @@ def api_users():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is dict-like)
-        users = []
-        columns = None
-        for row in rows:
-            if hasattr(row, 'get'):
-                users.append(dict(row))
-            else:
-                if columns is None:
-                    columns = [description[0] for description in cur.description]
-                users.append(dict(zip(columns, row)))
+        users = convert_rows_to_dicts(rows, cur.description)
         
         site_name = get_setting("site_name") or "Site Artiste"
         for user in users:
@@ -3894,16 +3892,7 @@ def api_paintings():
             LIMIT %s OFFSET %s
         """), (limit, offset))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is dict-like)
-        paintings = []
-        columns = None
-        for row in rows:
-            if hasattr(row, 'get'):
-                paintings.append(dict(row))
-            else:
-                if columns is None:
-                    columns = [description[0] for description in cur.description]
-                paintings.append(dict(zip(columns, row)))
+        paintings = convert_rows_to_dicts(rows, cur.description)
         
         site_name = get_setting("site_name") or "Site Artiste"
         for painting in paintings:
@@ -3924,16 +3913,7 @@ def api_exhibitions():
         cur = conn.cursor()
         cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions ORDER BY date DESC"))
         rows = cur.fetchall()
-        # Convert to list of dicts (RealDictRow is dict-like)
-        exhibitions = []
-        columns = None
-        for row in rows:
-            if hasattr(row, 'get'):
-                exhibitions.append(dict(row))
-            else:
-                if columns is None:
-                    columns = [description[0] for description in cur.description]
-                exhibitions.append(dict(zip(columns, row)))
+        exhibitions = convert_rows_to_dicts(rows, cur.description)
         site_name = get_setting("site_name") or "Site Artiste"
         for exhibition in exhibitions:
             exhibition["site_name"] = site_name
