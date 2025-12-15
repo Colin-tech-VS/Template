@@ -52,6 +52,7 @@ from datetime import datetime, date
 from functools import wraps
 import os
 import time
+from jinja2 import FileSystemLoader, ChoiceLoader
 import smtplib
 import uuid
 import secrets
@@ -131,6 +132,27 @@ app.config.update(
     MAIL_PASSWORD='psgk wjhd wbdj gduo'
 )
 mail = Mail(app)
+
+# Per-site templates: if `templates/sites/<slug>/` exists, use it first then fallback to default templates/
+@app.before_request
+def select_site_template_loader():
+    try:
+        host = request.host.split(':')[0].lower()
+        # sanitize host into a folder-friendly slug
+        slug = secure_filename(host).replace('-', '_')
+        site_templates_dir = os.path.join(app.root_path, 'templates', 'sites', slug)
+        default_templates_dir = os.path.join(app.root_path, 'templates')
+        if os.path.isdir(site_templates_dir):
+            app.jinja_loader = ChoiceLoader([
+                FileSystemLoader(site_templates_dir),
+                FileSystemLoader(default_templates_dir)
+            ])
+        else:
+            # ensure default loader
+            app.jinja_loader = FileSystemLoader(default_templates_dir)
+    except Exception:
+        # if anything goes wrong, leave loader as default
+        pass
 
 # --- Performance: optional HTTP compression (Flask-Compress) ---
 try:
