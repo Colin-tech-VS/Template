@@ -19,9 +19,9 @@
 {% if paintings %}
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
     {% for painting in paintings %}
-    <div class="admin-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+    <div class="admin-card painting-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
         <!-- IMAGE -->
-        <div style="position: relative; width: 100%; padding-bottom: 100%; overflow: hidden; background: #f0f0f0;">
+        <div class="painting-image-container" style="position: relative; width: 100%; padding-bottom: 100%; overflow: hidden; background: #f0f0f0;">
             <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;">
             
             <!-- HOVER OVERLAY -->
@@ -51,7 +51,7 @@
 </div>
 
 <style>
-.painting-overlay:hover {
+.painting-card:hover .painting-overlay {
     opacity: 1;
 }
 </style>
