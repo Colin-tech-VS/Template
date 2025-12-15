@@ -2853,12 +2853,12 @@ def profile():
         return redirect(url_for("home"))
 
     # Récupérer uniquement les commandes de l'utilisateur connecté
-    c.execute("""
+    c.execute(adapt_query("""
         SELECT id, customer_name, email, address, total_price, order_date, status
         FROM orders
         WHERE user_id=?
         ORDER BY order_date DESC
-    """, (user_id,))
+    """), (user_id,))
     user_orders = c.fetchall()
 
     # Récupérer les articles pour chaque commande
@@ -2866,12 +2866,12 @@ def profile():
     order_totals = {}
     for order in user_orders:
         order_id = safe_row_get(order, 'id', index=0)
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
             JOIN paintings p ON oi.painting_id = p.id
             WHERE oi.order_id=?
-        """, (order_id,))
+        """), (order_id,))
         items = c.fetchall()
         all_items[order_id] = items
         order_totals[order_id] = sum(
@@ -2882,14 +2882,14 @@ def profile():
 
     # Récupérer les peintures favorites de l'utilisateur (hors boucle)
     favorite_paintings = []
-    c.execute("""
+    c.execute(adapt_query("""
         SELECT p.id, p.name, p.image, p.price, p.quantity, p.description
         FROM paintings p
         JOIN favorites f ON p.id = f.painting_id
         WHERE f.user_id=?
         ORDER BY f.created_date DESC
         LIMIT 6
-    """, (user_id,))
+    """), (user_id,))
     favorite_paintings = c.fetchall()
 
     # Formater les commandes pour le template
@@ -2942,6 +2942,68 @@ def profile():
         order_totals=order_totals,
         orders_count=len(user_orders),
         favorite_paintings=favorite_paintings
+    )
+
+
+@app.route('/orders')
+def orders():
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Vous devez être connecté pour accéder à vos commandes.")
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    c = conn.cursor()
+
+    c.execute(adapt_query("""
+        SELECT id, customer_name, email, address, total_price, order_date, status
+        FROM orders
+        WHERE user_id=?
+        ORDER BY order_date DESC
+    """), (user_id,))
+    orders_list = c.fetchall()
+
+    all_items = {}
+    for order in orders_list:
+        order_id = safe_row_get(order, 'id', index=0)
+        c.execute(adapt_query("""
+            SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
+            FROM order_items oi
+            JOIN paintings p ON oi.painting_id = p.id
+            WHERE oi.order_id=?
+        """), (order_id,))
+        items = c.fetchall()
+        all_items[order_id] = items
+
+    conn.close()
+
+    formatted_orders = []
+    for order in orders_list:
+        if isinstance(order, dict):
+            formatted_orders.append({
+                'id': order.get('id'),
+                'customer_name': order.get('customer_name'),
+                'email': order.get('email'),
+                'address': order.get('address'),
+                'total': order.get('total_price'),
+                'date': order.get('order_date'),
+                'status': order.get('status')
+            })
+        else:
+            formatted_orders.append({
+                'id': order[0],
+                'customer_name': order[1],
+                'email': order[2],
+                'address': order[3],
+                'total': order[4],
+                'date': order[5],
+                'status': order[6]
+            })
+
+    return render_template(
+        "order.html",
+        orders=formatted_orders,
+        all_items=all_items
     )
 
 
