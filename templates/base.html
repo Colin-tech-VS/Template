@@ -35,6 +35,9 @@
         /* USER MENU / MEGA MENU */
         .user-menu {position: relative; cursor: pointer;}
         .user-menu > a {cursor: pointer; user-select: none;}
+        /* Ensure nav links (including 'Mon Compte') inherit the navbar color */
+        nav a, nav a:visited { color: inherit; text-decoration: none; }
+        .user-menu > a { color: inherit; background: transparent; }
         
         .user-menu-content {
             display: none;
