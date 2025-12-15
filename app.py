@@ -1,3 +1,5 @@
+import os
+
 # Fonction pour récupérer dynamiquement la clé Stripe depuis le dashboard central
 def get_stripe_secret_key():
     # 1) env var (highest priority)
