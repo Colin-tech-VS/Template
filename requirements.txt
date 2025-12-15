@@ -43,4 +43,5 @@ gunicorn
 # Use psycopg (psycopg3) which provides `psycopg_pool` and wheels compatible
 # with newer Python versions. The binary extra gives prebuilt wheels.
 psycopg[binary]>=3.0.0
+psycopg_pool>=1.0.0
 
