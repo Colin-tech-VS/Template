@@ -2136,7 +2136,16 @@ def checkout_success():
         # 3) Ajouter les items + mettre à jour les stocks
         # ----------------------------------------------------------
         for item in items:
-            painting_id, name, image, price, qty, available_qty = item
+            # Support both dict rows (RealDictCursor) and tuple rows
+            if isinstance(item, dict):
+                painting_id = item.get('id') or item.get('painting_id')
+                name = item.get('name')
+                image = item.get('image', '')
+                price = item.get('price', 0)
+                qty = item.get('quantity') or item.get('qty') or 0
+                available_qty = item.get('available_qty', item.get('quantity', 0))
+            else:
+                painting_id, name, image, price, qty, available_qty = item
 
             c.execute(
                 "INSERT INTO order_items (order_id, painting_id, quantity, price) VALUES (?, ?, ?, ?)",
