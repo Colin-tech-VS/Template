@@ -221,7 +221,7 @@
             {% for painting in favorite_paintings %}
             <article class="favorite-card">
                 <div class="favorite-image">
-                    <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}'">
+                    <img src="{{ url_for('static', filename=painting[2]) }}" alt="Peinture '{{ painting[1] }}'" loading="lazy" decoding="async">
                     <a href="{{ url_for('remove_favorite', painting_id=painting[0]) }}" class="favorite-btn favorite-btn-active" title="Retirer des favoris">❤️</a>
                 </div>
                 <div class="favorite-info">

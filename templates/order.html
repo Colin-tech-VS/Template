@@ -63,7 +63,7 @@
             <div class="order-items">
                 {% for item in all_items[order[0]] %}
                 <div class="order-item">
-                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}" loading="lazy" decoding="async">
                     <div class="order-item-info">
                         <p class="name">{{ item[1] }}</p>
                         <p class="details">{{ item[4] }} × {{ item[3] }} €</p>

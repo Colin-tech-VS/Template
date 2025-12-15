@@ -335,7 +335,7 @@
                                     {% set item_qty = item[4] %}
                                 {% endif %}
                                 <div class="cart-item">
-                                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}">
+                                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}" loading="lazy" decoding="async">
                                     <div class="cart-item-details">
                                         <p>{{ item_name }}</p>
                                         <p>{{ item_qty }} × {{ item_price }} €</p>

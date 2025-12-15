@@ -60,7 +60,7 @@
             <tbody>
                 {% for item in items %}
                 <tr>
-                    <td><img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}"></td>
+                    <td><img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}" loading="lazy" decoding="async"></td>
                     <td>{{ item[1] }}</td>
                     <td>{{ item[3] }} €</td>
                     <td>{{ item[4] }}</td>

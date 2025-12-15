@@ -166,7 +166,7 @@
             {% endif %}
             <a href="{{ url_for('painting_detail', painting_id=painting.id) }}" style="text-decoration: none; color: inherit;">
                 <div class="artwork-image-wrapper">
-                    <img src="{{ url_for('static', filename=painting.image) }}" alt="Peinture '{{ painting.name }}' disponible à la vente">
+                    <img src="{{ url_for('static', filename=painting.image) }}" alt="Peinture '{{ painting.name }}' disponible à la vente" loading="lazy" decoding="async">
                 </div>
             </a>
             {% if painting.id in favorite_ids %}

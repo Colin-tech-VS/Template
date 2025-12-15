@@ -504,24 +504,24 @@
             
             <div class="thumbnails">
                 <div class="thumbnail active" onclick="changeImage('{{ url_for('static', filename=painting.image) }}', this)">
-                    <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}">
+                    <img src="{{ url_for('static', filename=painting.image) }}" alt="{{ painting.name }}" loading="lazy" decoding="async">
                 </div>
                 
                 {% if painting.image_2 %}
                 <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_2) }}', this)">
-                    <img src="{{ url_for('static', filename=painting.image_2) }}" alt="{{ painting.name }}">
+                    <img src="{{ url_for('static', filename=painting.image_2) }}" alt="{{ painting.name }}" loading="lazy" decoding="async">
                 </div>
                 {% endif %}
                 
                 {% if painting.image_3 %}
                 <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_3) }}', this)">
-                    <img src="{{ url_for('static', filename=painting.image_3) }}" alt="{{ painting.name }}">
+                    <img src="{{ url_for('static', filename=painting.image_3) }}" alt="{{ painting.name }}" loading="lazy" decoding="async">
                 </div>
                 {% endif %}
                 
                 {% if painting.image_4 %}
                 <div class="thumbnail" onclick="changeImage('{{ url_for('static', filename=painting.image_4) }}', this)">
-                    <img src="{{ url_for('static', filename=painting.image_4) }}" alt="{{ painting.name }}">
+                    <img src="{{ url_for('static', filename=painting.image_4) }}" alt="{{ painting.name }}" loading="lazy" decoding="async">
                 </div>
                 {% endif %}
             </div>

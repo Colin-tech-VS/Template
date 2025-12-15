@@ -51,6 +51,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
 from functools import wraps
 import os
+import time
 import smtplib
 import uuid
 import secrets
@@ -71,6 +72,7 @@ from flask_mail import Mail
 from openpyxl import Workbook
 from io import BytesIO
 from dotenv import load_dotenv
+from PIL import Image
 
 # Charger les variables d'environnement depuis .env
 load_dotenv()
@@ -130,6 +132,29 @@ app.config.update(
 )
 mail = Mail(app)
 
+# --- Performance: optional HTTP compression (Flask-Compress) ---
+try:
+    from flask_compress import Compress
+    Compress(app)
+    print('[PERF] Flask-Compress enabled')
+except Exception as _e:
+    print('[PERF] Flask-Compress not enabled (package missing or init error)')
+
+
+# Add caching headers for static assets to reduce repeat downloads
+@app.after_request
+def set_static_cache_headers(response):
+    try:
+        # Only for successful GETs to the static folder
+        if request.method == 'GET' and request.path.startswith('/static/') and response.status_code == 200:
+            # Only set if not already present
+            if 'Cache-Control' not in response.headers:
+                # long cache for static files — update filenames on deploy to bust cache
+                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+    except Exception:
+        pass
+    return response
+
 # Dossiers de stockage
 app.config['UPLOAD_FOLDER'] = 'static/Images'        # pour les peintures
 app.config['EXPO_UPLOAD_FOLDER'] = 'static/expo_images'  # pour les exhibitions
@@ -140,6 +165,41 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 # Vérification d'extension
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# Helper: save uploaded file and create a WebP version; return DB path (optionally prefixed)
+def save_image_and_convert_to_webp(file, dest_folder, db_prefix=None, quality=80):
+    """Save uploaded file to dest_folder and write a .webp copy.
+    If db_prefix is provided, return f"{db_prefix}/{base}.webp", else return base.webp filename.
+    """
+    filename = secure_filename(file.filename)
+    name, ext = os.path.splitext(filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    base = f"{name}_{timestamp}"
+    os.makedirs(dest_folder, exist_ok=True)
+    original_path = os.path.join(dest_folder, f"{base}{ext}")
+    file.save(original_path)
+
+    try:
+        img = Image.open(original_path)
+        # Convert RGBA -> RGB for WebP compatibility when necessary
+        if img.mode in ("RGBA", "LA"):
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])
+            img = background
+        else:
+            img = img.convert("RGB")
+
+        webp_name = f"{base}.webp"
+        webp_path = os.path.join(dest_folder, webp_name)
+        img.save(webp_path, "WEBP", quality=quality, method=6)
+    except Exception:
+        # If conversion fails, fall back to original filename
+        webp_name = f"{base}{ext}"
+
+    if db_prefix:
+        return f"{db_prefix}/{webp_name}"
+    return webp_name
 
 
 def get_order_by_id(order_id):
@@ -1792,10 +1852,9 @@ def add_exhibition():
 
         image_filename = None
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            os.makedirs(app.config['EXPO_UPLOAD_FOLDER'], exist_ok=True)
-            file.save(os.path.join(app.config['EXPO_UPLOAD_FOLDER'], filename))
-            image_filename = filename
+            # Save expo image and convert to webp; store filename only (templates prefix expo_images/)
+            webp_fname = save_image_and_convert_to_webp(file, app.config['EXPO_UPLOAD_FOLDER'], db_prefix=None)
+            image_filename = webp_fname
 
         conn = get_db()
         c = conn.cursor()
@@ -1840,10 +1899,8 @@ def edit_exhibition(exhibition_id):
 
         image_filename = safe_row_get(exhibition, 'image', index=5)
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            os.makedirs(app.config['EXPO_UPLOAD_FOLDER'], exist_ok=True)
-            file.save(os.path.join(app.config['EXPO_UPLOAD_FOLDER'], filename))
-            image_filename = filename
+            webp_fname = save_image_and_convert_to_webp(file, app.config['EXPO_UPLOAD_FOLDER'], db_prefix=None)
+            image_filename = webp_fname
 
         c.execute("""
             UPDATE exhibitions
@@ -2360,11 +2417,9 @@ def admin_settings_page():
                 name, ext = os.path.splitext(filename)
                 unique_filename = f"biography_{timestamp}{ext}"
                 
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                file.save(filepath)
-                
-                # Mettre à jour le setting avec le nouveau chemin
-                set_setting("about_biography_image", f"Images/{unique_filename}")
+                # Save and convert to WebP, store DB path with Images/ prefix
+                db_image = save_image_and_convert_to_webp(file, app.config['UPLOAD_FOLDER'], db_prefix='Images')
+                set_setting("about_biography_image", db_image)
                 image_uploaded = True
         
         # Gestion de la checkbox enable_custom_orders
@@ -2515,9 +2570,9 @@ def add_painting_web():
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            image_path = f'Images/{filename}'
+            # Save main image and convert to WebP; store DB path prefixed with Images/
+            db_image = save_image_and_convert_to_webp(file, app.config['UPLOAD_FOLDER'], db_prefix='Images')
+            image_path = db_image
             
             # Gestion des images additionnelles
             image_2 = None
@@ -2528,14 +2583,13 @@ def add_painting_web():
                 if field_name in request.files:
                     file_extra = request.files[field_name]
                     if file_extra.filename and allowed_file(file_extra.filename):
-                        filename_extra = secure_filename(file_extra.filename)
-                        file_extra.save(os.path.join(app.config['UPLOAD_FOLDER'], filename_extra))
+                        webp_extra = save_image_and_convert_to_webp(file_extra, app.config['UPLOAD_FOLDER'], db_prefix='Images')
                         if i == 2:
-                            image_2 = f'Images/{filename_extra}'
+                            image_2 = webp_extra
                         elif i == 3:
-                            image_3 = f'Images/{filename_extra}'
+                            image_3 = webp_extra
                         elif i == 4:
-                            image_4 = f'Images/{filename_extra}'
+                            image_4 = webp_extra
 
             create_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

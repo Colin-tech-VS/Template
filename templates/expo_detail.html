@@ -99,7 +99,7 @@
     <!-- IMAGE PRINCIPALE -->
         <div class="expo-image">
             {% if image_url %}
-                <img src="{{ image_url }}" alt="{{ expo[1] }}">
+                <img src="{{ image_url }}" alt="{{ expo[1] }}" loading="lazy" decoding="async">
             {% endif %}
         </div>
 

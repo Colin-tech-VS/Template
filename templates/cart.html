@@ -281,7 +281,7 @@
 
             <div class="cart-new__card">
                 <div class="cart-new__image-container">
-                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}">
+                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}" loading="lazy" decoding="async">
                     <a href="/remove_from_cart/{{ item_id }}" class="cart-new__remove">×</a>
                 </div>
                 <div class="cart-new__details">
@@ -319,7 +319,7 @@
             {% endif %}
             <div class="cart-new__summary-row">
                 <div class="cart-new__summary-product">
-                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}">
+                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}" loading="lazy" decoding="async">
                     <span>{{ item_name }} (x{{ item_qty }})</span>
                 </div>
                 <span class="cart-new__summary-price">{{ (item_price * item_qty)|round(2) }} €</span>

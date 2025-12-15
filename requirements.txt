@@ -40,6 +40,7 @@ webencodings==0.5.1
 Werkzeug==3.1.3
 zopfli==0.4.0
 gunicorn
+Flask-Compress==1.15.0
 # Use psycopg (psycopg3) which provides `psycopg_pool` and wheels compatible
 # with newer Python versions. The binary extra gives prebuilt wheels.
 psycopg[binary]>=3.0.0

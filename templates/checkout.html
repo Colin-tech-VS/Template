@@ -34,7 +34,7 @@
             <h3>Votre panier</h3>
             {% for item in items %}
             <div class="checkout-item">
-                <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
+                <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}" loading="lazy" decoding="async">
                 <div class="checkout-info">
                     <p class="item-name">{{ item[1] }}</p>
                     <p class="item-details">{{ item[4] }} × {{ item[3] }} €</p>

@@ -197,7 +197,7 @@ body {
                 <span class="badge" aria-label="Nouvelle œuvre">Nouveau</span>
                 <div class="artwork-image-wrapper">
                     <img src="{{ url_for('static', filename=painting.image) }}" 
-                         alt="Peinture '{{ painting.name }}' par l'artiste">
+                        alt="Peinture '{{ painting.name }}' par l'artiste" loading="lazy" decoding="async">
                     {% if painting.id in favorite_ids %}
                         <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active">❤️</a>
                     {% else %}
@@ -231,9 +231,9 @@ body {
             {% if painting.quantity == 0 %}
                 <span class="badge" style="background:#FF6347;">Rupture</span>
             {% endif %}
-            <div class="artwork-image-wrapper">
-                <img src="{{ url_for('static', filename=painting.image) }}" 
-                     alt="Peinture '{{ painting.name }}' disponible en boutique">
+             <div class="artwork-image-wrapper">
+             <img src="{{ url_for('static', filename=painting.image) }}" 
+                 alt="Peinture '{{ painting.name }}' disponible en boutique" loading="lazy" decoding="async">
                 {% if painting.id in favorite_ids %}
                     <a href="{{ url_for('remove_favorite', painting_id=painting.id) }}" class="favorite-btn favorite-btn-active">❤️</a>
                 {% else %}
