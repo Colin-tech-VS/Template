@@ -1272,34 +1272,33 @@ def register():
         try:
             # Check if email already exists to avoid UniqueViolation
             c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
-                    existing = c.fetchone()
-                    if existing:
-                        conn.close()
-                        print(f"[REGISTER] Email déjà utilisé: {email}")
-                        flash("Cet email est déjà utilisé.")
-                        return redirect(url_for('register'))
+            existing = c.fetchone()
+            if existing:
+                conn.close()
+                print(f"[REGISTER] Email déjà utilisé: {email}")
+                flash("Cet email est déjà utilisé.")
+                return redirect(url_for('register'))
 
-                    print(f"[REGISTER] Début inscription: {email}")
-                
-                    c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
-                    count_result = c.fetchone()
-                    user_count = safe_row_get(count_result, 'count', index=0, default=0)
-                    is_first_user = (user_count == 0)
-                
-                    if is_first_user:
-                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                                  (name, email, hashed_password, 'admin'))
-                        print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
-                    else:
-                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                                  (name, email, hashed_password, 'user'))
-                        print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
-                
-                    conn.commit()
-                    conn.close()
-                    print(f"[REGISTER] Inscription réussie pour {email}")
-                    flash("Inscription réussie !")
-                    return redirect(url_for('login'))
+            print(f"[REGISTER] Début inscription: {email}")
+            c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+            count_result = c.fetchone()
+            user_count = safe_row_get(count_result, 'count', index=0, default=0)
+            is_first_user = (user_count == 0)
+
+            if is_first_user:
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'admin'))
+                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+            else:
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'user'))
+                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
+
+            conn.commit()
+            conn.close()
+            print(f"[REGISTER] Inscription réussie pour {email}")
+            flash("Inscription réussie !")
+            return redirect(url_for('login'))
     return render_template("register.html")
 
 
