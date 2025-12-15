@@ -1,3 +1,16 @@
+nav .user-menu > a {
+    background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4)) !important;
+    color: var(--button-text-color, #fff) !important;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 600;
+    transition: background 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+nav .user-menu > a:hover {
+    background: var(--button-hover-color, #2556D4) !important;
+    color: var(--button-text-color, #fff) !important;
+}
 /*------------------------------------------------*/
 /* THEME TOKENS (fallbacks) */
 /*------------------------------------------------*/
