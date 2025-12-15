@@ -2117,7 +2117,7 @@ def checkout_success():
             hashed_pw = generate_password_hash(temp_password)
 
             c.execute(
-                "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
                 (customer_name, email, hashed_pw)
             )
             conn.commit()
@@ -2130,10 +2130,10 @@ def checkout_success():
         # 2) Créer la commande (AVEC address)
         # ----------------------------------------------------------
         c.execute(
-            """
+            adapt_query("""
             INSERT INTO orders (customer_name, email, address, total_price, order_date, user_id)
             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-            """,
+            """),
             (customer_name, email, address, total_price, user_id)
         )
         order_id = c.lastrowid
@@ -2162,12 +2162,12 @@ def checkout_success():
                 painting_id, name, image, price, qty, available_qty = item
 
             c.execute(
-                "INSERT INTO order_items (order_id, painting_id, quantity, price) VALUES (?, ?, ?, ?)",
+                adapt_query("INSERT INTO order_items (order_id, painting_id, quantity, price) VALUES (?, ?, ?, ?)"),
                 (order_id, painting_id, qty, price)
             )
 
             c.execute(
-                "UPDATE paintings SET quantity = quantity - ? WHERE id = ?",
+                adapt_query("UPDATE paintings SET quantity = quantity - ? WHERE id = ?"),
                 (qty, painting_id)
             )
 
@@ -2190,7 +2190,7 @@ def checkout_success():
 
         # Admin
         c.execute(
-            "INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)",
+            adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)"),
             (None,
              f"Nouvelle commande #{order_id} passée par {customer_name} ({email})",
              "new_order",
@@ -2200,7 +2200,7 @@ def checkout_success():
 
         # User
         c.execute(
-            "INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)",
+            adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)"),
             (user_id,
              f"Votre commande #{order_id} a été confirmée !",
              "order_success",
