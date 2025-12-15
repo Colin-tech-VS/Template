@@ -1251,9 +1251,8 @@ def register():
         conn = get_db()
         c = conn.cursor()
         try:
-                try:
-                    # Check if email already exists to avoid UniqueViolation
-                    c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+            # Check if email already exists to avoid UniqueViolation
+            c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
                     existing = c.fetchone()
                     if existing:
                         conn.close()
