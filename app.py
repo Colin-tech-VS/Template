@@ -3449,7 +3449,7 @@ def update_order_status(order_id, status):
 def admin_order_detail(order_id):
     """Détail commande - OPTIMISÉ: colonnes spécifiques + JOIN au lieu de N+1"""
     if not is_admin():
-        return redirect(url_for("index"))
+        return redirect(url_for("home"))
 
     conn = get_db()
     c = conn.cursor()
@@ -3869,56 +3869,6 @@ def dynamic_colors():
         }
 
         css = render_template('dynamic_colors.css.j2', settings=settings)
-
-        /* Hover state for buttons */
-        button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover,
-        .btn:hover, .btn-primary:hover, .primary:hover, .cta:hover {{
-            background-color: var(--button-hover-color) !important;
-            border-color: var(--button-hover-color) !important;
-        }}
-
-        /* Active state uses accent color */
-        button:active, .btn:active, .btn.active, .primary:active, .primary.active, .cta:active {{
-            background-color: var(--color-accent) !important;
-            border-color: var(--color-accent) !important;
-            color: var(--button-text-color) !important;
-        }}
-
-        /* Keep headings default; use utility classes for primary text */
-        /* Removed global heading color to avoid overriding content text color */
-
-        /* Navigation / secondary areas */
-        nav, .navbar, .nav {{
-            background-color: var(--color-secondary) !important;
-        }}
-
-        .btn-secondary, .secondary {{
-            background-color: var(--color-secondary) !important;
-            color: var(--button-text-color) !important;
-            border-color: var(--color-secondary) !important;
-        }}
-
-        .btn-secondary:hover, .secondary:hover {{
-            background-color: var(--button-hover-color) !important;
-            border-color: var(--button-hover-color) !important;
-        }}
-
-        /* Site text color (content), but preserve buttons/links which override */
-        body {{
-            color: var(--content-text-color) !important;
-        }}
-
-        /* Accent utility */
-        .accent {{
-            color: var(--color-accent) !important;
-        }}
-
-        /* Helpers */
-        .bg-primary {{ background-color: var(--color-primary) !important; }}
-        .bg-secondary {{ background-color: var(--color-secondary) !important; }}
-        .text-primary {{ color: var(--color-primary) !important; }}
-        .text-secondary {{ color: var(--color-secondary) !important; }}
-        """
         response = make_response(css)
         response.mimetype = 'text/css'
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
