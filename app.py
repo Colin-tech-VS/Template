@@ -1930,12 +1930,12 @@ def cart():
     conn = get_db()
     c = conn.cursor()
 
-    c.execute('''
+    c.execute(adapt_query('''
         SELECT paintings.id, paintings.name, paintings.image, paintings.price, cart_items.quantity, paintings.description
         FROM cart_items
         JOIN paintings ON cart_items.painting_id = paintings.id
         WHERE cart_items.cart_id=?
-    ''', (cart_id,))
+    '''), (cart_id,))
     items = c.fetchall()
     conn.close()
 
@@ -1972,12 +1972,12 @@ def checkout():
     c = conn.cursor()
 
     # Récupérer les articles du panier
-    c.execute('''
+    c.execute(adapt_query('''
         SELECT paintings.id, paintings.name, paintings.image, paintings.price, cart_items.quantity, paintings.quantity
         FROM cart_items
         JOIN paintings ON cart_items.painting_id = paintings.id
         WHERE cart_items.cart_id=?
-    ''', (cart_id,))
+    '''), (cart_id,))
     items = c.fetchall()
 
     if not items:
