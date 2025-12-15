@@ -3852,40 +3852,23 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
 def dynamic_colors():
     """Génère dynamiquement le CSS des couleurs du site"""
     try:
-        color_primary = get_setting("primary_color") or "#1E3A8A"
-        color_secondary = get_setting("secondary_color") or "#3B65C4"
-        accent_color = get_setting("accent_color") or "#FF7F50"
-        button_text_color = get_setting("button_text_color") or "#FFFFFF"
-        content_text_color = get_setting("content_text_color") or "#000000"
-        button_hover_color = get_setting("button_hover_color") or "#9C27B0"
-        
-        css = f"""
-        /* Variables CSS */
-        :root {{
-            --color-primary: {color_primary};
-            --color-secondary: {color_secondary};
-            --color-accent: {accent_color};
-            --button-text-color: {button_text_color};
-            --content-text-color: {content_text_color};
-            --button-hover-color: {button_hover_color};
-        }}
+        # Use a template file to render dynamic color tokens
+        settings = {
+            'primary_color': get_setting("primary_color"),
+            'secondary_color': get_setting("secondary_color"),
+            'accent_color': get_setting("accent_color"),
+            'button_text_color': get_setting("button_text_color"),
+            'content_text_color': get_setting("content_text_color"),
+            'button_hover_color': get_setting("button_hover_color"),
+            'background_color': get_setting("background_color"),
+            'success_color': get_setting("success_color"),
+            'warning_color': get_setting("warning_color"),
+            'error_color': get_setting("error_color"),
+            'muted_color': get_setting("muted_color"),
+            'surface_color': get_setting("surface_color"),
+        }
 
-        /* Links use the button/text color (per admin setting) */
-        a {{
-            color: var(--button-text-color) !important;
-            text-decoration: underline;
-        }}
-
-        a:hover, a:focus {{
-            color: var(--button-hover-color) !important;
-        }}
-
-        /* Buttons and actionable elements use primary by default */
-        button, input[type="button"], input[type="submit"], [role="button"], .btn, .btn-primary, .primary, .cta {{
-            background-color: var(--color-primary) !important;
-            color: var(--button-text-color) !important;
-            border-color: var(--color-primary) !important;
-        }}
+        css = render_template('dynamic_colors.css.j2', settings=settings)
 
         /* Hover state for buttons */
         button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover,

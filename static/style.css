@@ -1,4 +1,31 @@
 /*------------------------------------------------*/
+/* THEME TOKENS (fallbacks) */
+/*------------------------------------------------*/
+:root {
+    /* token fallbacks used until dynamic CSS loads */
+    --token-color-primary: #1E3A8A;
+    --token-color-secondary: #3B65C4;
+    --token-color-accent: #FF7F50;
+    --token-bg: #ffffff;
+    --token-text: #222222;
+    --token-button-text: #FFFFFF;
+    --token-button-hover: #2556D4;
+    --token-success: #4CAF50;
+    --token-warning: #FFC107;
+    --token-error: #FF6347;
+    --token-text-muted: #666666;
+    --token-surface: #ffffff;
+
+    /* short aliases for compatibility */
+    --color-primary: var(--token-color-primary);
+    --color-secondary: var(--token-color-secondary);
+    --color-accent: var(--token-color-accent);
+    --button-text-color: var(--token-button-text);
+    --content-text-color: var(--token-text);
+    --button-hover-color: var(--token-button-hover);
+}
+
+/*------------------------------------------------*/
 /* NAVIGATION */
 /*------------------------------------------------*/
 
@@ -6,7 +33,7 @@ body {
     margin: 0;
     font-family: "Poppins", sans-serif;
     background: linear-gradient(to bottom, #e0f2ff, #c0d9ff);
-    color: #222;
+    color: var(--content-text-color, #222);
 }
 
 nav {
@@ -222,7 +249,7 @@ nav a:hover {
     position: absolute;
     top: 10px;
     left: 10px;
-    background: linear-gradient(90deg, #FF7F50, #FF4500);
+    background: linear-gradient(90deg, var(--token-color-accent), #FF4500);
     color: white;
     font-size: 13px;
     font-weight: 600;
@@ -267,7 +294,7 @@ nav a:hover {
 .latest-artwork button {
     margin-top: 10px;
     padding: 10px 15px;
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
+    background: linear-gradient(90deg, var(--token-color-primary), var(--token-color-secondary));
     color: white;
     border: none;
     border-radius: 8px;
@@ -277,7 +304,7 @@ nav a:hover {
 }
 
 .latest-artwork button:hover {
-    background: linear-gradient(90deg, #3B65C4, #1E3A8A);
+    background: linear-gradient(90deg, var(--token-color-secondary), var(--token-color-primary));
 }
 
 @media (max-width: 768px) {
@@ -450,6 +477,58 @@ nav a:hover {
     border-radius: 15px;
     padding: 20px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Buttons and CTAs follow primary/secondary + button text */
+.btn, .btn-primary, .buy-btn, .btn-save, .preview-launch-btn, .mega-menu-cart-btn, .preview-btn, .cta {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary)) !important;
+    color: var(--button-text-color) !important;
+    border-color: var(--color-primary) !important;
+}
+.btn:hover, .btn-primary:hover, .buy-btn:hover, .btn-save:hover, .preview-launch-btn:hover, .preview-btn:hover {
+    background: var(--button-hover-color) !important;
+}
+
+/* Secondary / nav related */
+.secondary, .btn-secondary, nav, .navbar, .nav {
+    background: var(--color-secondary) !important;
+    color: var(--button-text-color) !important;
+}
+
+/* Accent usages */
+.badge, .latest-artwork .badge, .swatch-accent {
+    background: var(--color-accent) !important;
+    color: var(--button-text-color) !important;
+}
+
+/* Common headline / info mapping to primary */
+.seo-intro h1, .info h3, .artwork-card .info h3, .section h2, .favorite-btn { color: var(--color-primary) !important; }
+
+/* Ensure content text uses configured content color */
+body, p, .content, .about-text, .description, .info p, .info small { color: var(--content-text-color) !important; }
+
+/* Final forced overrides (placed at file end) to ensure dynamic palette wins over legacy hard-coded rules */
+/* Targets common components and CTA classes */
+.btn, .btn-primary, .buy-btn, .btn-save, .preview-launch-btn, .mega-menu-cart-btn, .preview-btn, .cta {
+    background: linear-gradient(90deg, var(--color-primary) , var(--color-secondary)) !important;
+    color: var(--button-text-color) !important;
+    border-color: var(--color-primary) !important;
+}
+.btn:hover, .btn-primary:hover, .buy-btn:hover, .btn-save:hover, .preview-launch-btn:hover, .preview-btn:hover {
+    background: var(--button-hover-color) !important;
+}
+.secondary, .btn-secondary, nav, .navbar, .nav {
+    background: var(--color-secondary) !important;
+    color: var(--button-text-color) !important;
+}
+.badge, .latest-artwork .badge, .swatch-accent {
+    background: var(--color-accent) !important;
+    color: var(--button-text-color) !important;
+}
+.seo-intro h1, .info h3, .artwork-card .info h3, .section h2 { color: var(--color-primary) !important; }
+body, p, .content, .about-text, .description, .info p, .info small { color: var(--content-text-color) !important; }
+
+
     text-align: center;
 }
 
@@ -1126,6 +1205,64 @@ nav a:hover {
     box-shadow: 0 8px 20px rgba(30, 58, 138, 0.15);
     transform: translateY(-4px);
 }
+
+/* ========== ABSE THEME OVERRIDES (Mega menu + Admin table) ========== */
+/* Force the mega-menu to keep the ABSE black/orange identity */
+.mega-menu,
+.user-menu,
+.mega-menu .menu,
+.mega-menu-cart-btn {
+    background: #000 !important;
+    color: #FF7F50 !important;
+}
+
+.mega-menu a,
+.mega-menu .link,
+.mega-menu .title {
+    color: #FF7F50 !important;
+}
+
+.mega-menu-cart-btn {
+    background: transparent !important;
+    border: 1px solid #FF7F50 !important;
+    color: #FF7F50 !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    text-decoration: none !important;
+}
+
+.mega-menu-cart-btn:hover {
+    background: #FF7F50 !important;
+    color: #000 !important;
+}
+
+/* Admin table: use orange header to match ABSE admin tableau */
+.admin-table thead {
+    background: #FF7F50 !important;
+    border-bottom: 2px solid rgba(0,0,0,0.08) !important;
+}
+
+.admin-table th {
+    color: #000 !important;
+}
+
+.admin-table td {
+    color: #222 !important;
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(0,0,0,0.03) !important;
+}
+
+/* Keep admin action buttons aligned with ABSE orange where appropriate */
+.admin-panel .btn-link,
+.admin-panel .btn,
+.admin .btn-save {
+    background: #FF7F50 !important;
+    color: #000 !important;
+    border: none !important;
+}
+
 
 .painting-image {
     position: relative;

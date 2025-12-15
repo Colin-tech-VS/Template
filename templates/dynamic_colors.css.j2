@@ -1,0 +1,52 @@
+/* Dynamic colors generated from admin settings */
+:root {
+  --token-color-primary: {{ settings.primary_color or '#1E3A8A' }};
+  --token-color-secondary: {{ settings.secondary_color or '#3B65C4' }};
+  --token-color-accent: {{ settings.accent_color or '#FF7F50' }};
+  --token-bg: {{ settings.background_color or '#ffffff' }};
+  --token-text: {{ settings.text_color or '#222222' }};
+  --token-button-text: {{ settings.button_text_color or '#ffffff' }};
+  --token-button-hover: {{ settings.button_hover_color or '#2556D4' }};
+  --token-success: {{ settings.success_color or '#4CAF50' }};
+  --token-warning: {{ settings.warning_color or '#FFC107' }};
+  --token-error: {{ settings.error_color or '#FF6347' }};
+  --token-text-muted: {{ settings.muted_color or '#666666' }};
+  --token-surface: {{ settings.surface_color or '#ffffff' }};
+
+  /* short aliases for backward compatibility */
+  --color-primary: var(--token-color-primary);
+  --color-secondary: var(--token-color-secondary);
+  --color-accent: var(--token-color-accent);
+  --button-text-color: var(--token-button-text);
+  --content-text-color: var(--token-text);
+  --button-hover-color: var(--token-button-hover);
+}
+
+/* buttons & states */
+button, input[type="button"], input[type="submit"], [role="button"], .btn, .btn-primary, .primary, .cta {
+  background: linear-gradient(90deg, var(--token-color-primary), var(--token-color-secondary)) !important;
+  color: var(--token-button-text) !important;
+  border-color: var(--token-color-primary) !important;
+}
+
+button:hover, input[type="button"]:hover, input[type="submit"]:hover, [role="button"]:hover,
+.btn:hover, .btn-primary:hover, .primary:hover, .cta:hover {
+  background: var(--token-button-hover) !important;
+  border-color: var(--token-button-hover) !important;
+}
+
+button:active, .btn:active, .btn.active, .primary:active, .primary.active, .cta:active {
+  background: var(--token-color-accent) !important;
+  border-color: var(--token-color-accent) !important;
+  color: var(--token-button-text) !important;
+}
+
+nav, .navbar, .nav {
+  background: linear-gradient(90deg, var(--token-color-primary), var(--token-color-secondary)) !important;
+  color: var(--token-button-text) !important;
+}
+
+.bg-primary { background-color: var(--token-color-primary) !important; }
+.bg-secondary { background-color: var(--token-color-secondary) !important; }
+.text-primary { color: var(--token-color-primary) !important; }
+.text-secondary { color: var(--token-color-secondary) !important; }
