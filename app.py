@@ -2355,30 +2355,52 @@ def orders():
     conn = get_db()
     c = conn.cursor()
 
-    # Récupérer uniquement les commandes de l'utilisateur connecté
-    c.execute("""
+    c.execute(adapt_query("""
         SELECT id, customer_name, email, address, total_price, order_date, status
         FROM orders
         WHERE user_id=?
         ORDER BY order_date DESC
-    """, (user_id,))
+    """), (user_id,))
     orders_list = c.fetchall()
 
-    # Récupérer les articles pour chaque commande
     all_items = {}
     for order in orders_list:
         order_id = safe_row_get(order, 'id', index=0)
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
             JOIN paintings p ON oi.painting_id = p.id
             WHERE oi.order_id=?
-        """, (order_id,))
-        all_items[order_id] = c.fetchall()
+        """), (order_id,))
+        items = c.fetchall()
+        all_items[order_id] = items
 
     conn.close()
 
-    return render_template("order.html", orders=orders_list, all_items=all_items)
+    formatted_orders = []
+    for order in orders_list:
+        if isinstance(order, dict):
+            formatted_orders.append({
+                'id': order.get('id'),
+                'customer_name': order.get('customer_name'),
+                'email': order.get('email'),
+                'address': order.get('address'),
+                'total': order.get('total_price'),
+                'date': order.get('order_date'),
+                'status': order.get('status')
+            })
+        else:
+            formatted_orders.append({
+                'id': order[0],
+                'customer_name': order[1],
+                'email': order[2],
+                'address': order[3],
+                'total': order[4],
+                'date': order[5],
+                'status': order[6]
+            })
+
+    return render_template("order.html", orders=formatted_orders, all_items=all_items)
 
 @app.route('/admin/add', methods=['GET', 'POST'])
 @require_admin
@@ -2567,6 +2589,13 @@ def inject_cart():
         "expositions_description": get_setting("expositions_description") or "Découvrez les expositions passées et à venir.",
         "ga4_property": get_setting("ga4_property") or "",
         "site_about": get_setting("site_about") or get_setting("about_biography_text") or "",
+        "primary_color": get_setting("primary_color") or "#1E3A8A",
+        "secondary_color": get_setting("secondary_color") or "#3B65C4",
+        "accent_color": get_setting("accent_color") or "#FF7F50",
+        "button_text_color": get_setting("button_text_color") or "#FFFFFF",
+        "content_text_color": get_setting("content_text_color") or "#000000",
+        "button_hover_color": get_setting("button_hover_color") or "#9C27B0",
+        "site_font": get_setting("site_font") or "Poppins",
     }
 
     # Si on est en preview, on réécrit les contenus principaux pour la template de preview
@@ -2887,7 +2916,6 @@ def profile():
         FROM paintings p
         JOIN favorites f ON p.id = f.painting_id
         WHERE f.user_id=?
-        ORDER BY f.created_date DESC
         LIMIT 6
     """), (user_id,))
     favorite_paintings = c.fetchall()
@@ -2945,7 +2973,6 @@ def profile():
     )
 
 
-@app.route('/orders')
 def user_orders():
     user_id = session.get("user_id")
     if not user_id:
@@ -3184,22 +3211,58 @@ def admin_dashboard():
     total_users = safe_row_get(result, 'count', index=0, default=0)
     
     # Dernières commandes
-    c.execute("""
+    c.execute(adapt_query("""
         SELECT id, customer_name, email, total_price, order_date, status 
         FROM orders 
         ORDER BY order_date DESC 
         LIMIT 5
-    """)
-    recent_orders = c.fetchall()
+    """))
+    recent_orders_raw = c.fetchall()
+    recent_orders = []
+    for row in recent_orders_raw:
+        if isinstance(row, dict):
+            recent_orders.append({
+                'id': row.get('id'),
+                'customer_name': row.get('customer_name'),
+                'email': row.get('email'),
+                'total': row.get('total_price'),
+                'date': row.get('order_date'),
+                'status': row.get('status')
+            })
+        else:
+            recent_orders.append({
+                'id': row[0],
+                'customer_name': row[1],
+                'email': row[2],
+                'total': row[3],
+                'date': row[4],
+                'status': row[5]
+            })
     
     # Peintures en rupture de stock
-    c.execute("""
+    c.execute(adapt_query("""
         SELECT id, name, price, quantity 
         FROM paintings 
         WHERE quantity <= 0 
         ORDER BY id DESC
-    """)
-    out_of_stock = c.fetchall()
+    """))
+    out_of_stock_raw = c.fetchall()
+    out_of_stock = []
+    for row in out_of_stock_raw:
+        if isinstance(row, dict):
+            out_of_stock.append({
+                'id': row.get('id'),
+                'name': row.get('name'),
+                'price': row.get('price'),
+                'quantity': row.get('quantity')
+            })
+        else:
+            out_of_stock.append({
+                'id': row[0],
+                'name': row[1],
+                'price': row[2],
+                'quantity': row[3]
+            })
     
     # Produits les plus vendus (TOP 5)
     c.execute(adapt_query("""
@@ -3210,7 +3273,25 @@ def admin_dashboard():
         ORDER BY total_sold DESC
         LIMIT 5
     """))
-    top_selling = c.fetchall()
+    top_selling_raw = c.fetchall()
+    top_selling = []
+    for row in top_selling_raw:
+        if isinstance(row, dict):
+            top_selling.append({
+                'id': row.get('id'),
+                'name': row.get('name'),
+                'image': row.get('image'),
+                'price': row.get('price'),
+                'total_sold': row.get('total_sold')
+            })
+        else:
+            top_selling.append({
+                'id': row[0],
+                'name': row[1],
+                'image': row[2],
+                'price': row[3],
+                'total_sold': row[4]
+            })
     
     # Produits les plus aimés (TOP 5)
     c.execute(adapt_query("""
@@ -3221,7 +3302,25 @@ def admin_dashboard():
         ORDER BY favorite_count DESC
         LIMIT 5
     """))
-    most_loved = c.fetchall()
+    most_loved_raw = c.fetchall()
+    most_loved = []
+    for row in most_loved_raw:
+        if isinstance(row, dict):
+            most_loved.append({
+                'id': row.get('id'),
+                'name': row.get('name'),
+                'image': row.get('image'),
+                'price': row.get('price'),
+                'favorite_count': row.get('favorite_count')
+            })
+        else:
+            most_loved.append({
+                'id': row[0],
+                'name': row[1],
+                'image': row[2],
+                'price': row[3],
+                'favorite_count': row[4]
+            })
     
     # Compter les notifications non lues
     c.execute("""

@@ -41,27 +41,27 @@
             
             <!-- EN-TETE : titre + statut + bouton facture -->
             <div class="order-header">
-                <h3>Commande #{{ order[0] }}</h3>
+                <h3>Commande #{{ order.id }}</h3>
                 <div class="header-right">
-                    <span class="order-status {{ order[6]|lower }}">
-                        {{ order[6] }}
+                    <span class="order-status {{ order.status|lower }}">
+                        {{ order.status }}
                     </span>
-                    <a href="{{ url_for('download_invoice', order_id=order[0]) }}" class="btn-primary">Télécharger la facture</a>
+                    <a href="{{ url_for('download_invoice', order_id=order.id) }}" class="btn-primary">Télécharger la facture</a>
                 </div>
             </div>
 
             <!-- Infos client -->
             <div class="order-info-card">
-                <div class="info-item"><strong>Client :</strong> {{ order[1] }}</div>
-                <div class="info-item"><strong>Email :</strong> {{ order[2] }}</div>
-                <div class="info-item"><strong>Adresse :</strong> {{ order[3] }}</div>
-                <div class="info-item"><strong>Date :</strong> {{ order[5] }}</div>
-                <div class="info-item"><strong>Total :</strong> <span class="total-price">{{ order[4] }} €</span></div>
+                <div class="info-item"><strong>Client :</strong> {{ order.customer_name }}</div>
+                <div class="info-item"><strong>Email :</strong> {{ order.email }}</div>
+                <div class="info-item"><strong>Adresse :</strong> {{ order.address }}</div>
+                <div class="info-item"><strong>Date :</strong> {{ order.date }}</div>
+                <div class="info-item"><strong>Total :</strong> <span class="total-price">{{ order.total }} €</span></div>
             </div>
 
             <!-- Articles -->
             <div class="order-items">
-                {% for item in all_items[order[0]] %}
+                {% for item in all_items[order.id] %}
                 <div class="order-item">
                     <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
                     <div class="order-item-info">

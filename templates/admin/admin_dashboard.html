@@ -66,18 +66,18 @@
         <div class="alert alert-warning">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
                 <span style="font-size: 1.5rem;">⚠️</span>
-                <h3 style="margin: 0;">Ruptures de Stock</h3>
+                <h3 style="margin: 0;">Ruptures de Stock ({{ out_of_stock|length }})</h3>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 {% for painting in out_of_stock %}
                 <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.4); border-radius: 6px;">
                     <div>
-                        <strong>{{ painting[1] }}</strong>
-                        <span style="margin-left: 12px; font-size: 0.9rem; color: #666;">{{ painting[3] }} unités</span>
+                        <strong>{{ painting.name }}</strong>
+                        <span style="margin-left: 12px; font-size: 0.9rem; color: #666;">{{ painting.quantity }} unités</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <a href="{{ url_for('edit_painting', painting_id=painting[0]) }}" class="btn-link" style="margin: 0; padding: 6px 12px; font-size: 0.8rem;">✏️ Éditer</a>
-                        <form action="{{ url_for('remove_painting', painting_id=painting[0]) }}" method="POST" style="display:inline;">
+                        <a href="{{ url_for('edit_painting', painting_id=painting.id) }}" class="btn-link" style="margin: 0; padding: 6px 12px; font-size: 0.8rem;">✏️ Éditer</a>
+                        <form action="{{ url_for('remove_painting', painting_id=painting.id) }}" method="POST" style="display:inline;">
                             <button type="submit" class="btn-link btn-danger" style="margin: 0; padding: 6px 12px; font-size: 0.8rem;" onclick="return confirm('Êtes-vous sûr ?')">🗑️ Supprimer</button>
                         </form>
                     </div>
@@ -110,14 +110,14 @@
                     <tbody>
                         {% for order in recent_orders %}
                         <tr>
-                            <td><strong>#{{ order[0] }}</strong></td>
-                            <td>{{ order[1] }}</td>
-                            <td style="font-size: 0.9rem; color: #666;">{{ order[2] }}</td>
-                            <td><strong>{{ "%.2f"|format(order[3]) }} €</strong></td>
-                            <td>{{ order[4] }}</td>
+                            <td><strong>#{{ order.id }}</strong></td>
+                            <td>{{ order.customer_name }}</td>
+                            <td style="font-size: 0.9rem; color: #666;">{{ order.email }}</td>
+                            <td><strong>{{ "%.2f"|format(order.total) }} €</strong></td>
+                            <td>{{ order.date }}</td>
                             <td>
-                                <span class="status status-{{ order[5]|lower|replace(' ', '-') }}">
-                                    {{ order[5] }}
+                                <span class="status status-{{ order.status|lower|replace(' ', '-') }}">
+                                    {{ order.status }}
                                 </span>
                             </td>
                             <td>
@@ -147,16 +147,16 @@
                     <div class="top-product-item">
                         <div class="product-rank">#{{ loop.index }}</div>
                         <div class="product-image-small">
-                            <img src="{{ url_for('static', filename=product[2]) }}" alt="{{ product[1] }}">
+                            <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}">
                         </div>
                         <div class="product-details">
-                            <h4>{{ product[1] }}</h4>
+                            <h4>{{ product.name }}</h4>
                             <p class="product-meta">
-                                <span class="product-price">{{ "%.2f"|format(product[3]) }} €</span>
-                                <span class="product-sold">{{ product[4] }} vendues</span>
+                                <span class="product-price">{{ "%.2f"|format(product.price) }} €</span>
+                                <span class="product-sold">{{ product.total_sold }} vendues</span>
                             </p>
                         </div>
-                        <a href="{{ url_for('painting_detail', painting_id=product[0]) }}" class="btn-view" target="_blank">👁️</a>
+                        <a href="{{ url_for('painting_detail', painting_id=product.id) }}" class="btn-view" target="_blank">👁️</a>
                     </div>
                     {% endfor %}
                 </div>
@@ -177,16 +177,16 @@
                     <div class="top-product-item">
                         <div class="product-rank loved">#{{ loop.index }}</div>
                         <div class="product-image-small">
-                            <img src="{{ url_for('static', filename=product[2]) }}" alt="{{ product[1] }}">
+                            <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}">
                         </div>
                         <div class="product-details">
-                            <h4>{{ product[1] }}</h4>
+                            <h4>{{ product.name }}</h4>
                             <p class="product-meta">
-                                <span class="product-price">{{ "%.2f"|format(product[3]) }} €</span>
-                                <span class="product-loved">❤️ {{ product[4] }} favoris</span>
+                                <span class="product-price">{{ "%.2f"|format(product.price) }} €</span>
+                                <span class="product-loved">❤️ {{ product.favorite_count }} favoris</span>
                             </p>
                         </div>
-                        <a href="{{ url_for('painting_detail', painting_id=product[0]) }}" class="btn-view" target="_blank">👁️</a>
+                        <a href="{{ url_for('painting_detail', painting_id=product.id) }}" class="btn-view" target="_blank">👁️</a>
                     </div>
                     {% endfor %}
                 </div>
