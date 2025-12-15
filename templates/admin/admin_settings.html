@@ -1,51 +1,29 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
 
 {% block title %}Paramètres - Admin{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 
-<header class="admin-header">
-    <div class="admin-container">
-        <h1>🎨 Tableau de bord Admin</h1>
-        <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">Demandes sur Mesure</a>
-            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
-                🔔 Notifications
-                {% if new_notifications_count > 0 %}
-                <span class="badge">{{ new_notifications_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
-        </nav>
+<!-- PAGE HEADER -->
+<div class="admin-page-header">
+    <div class="admin-page-header-left">
+        <h2 class="admin-page-title">⚙️ Paramètres</h2>
+        <p class="admin-page-subtitle">Configuration globale du site</p>
     </div>
-</header>
+</div>
 
-<section class="admin-section">
-    <div class="settings-wrapper">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+<!-- SETTINGS CONTENT -->
+<div class="admin-card">
+    <!-- TABS NAVIGATION -->
+    <div class="tabs-navigation">
+        <button class="tab-link active" data-tab="identity">🎨 Identité</button>
+        <button class="tab-link" data-tab="pages">📝 Pages</button>
+        <button class="tab-link" data-tab="shop">🛍️ Boutique</button>
+        <button class="tab-link" data-tab="integrations">🔧 Intégrations</button>
+        <button class="tab-link" data-tab="design">🎭 Design</button>
+    </div>
 
-        <!-- TABS NAVIGATION -->
-        <div class="tabs-navigation">
-            <button class="tab-link active" data-tab="identity">🎨 Identité</button>
-            <button class="tab-link" data-tab="pages">📝 Pages</button>
-            <button class="tab-link" data-tab="shop">🛍️ Boutique</button>
-            <button class="tab-link" data-tab="integrations">🔧 Intégrations</button>
-            <button class="tab-link" data-tab="design">🎭 Design</button>
-        </div>
-
-        <form method="POST" enctype="multipart/form-data" class="settings-form">
+    <form method="POST" enctype="multipart/form-data" class="settings-form">
 
             <!-- TAB 1: IDENTITÉ -->
             <div id="identity" class="tab-content active">
@@ -293,16 +271,14 @@
                             </div>
                         </div>
                     </aside>
-                </div>
             </div>
 
-            <!-- SAVE BUTTON -->
-            <div class="form-actions">
-                <button type="submit" class="btn-save">💾 Sauvegarder tous les paramètres</button>
-            </div>
-        </form>
-    </div>
-</section>
+        <!-- SAVE BUTTON -->
+        <div class="form-actions">
+            <button type="submit" class="admin-btn admin-btn-primary">💾 Sauvegarder tous les paramètres</button>
+        </div>
+    </form>
+</div>
 
 <!-- live preview moved into Design tab for immediate visibility -->
 
@@ -346,8 +322,8 @@
 }
 
 .tab-link.active {
-    color: #1E3A8A;
-    border-bottom-color: #1E3A8A;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
 }
 
 /* TAB CONTENT */
@@ -373,12 +349,12 @@
 
 .tab-content h2 {
     margin-top: 0;
-    color: #1a202c;
+    color: var(--color-text);
     font-size: 24px;
 }
 
 .tab-description {
-    color: #718096;
+    color: var(--color-text-secondary);
     margin-bottom: 30px;
     font-size: 15px;
 }
@@ -392,7 +368,7 @@
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
-    color: #2d3748;
+    color: var(--color-text);
     font-size: 14px;
 }
 
@@ -400,7 +376,7 @@
 .form-textarea {
     width: 100%;
     padding: 12px 15px;
-    border: 1px solid #cbd5e0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 14px;
     font-family: inherit;
@@ -410,7 +386,7 @@
 .form-input:focus,
 .form-textarea:focus {
     outline: none;
-    border-color: #1E3A8A;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
 }
 
@@ -422,7 +398,7 @@
 .form-group small {
     display: block;
     margin-top: 5px;
-    color: #718096;
+    color: var(--color-text-secondary);
     font-size: 12px;
 }
 
