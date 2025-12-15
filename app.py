@@ -3776,7 +3776,28 @@ def admin_order_detail(order_id):
         WHERE oi.order_id=%s
     """, (order_id,))
     items = c.fetchall()
+    # Ensure items are tuples (template expects numeric indexes)
+    normalized_items = []
+    for r in items:
+        if hasattr(r, 'get'):
+            # r is mapping-like
+            normalized_items.append((r.get('painting_id'), r.get('name'), r.get('image'), r.get('price'), r.get('quantity')))
+        else:
+            normalized_items.append(tuple(r))
+    items = normalized_items
     conn.close()
+
+    # Normalize order to tuple for templates that use numeric indexes
+    if hasattr(order, 'get'):
+        order = (
+            order.get('id'),
+            order.get('customer_name'),
+            order.get('email'),
+            order.get('address'),
+            order.get('total_price'),
+            order.get('order_date'),
+            order.get('status')
+        )
 
     return render_template("admin/admin_order_detail.html", 
                          order=order, 
