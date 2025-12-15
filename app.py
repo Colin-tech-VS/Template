@@ -1980,6 +1980,12 @@ def checkout():
     '''), (cart_id,))
     items = c.fetchall()
 
+    # Debug: log cart contents to help diagnose missing products
+    try:
+        app.logger.info(f"checkout: cart_id={cart_id} items_count={len(items)} items_preview={items[:5]}")
+    except Exception:
+        app.logger.info(f"checkout: cart_id={cart_id} items_count=unknown (logging failed)")
+
     if not items:
         conn.close()
         return redirect(url_for('panier'))  # Panier vide
