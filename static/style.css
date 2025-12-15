@@ -1358,10 +1358,13 @@ input[type="button"]:disabled,
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
 }
 
 .admin-header h1 {
-    margin: 0 0 var(--spacing-lg) 0;
+    margin: 0;
     font-size: 2.2rem;
     color: white;
     font-weight: 700;
@@ -1375,6 +1378,7 @@ input[type="button"]:disabled,
     flex-wrap: wrap;
     align-items: center;
     font-family: var(--font-primary);
+    background: transparent;
 }
 
 .nav-btn {
