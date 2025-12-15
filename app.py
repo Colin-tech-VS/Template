@@ -1089,7 +1089,7 @@ def require_admin(f):
 # --------------------------------
 # ROUTES PUBLIQUES
 # --------------------------------
-@app.route('/')
+@app.route('/', endpoint='index')
 def home():
     """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT *"""
     conn = get_db()
@@ -4057,6 +4057,12 @@ def dynamic_colors():
             --content-text-color: {content_text_color};
             --button-hover-color: {button_hover_color};
             --font-primary: "{site_font}", sans-serif;
+            
+            /* Admin design system variables */
+            --color-text: #1f2937;
+            --color-text-secondary: #6b7280;
+            --color-border: #e5e7eb;
+            --color-danger: #ef4444;
         }}
 
         /* Apply custom font family to all text elements */
