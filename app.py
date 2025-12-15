@@ -45,7 +45,7 @@ def invalidate_all_settings_cache():
 # --------------------------------
 # IMPORTS
 # --------------------------------
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify, g
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
@@ -154,45 +154,6 @@ def select_site_template_loader():
         # if anything goes wrong, leave loader as default
         pass
 
-
-# Tenant resolution: map request host -> tenants table row
-def get_tenant_by_host(host):
-    try:
-        host = (host or '').lower()
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, host, stripe_pk, stripe_sk, settings_json FROM tenants WHERE host = ?"), (host,))
-        row = cur.fetchone()
-        conn.close()
-        if not row:
-            return None
-        return {
-            'id': safe_row_get(row, 'id', index=0),
-            'host': safe_row_get(row, 'host', index=1),
-            'stripe_pk': safe_row_get(row, 'stripe_pk', index=2),
-            'stripe_sk': safe_row_get(row, 'stripe_sk', index=3),
-            'settings_json': safe_row_get(row, 'settings_json', index=4)
-        }
-    except Exception:
-        try:
-            conn.close()
-        except Exception:
-            pass
-        return None
-
-
-@app.before_request
-def resolve_tenant():
-    # Determine tenant by host; fallback to env DEFAULT_TENANT_HOST
-    host = (request.host or '').split(':')[0].lower()
-    tenant = get_tenant_by_host(host)
-    if tenant is None:
-        default_host = os.getenv('DEFAULT_TENANT_HOST') or os.getenv('DEFAULT_HOST') or None
-        if default_host:
-            tenant = get_tenant_by_host(default_host)
-    # If still None, tenant remains None (app will fall back to env keys)
-    g.tenant = tenant
-
 # --- Performance: optional HTTP compression (Flask-Compress) ---
 try:
     from flask_compress import Compress
@@ -237,18 +198,6 @@ def save_image_and_convert_to_webp(file, dest_folder, db_prefix=None, quality=80
     name, ext = os.path.splitext(filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     base = f"{name}_{timestamp}"
-    # Namespace uploads per-tenant when possible (uploads/<tenant_host>/...)
-    tenant_host = None
-    try:
-        tenant_host = getattr(g, 'tenant', None)
-        if tenant_host:
-            tenant_host = tenant_host.get('host') if isinstance(tenant_host, dict) else None
-    except Exception:
-        tenant_host = None
-
-    if tenant_host:
-        dest_folder = os.path.join(dest_folder, tenant_host)
-
     os.makedirs(dest_folder, exist_ok=True)
     original_path = os.path.join(dest_folder, f"{base}{ext}")
     file.save(original_path)
@@ -271,9 +220,6 @@ def save_image_and_convert_to_webp(file, dest_folder, db_prefix=None, quality=80
         webp_name = f"{base}{ext}"
 
     if db_prefix:
-        # keep prefix but include tenant host if available
-        if tenant_host:
-            return f"{db_prefix}/{tenant_host}/{webp_name}"
         return f"{db_prefix}/{webp_name}"
     return webp_name
 
@@ -684,6 +630,7 @@ print("SMTP_PASSWORD défini :", bool(smtp_password))
 google_places_key = os.getenv("GOOGLE_PLACES_KEY") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
+
 def set_setting(key, value, user_id=None):
     """
     Met à jour ou crée une clé de paramètre
@@ -696,14 +643,21 @@ def set_setting(key, value, user_id=None):
     cur = conn.cursor()
     try:
         if user_id is not None:
-            # Try update first for tenant-scoped setting
-            upd_q = adapt_query("UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?")
-            cur.execute(upd_q, (value, key, user_id))
-            if getattr(cur, 'rowcount', 0) == 0:
-                ins_q = adapt_query("INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)")
-                cur.execute(ins_q, (key, value, user_id))
+            # Tente d'insérer avec tenant_id/user_id si la colonne existe
+            try:
+                query = adapt_query("""
+                    INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                    ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value, user_id))
+            except Exception as e:
+                # Fallback si la colonne n'existe pas
+                query = adapt_query("""
+                    INSERT INTO settings (key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value))
         else:
-            # fallback: upsert on global key
             query = adapt_query("""
                 INSERT INTO settings (key, value) VALUES (?, ?)
                 ON CONFLICT(key) DO UPDATE SET value=excluded.value
@@ -711,10 +665,7 @@ def set_setting(key, value, user_id=None):
             cur.execute(query, (key, value))
         conn.commit()
     finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+        conn.close()
     # Invalidate cache for this setting
     try:
         SETTINGS_CACHE.pop((key, user_id), None)
@@ -1318,36 +1269,37 @@ def register():
 
         conn = get_db()
         c = conn.cursor()
-        # Check if email already exists to avoid UniqueViolation
-        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
-        existing = c.fetchone()
-        if existing:
-            conn.close()
-            print(f"[REGISTER] Email déjà utilisé: {email}")
-            flash("Cet email est déjà utilisé.")
-            return redirect(url_for('register'))
+        try:
+            # Check if email already exists to avoid UniqueViolation
+            c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+                    existing = c.fetchone()
+                    if existing:
+                        conn.close()
+                        print(f"[REGISTER] Email déjà utilisé: {email}")
+                        flash("Cet email est déjà utilisé.")
+                        return redirect(url_for('register'))
 
-        print(f"[REGISTER] Début inscription: {email}")
-
-        c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
-        count_result = c.fetchone()
-        user_count = safe_row_get(count_result, 'count', index=0, default=0)
-        is_first_user = (user_count == 0)
-
-        if is_first_user:
-            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                      (name, email, hashed_password, 'admin'))
-            print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
-        else:
-            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                      (name, email, hashed_password, 'user'))
-            print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
-
-        conn.commit()
-        conn.close()
-        print(f"[REGISTER] Inscription réussie pour {email}")
-        flash("Inscription réussie !")
-        return redirect(url_for('login'))
+                    print(f"[REGISTER] Début inscription: {email}")
+                
+                    c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+                    count_result = c.fetchone()
+                    user_count = safe_row_get(count_result, 'count', index=0, default=0)
+                    is_first_user = (user_count == 0)
+                
+                    if is_first_user:
+                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                                  (name, email, hashed_password, 'admin'))
+                        print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+                    else:
+                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                                  (name, email, hashed_password, 'user'))
+                        print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
+                
+                    conn.commit()
+                    conn.close()
+                    print(f"[REGISTER] Inscription réussie pour {email}")
+                    flash("Inscription réussie !")
+                    return redirect(url_for('login'))
     return render_template("register.html")
 
 
@@ -2291,161 +2243,48 @@ def checkout():
     return resp
 
 
+
+
 @app.route("/checkout_success")
 def checkout_success():
-    # Récupérer la commande en attente depuis la session
     order = session.pop("pending_order", None)
-    if not order:
-        return redirect(url_for('panier'))
-
-    customer_name = order["customer_name"]
-    email = order["email"]
-    address = order.get("address") or ""  # Sécurisé
-    total_price = order["total_price"]
-    items = order["items"]
-
-    with get_db() as conn:
-        c = conn.cursor()
-
-        # ----------------------------------------------------------
-        # 1) Vérifier si l'utilisateur existe déjà
-        # ----------------------------------------------------------
-        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
-        user = c.fetchone()
-
-        if user:
-            user_id = safe_row_get(user, 'id', index=0)
-        else:
-            import secrets
-            from werkzeug.security import generate_password_hash
-            
-            temp_password = secrets.token_hex(3)
-            hashed_pw = generate_password_hash(temp_password)
-
-            if IS_POSTGRES:
-                # Use RETURNING to obtain inserted id with PostgreSQL
-                c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?) RETURNING id"),
-                          (customer_name, email, hashed_pw))
-                row = c.fetchone()
-                conn.commit()
-                user_id = safe_row_get(row, 'id', 0)
+    order_id = None
+    if order:
+        customer_name = order["customer_name"]
+        email = order["email"]
+        address = order.get("address") or ""
+        total_price = order["total_price"]
+        items = order["items"]
+        # On tente de retrouver l'order_id correspondant à cette commande
+        with get_db() as conn:
+            c = conn.cursor()
+            c.execute(adapt_query("SELECT id FROM orders WHERE email=? AND total_price=? ORDER BY order_date DESC LIMIT 1"), (email, total_price))
+            row = c.fetchone()
+            if row:
+                order_id = safe_row_get(row, 'id', 0) if isinstance(row, dict) else row[0]
+    else:
+        user_id = session.get("user_id")
+        email = session.get("user_email")
+        if not user_id and not email:
+            flash("Impossible de retrouver votre commande. Veuillez contacter le support si besoin.", "error")
+            return redirect(url_for('panier'))
+        with get_db() as conn:
+            c = conn.cursor()
+            if user_id:
+                c.execute(adapt_query("SELECT * FROM orders WHERE user_id=? ORDER BY order_date DESC LIMIT 1"), (user_id,))
             else:
-                c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)") ,
-                          (customer_name, email, hashed_pw))
-                conn.commit()
-                user_id = c.lastrowid
-
-            session["user_id"] = user_id
-            session["user_email"] = email
-
-        # ----------------------------------------------------------
-        # 2) Créer la commande (AVEC address)
-        # ----------------------------------------------------------
-        if IS_POSTGRES:
-            c.execute(adapt_query("INSERT INTO orders (customer_name, email, address, total_price, order_date, user_id) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?) RETURNING id"),
-                      (customer_name, email, address, total_price, user_id))
-            maybe = c.fetchone()
-            conn.commit()
-            order_id = safe_row_get(maybe, 'id', index=0)
-        else:
-            c.execute(adapt_query("""
-            INSERT INTO orders (customer_name, email, address, total_price, order_date, user_id)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-            """),
-            (customer_name, email, address, total_price, user_id)
-        )
-            order_id = c.lastrowid
-            # Safety: if DB driver didn't populate lastrowid, try to fetch the newest order id as fallback
-            if not order_id:
-                try:
-                    c.execute("SELECT id FROM orders ORDER BY id DESC LIMIT 1")
-                    maybe = c.fetchone()
-                    order_id = safe_row_get(maybe, 'id', index=0) if maybe else None
-                except Exception:
-                    order_id = None
-
-        # ----------------------------------------------------------
-        # 3) Ajouter les items + mettre à jour les stocks
-        # ----------------------------------------------------------
-        for item in items:
-            # Support both dict rows (RealDictCursor) and tuple rows
-            if isinstance(item, dict):
-                painting_id = item.get('id') or item.get('painting_id')
-                name = item.get('name')
-                image = item.get('image', '')
-                price = item.get('price', 0)
-                qty = item.get('quantity') or item.get('qty') or 0
-                available_qty = item.get('available_qty', item.get('quantity', 0))
-            else:
-                painting_id, name, image, price, qty, available_qty = item
-
-            c.execute(
-                adapt_query("INSERT INTO order_items (order_id, painting_id, quantity, price) VALUES (?, ?, ?, ?)"),
-                (order_id, painting_id, qty, price)
-            )
-
-            c.execute(
-                adapt_query("UPDATE paintings SET quantity = quantity - ? WHERE id = ?"),
-                (qty, painting_id)
-            )
-
-        # ----------------------------------------------------------
-        # 4) Vider le panier persistant
-        # ----------------------------------------------------------
-        cart_id, session_id = get_or_create_cart(conn=conn)
-        c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=?"), (cart_id,))
-
-        # ----------------------------------------------------------
-        # 5) Notifications
-        # ----------------------------------------------------------
-        # Build URLs with graceful fallback if order_id is missing
-        if order_id:
-            admin_order_url = url_for("admin_order_detail", order_id=order_id)
-            user_order_url = url_for("order_status", order_id=order_id)
-        else:
-            admin_order_url = url_for("admin_orders")
-            user_order_url = url_for("orders")
-
-        # Admin
-        c.execute(
-            adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)"),
-            (None,
-             f"Nouvelle commande #{order_id} passée par {customer_name} ({email})",
-             "new_order",
-             0,
-             admin_order_url)
-        )
-
-        # User
-        c.execute(
-            adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)"),
-            (user_id,
-             f"Votre commande #{order_id} a été confirmée !",
-             "order_success",
-             0,
-             user_order_url)
-        )
-
-    # ----------------------------------------------------------
-    # 6) Vider le panier en session
-    # ----------------------------------------------------------
-    session["cart"] = {}
-    session["cart_count"] = 0
-
-    # ----------------------------------------------------------
-    # 7) Envoyer email
-    # ----------------------------------------------------------
-    send_order_email(
-        customer_email=email,
-        customer_name=customer_name,
-        order_id=order_id,
-        total_price=total_price,
-        items=items
-    )
-
-    # ----------------------------------------------------------
-    # 8) Afficher la page de succès
-    # ----------------------------------------------------------
+                c.execute(adapt_query("SELECT * FROM orders WHERE email=? ORDER BY order_date DESC LIMIT 1"), (email,))
+            order_row = c.fetchone()
+            if not order_row:
+                flash("Aucune commande récente trouvée.", "error")
+                return redirect(url_for('panier'))
+            customer_name = order_row[1] if len(order_row) > 1 else ""
+            email = order_row[2] if len(order_row) > 2 else ""
+            address = order_row[3] if len(order_row) > 3 else ""
+            total_price = order_row[4] if len(order_row) > 4 else 0
+            order_id = order_row[0]
+            c.execute(adapt_query("SELECT * FROM order_items WHERE order_id=?"), (order_id,))
+            items = c.fetchall()
     return render_template(
         "checkout_success.html",
         order_id=order_id,
