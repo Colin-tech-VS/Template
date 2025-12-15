@@ -1465,23 +1465,27 @@ def submit_custom_request():
     # Sauvegarder en base de données
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    if IS_POSTGRES:
+        c.execute(adapt_query("INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente') RETURNING id"),
+                  (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
+        row = c.fetchone()
+        request_id = safe_row_get(row, 'id', 0)
+    else:
+        c.execute(adapt_query("""
         INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, 
                                       description, budget, dimensions, deadline, reference_images, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente')
-    """, (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
-    request_id = c.lastrowid
-    
+        """), (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
+        request_id = c.lastrowid
+
     # Créer une notification pour l'admin
-    c.execute(
-        "INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)",
-        (None,  # user_id=None pour notifications admin
-         f"Nouvelle demande de création sur mesure de {client_name}",
-         "custom_request",
-         0,
-         f"/admin/custom-requests")
-    )
-    
+    c.execute(adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)") ,
+              (None,  # user_id=None pour notifications admin
+               f"Nouvelle demande de création sur mesure de {client_name}",
+               "custom_request",
+               0,
+               f"/admin/custom-requests"))
+
     conn.commit()
     conn.close()
     
