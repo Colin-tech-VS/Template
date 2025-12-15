@@ -1,429 +1,97 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
 
-{% block title %}Gestion des commandes - Admin{% endblock %}
+{% block title %}Commandes - Admin{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 
-<!-- HEADER ADMIN -->
-<header class="admin-header">
-    <div class="admin-container">
-        <h1>🎨 Tableau de Bord Admin</h1>
-        <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">📊 Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">🖼️ Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">📦 Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">👥 Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">🎭 Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">✨ Sur Mesure</a>
-            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
-                🔔 Notifications
-                {% if new_notifications_count > 0 %}<span class="badge">{{ new_notifications_count }}</span>{% endif %}
-            </a>
-            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">✚ Ajouter</a>
-        </nav>
+<!-- PAGE HEADER -->
+<div class="admin-page-header">
+    <div class="admin-page-header-left">
+        <h2 class="admin-page-title">📦 Commandes</h2>
+        <p class="admin-page-subtitle">{{ orders|length }} commande{{ 's' if orders|length > 1 else '' }} au total</p>
     </div>
-</header>
+    <div class="admin-page-actions">
+        <a href="{{ url_for('admin_users') }}" class="admin-btn admin-btn-secondary">👥 Utilisateurs</a>
+    </div>
+</div>
 
+<!-- SEARCH FORM -->
+<div class="admin-card" style="margin-bottom: 24px;">
+    <form method="get" action="{{ url_for('admin_orders') }}" class="admin-search-form">
+        <input type="text" name="q" placeholder="🔍 Rechercher par ID, client, email..." value="{{ request.args.get('q', '') }}" class="admin-search-input" style="width: 100%;">
+        <button type="submit" class="admin-btn admin-btn-primary">Rechercher</button>
+    </form>
+</div>
 
-<!-- LISTE DES COMMANDES -->
-<section class="admin-section">
-    <div class="admin-container">
-        <div class="admin-panel">
-            <div class="panel-header">
-                <h2>📦 Gestion des Commandes</h2>
-                <p class="subtitle">{{ orders|length }} commande{{ 's' if orders|length > 1 else '' }} au total</p>
+<!-- ORDERS LIST -->
+{% if orders %}
+<div style="display: flex; flex-direction: column; gap: 16px;">
+    {% for order in orders %}
+    <div class="admin-card">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border);">
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: var(--color-text); font-size: 1.1rem;">Commande #{{ order.id }}</h3>
+                <p style="margin: 0; font-size: 0.9rem; color: var(--color-text-secondary);">{{ order.order_date }}</p>
             </div>
-
-            <!-- BARRE DE RECHERCHE -->
-            <form method="get" action="{{ url_for('admin_orders') }}" class="search-form-orders">
-                <input type="text" name="q" placeholder="🔍 Rechercher par ID, client ou email..." value="{{ request.args.get('q', '') }}" class="search-input-orders">
-                <button type="submit" class="search-btn-orders">Rechercher</button>
-            </form>
-
-            {% if orders %}
-            <div class="orders-list">
-                {% for order in orders %}
-                <div class="order-item">
-                    <div class="order-header">
-                        <div class="order-info">
-                            <h3>Commande #{{ order.id }}</h3>
-                            <p class="order-date">{{ order.order_date }}</p>
-                        </div>
-                        <div class="order-amount">
-                            <span class="amount">{{ "%.2f"|format(order.total_price) }} €</span>
-                            <span class="status status-{{ order.status|lower|replace(' ', '-') }}">{{ order.status }}</span>
-                        </div>
-                    </div>
-
-                    <div class="order-details">
-                        <div class="detail-row">
-                            <span class="label">Client:</span>
-                            <span class="value">{{ order.customer_name }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Email:</span>
-                            <span class="value">{{ order.email }}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Adresse:</span>
-                            <span class="value">{{ order.address }}</span>
-                        </div>
-                    </div>
-
-                    {% if all_items[order.id] %}
-                    <div class="order-items">
-                        <div class="items-header">Articles de la commande :</div>
-                        <ul class="items-list">
-                            {% for item in all_items[order.id] %}
-                            <li>
-                                <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}" class="item-thumb">
-                                <div class="item-info">
-                                    <span class="item-name">{{ item.name }}</span>
-                                    <span class="item-qty">x{{ item.quantity }} @ {{ item.price }} €</span>
-                                </div>
-                                <span class="item-total">{{ "%.2f"|format(item.price * item.quantity) }} €</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
-
-                    <!-- ACTIONS SUR LA COMMANDE -->
-                    <div class="order-actions">
-                        <div class="status-dropdown">
-                            <strong>Changer le statut :</strong>
-                            {% set statuses = ['En cours', 'Confirmée', 'Expédiée', 'Livrée', 'Annulée'] %}
-                            {% for status in statuses %}
-                                {% if status != order.status %}
-                                    <a href="{{ url_for('update_order_status', order_id=order.id, status=status) }}" class="status-link">{{ status }}</a>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-
-                        <a href="{{ url_for('admin_order_detail', order_id=order.id) }}" class="btn-link" style="margin-left:10px;">Voir détails</a>
+            <div style="text-align: right;">
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-primary); margin-bottom: 4px;">{{ "%.2f"|format(order.total_price) }} €</div>
+                <span class="status-badge status-{{ order.status|lower|replace(' ', '-') }}">{{ order.status }}</span>
+            </div>
+        </div>
+        
+        <!-- ORDER DETAILS -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Client</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ order.customer_name }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Email</div>
+                <div style="font-size: 0.9rem; color: var(--color-text);">{{ order.email }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Adresse</div>
+                <div style="font-size: 0.9rem; color: var(--color-text);">{{ order.address }}</div>
+            </div>
+        </div>
+        
+        <!-- ORDER ITEMS -->
+        {% if all_items[order.id] %}
+        <div style="margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 12px; color: var(--color-text);">Articles :</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+                {% for item in all_items[order.id] %}
+                <div style="display: flex; gap: 10px; padding: 10px; background: white; border: 1px solid var(--color-border); border-radius: 8px;">
+                    <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;">
+                    <div style="flex: 1; font-size: 0.9rem;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">{{ item.name }}</div>
+                        <div style="color: #6b7280;">{{ item.quantity }} × {{ item.price }} €</div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-            {% else %}
-            <div style="text-align: center; padding: 60px 30px; color: #9ca3af;">
-                <p style="font-size: 3rem; margin-bottom: 10px;">📦</p>
-                <p style="font-size: 1.1rem; margin-bottom: 10px;">Aucune commande pour le moment</p>
-                <p style="font-size: 0.9rem;">Les commandes des clients apparaîtront ici</p>
-            </div>
+        </div>
+        {% endif %}
+        
+        <!-- ORDER ACTIONS -->
+        <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('admin_order_detail', order_id=order.id) }}" class="admin-btn admin-btn-primary" style="padding: 8px 16px; font-size: 0.9rem;">👁️ Voir détails</a>
+            
+            {% if order.status != 'Livré' %}
+            <form method="POST" action="{{ url_for('update_order_status', order_id=order.id, status='Livré') }}" style="display: inline;">
+                <button type="submit" class="admin-btn admin-btn-secondary" style="padding: 8px 16px; font-size: 0.9rem;">✅ Marquer Livrée</button>
+            </form>
             {% endif %}
         </div>
     </div>
-</section>
-
-<style>
-.search-form-orders {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 24px;
-    max-width: 500px;
-}
-
-.search-input-orders {
-    flex: 1;
-    padding: 12px 16px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: all 0.2s ease;
-    font-family: var(--font-primary);
-}
-
-.search-input-orders:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
-}
-
-.search-btn-orders {
-    padding: 12px 24px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    font-family: var(--font-primary);
-}
-
-.search-btn-orders:hover {
-    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
-    transform: translateY(-2px);
-}
-
-.orders-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-}
-
-.order-item {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: var(--spacing-lg);
-    transition: all 0.3s ease;
-    font-family: var(--font-primary);
-}
-
-.order-item:hover {
-    border-color: var(--color-primary);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-}
-
-.order-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: var(--spacing-md);
-    border-bottom: 1px solid #f0f0f0;
-    margin-bottom: var(--spacing-md);
-}
-
-.order-info h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--color-text);
-}
-
-.order-date {
-    margin: 4px 0 0 0;
-    font-size: 0.9rem;
-    color: #9ca3af;
-}
-
-.order-amount {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-}
-
-.amount {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.order-details {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-}
-
-.detail-row {
-    display: flex;
-    gap: 12px;
-}
-
-.detail-row .label {
-    font-weight: 600;
-    color: #6b7280;
-    min-width: 80px;
-}
-
-.detail-row .value {
-    color: var(--color-text);
-}
-
-.order-items {
-    background: #fafafa;
-    border-radius: 8px;
-    padding: var(--spacing-lg);
-    margin: var(--spacing-lg) 0;
-}
-
-.items-header {
-    font-weight: 600;
-    color: var(--color-text);
-    margin-bottom: var(--spacing-md);
-    font-size: 0.95rem;
-}
-
-.items-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.items-list li {
-    display: flex;
-    gap: var(--spacing-md);
-    align-items: center;
-    padding: var(--spacing-md);
-    background: white;
-    border-radius: 6px;
-    margin-bottom: 8px;
-}
-
-.items-list li:last-child {
-    margin-bottom: 0;
-}
-
-.item-thumb {
-    width: 50px;
-    height: 50px;
-    border-radius: 6px;
-    object-fit: cover;
-    flex-shrink: 0;
-}
-
-.item-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.item-name {
-    font-weight: 600;
-    color: var(--color-text);
-    font-size: 0.95rem;
-}
-
-.item-qty {
-    font-size: 0.85rem;
-    color: #9ca3af;
-}
-
-.item-total {
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.order-actions {
-    display: flex;
-    gap: var(--spacing-md);
-    padding-top: var(--spacing-md);
-    border-top: 1px solid #f0f0f0;
-}
-
-.status-dropdown {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.status-link {
-    padding: 6px 12px;
-    background: #e5e7eb;
-    color: #1f2937;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    font-family: var(--font-primary);
-}
-
-.status-link:hover {
-    background: var(--color-primary);
-    color: white;
-}
-
-/* Table design */
-.users-table-wrapper {
-    margin-top: 20px;
-    overflow-x: auto;
-}
-
-.users-table {
-    width: 100%;
-    border-collapse: collapse;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.users-table thead {
-    background: #f3f4f6;
-}
-
-.users-table th {
-    padding: 12px 15px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 13px;
-    color: #1E3A8A;
-    text-transform: uppercase;
-}
-
-.users-table td {
-    padding: 12px 15px;
-    border-bottom: 1px solid #e5e7eb;
-    color: #333;
-}
-
-.users-table tbody tr:hover {
-    background: #f0f4ff;
-}
-
-/* Badges rôle */
-.role-badge {
-    display: inline-block;
-    padding: 5px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.role-user {
-    background: #e8f0ff;
-    color: #1E3A8A;
-}
-
-.role-admin {
-    background: #ffe8e8;
-    color: #FF6347;
-}
-
-/* Boutons actions */
-.users-table .btn-action {
-    display: inline-block;
-    padding: 5px 10px;
-    margin: 2px;
-    font-size: 13px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: #fff;
-    transition: transform 0.2s, background 0.2s;
-}
-
-.btn-success { background-color: #28a745; }
-.btn-success:hover { background-color: #218838; }
-
-.btn-link.btn-danger { background-color: #dc3545; }
-.btn-link.btn-danger:hover { background-color: #c82333; }
-.btn-danger:hover { background-color: #c82333; }
-
-.btn-contact {
-    background-color: #1E3A8A;
-}
-.btn-contact:hover {
-    background-color: #3B65C4;
-    transform: scale(1.05);
-}
-
-/* Badge admin verrouillé */
-.badge-locked {
-    display: inline-block;
-    background: #ccc;
-    color: #fff;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-}
-</style>
+    {% endfor %}
+</div>
+{% else %}
+<div class="admin-empty-state">
+    <div class="admin-empty-icon">📦</div>
+    <h3 class="admin-empty-title">Aucune commande</h3>
+    <p class="admin-empty-message">Aucune commande trouvée</p>
+</div>
+{% endif %}
 
 {% endblock %}

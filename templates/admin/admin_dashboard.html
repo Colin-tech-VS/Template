@@ -1,331 +1,188 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
 
-{% block title %}Tableau de bord Admin - JB Art{% endblock %}
+{% block title %}Dashboard - Admin{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 
-<!-- HEADER ADMIN -->
-<header class="admin-header">
-    <div class="admin-container">
-        <h1>🎨 Tableau de Bord Admin</h1>
-        <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">📊 Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">🖼️ Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">📦 Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">👥 Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">🎭 Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">✨ Sur Mesure</a>
-            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
-                🔔 Notifications
-                {% if new_notifications_count > 0 %}<span class="badge">{{ new_notifications_count }}</span>{% endif %}
-            </a>
-            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">✚ Ajouter</a>
-        </nav>
+<!-- PAGE HEADER -->
+<div class="admin-page-header">
+    <div class="admin-page-header-left">
+        <h2 class="admin-page-title">📊 Dashboard</h2>
+        <p class="admin-page-subtitle">Vue d'ensemble de votre activité</p>
     </div>
-</header>
+</div>
 
+<!-- STATISTICS GRID -->
+<div class="admin-grid admin-grid-4">
+    <div class="stat-card">
+        <div class="stat-icon">🖼️</div>
+        <div class="stat-content">
+            <p class="stat-label">Peintures</p>
+            <p class="stat-value">{{ total_paintings }}</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-content">
+            <p class="stat-label">Commandes</p>
+            <p class="stat-value">{{ total_orders }}</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-content">
+            <p class="stat-label">Revenu Total</p>
+            <p class="stat-value">{{ "%.2f"|format(total_revenue) }} €</p>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-content">
+            <p class="stat-label">Utilisateurs</p>
+            <p class="stat-value">{{ total_users }}</p>
+        </div>
+    </div>
+</div>
 
-<!-- CONTENU ADMIN -->
-<section class="admin-section">
-    <div class="admin-container">
-        <!-- STATISTIQUES PRINCIPALES -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">🖼️</div>
-                <div class="stat-info">
-                    <h3>Peintures</h3>
-                    <p class="stat-number">{{ total_paintings }}</p>
+<!-- OUT OF STOCK ALERT -->
+{% if out_of_stock %}
+<div class="admin-alert admin-alert-warning">
+    <div class="admin-alert-icon">⚠️</div>
+    <div class="admin-alert-content">
+        <h3 class="admin-alert-title">Ruptures de Stock ({{ out_of_stock|length }})</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px;">
+            {% for painting in out_of_stock %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.6); border-radius: 8px;">
+                <div>
+                    <strong style="color: #1f2937;">{{ painting.name }}</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #6b7280;">{{ painting.quantity }} unités</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <a href="{{ url_for('edit_painting', painting_id=painting.id) }}" class="admin-btn admin-btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;">✏️ Éditer</a>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon">📦</div>
-                <div class="stat-info">
-                    <h3>Commandes</h3>
-                    <p class="stat-number">{{ total_orders }}</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-info">
-                    <h3>Revenu Total</h3>
-                    <p class="stat-number">{{ "%.2f"|format(total_revenue) }} €</p>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">👥</div>
-                <div class="stat-info">
-                    <h3>Utilisateurs</h3>
-                    <p class="stat-number">{{ total_users }}</p>
-                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- RECENT ORDERS SECTION -->
+<div class="admin-card" style="margin-top: 32px;">
+    <div class="admin-card-header">
+        <div>
+            <h3 class="admin-card-title">📦 Commandes Récentes</h3>
+            <p class="admin-card-subtitle">{{ recent_orders|length }} commande{{ 's' if recent_orders|length > 1 else '' }} récente{{ 's' if recent_orders|length > 1 else '' }}</p>
+        </div>
+        <a href="{{ url_for('admin_orders') }}" class="admin-btn admin-btn-secondary">Voir tous →</a>
+    </div>
+    
+    {% if recent_orders %}
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Client</th>
+                    <th>Email</th>
+                    <th>Montant</th>
+                    <th>Date</th>
+                    <th>Statut</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                    <td><strong>#{{ order.id }}</strong></td>
+                    <td>{{ order.customer_name }}</td>
+                    <td style="font-size: 0.9rem; color: #6b7280;">{{ order.email }}</td>
+                    <td><strong>{{ "%.2f"|format(order.total) }} €</strong></td>
+                    <td>{{ order.date }}</td>
+                    <td><span class="status-badge status-{{ order.status|lower|replace(' ', '-') }}">{{ order.status }}</span></td>
+                    <td><a href="{{ url_for('admin_orders') }}">Voir →</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty-state">
+        <div class="admin-empty-icon">📦</div>
+        <h3 class="admin-empty-title">Aucune commande</h3>
+        <p class="admin-empty-message">Aucune commande pour le moment</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- PRODUCTS GRID -->
+<div class="admin-grid admin-grid-2" style="margin-top: 32px;">
+    <!-- TOP SELLING PRODUCTS -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <div>
+                <h3 class="admin-card-title">🏆 Top 5 Produits Vendus</h3>
+                <p class="admin-card-subtitle">Les plus commercialisés</p>
             </div>
         </div>
-
-        <!-- ALERTES / RUPTURES DE STOCK -->
-        {% if out_of_stock %}
-        <div class="alert alert-warning">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                <span style="font-size: 1.5rem;">⚠️</span>
-                <h3 style="margin: 0;">Ruptures de Stock ({{ out_of_stock|length }})</h3>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                {% for painting in out_of_stock %}
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.4); border-radius: 6px;">
-                    <div>
-                        <strong>{{ painting.name }}</strong>
-                        <span style="margin-left: 12px; font-size: 0.9rem; color: #666;">{{ painting.quantity }} unités</span>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <a href="{{ url_for('edit_painting', painting_id=painting.id) }}" class="btn-link" style="margin: 0; padding: 6px 12px; font-size: 0.8rem;">✏️ Éditer</a>
-                        <form action="{{ url_for('remove_painting', painting_id=painting.id) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn-link btn-danger" style="margin: 0; padding: 6px 12px; font-size: 0.8rem;" onclick="return confirm('Êtes-vous sûr ?')">🗑️ Supprimer</button>
-                        </form>
-                    </div>
+        
+        {% if top_selling %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for product in top_selling %}
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--color-border);">
+                <div style="flex-shrink: 0;">
+                    <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;">
                 </div>
-                {% endfor %}
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: var(--color-text);">{{ product.name }}</div>
+                    <div style="font-size: 0.85rem; color: #6b7280;">{{ product.total_sold }} vendues</div>
+                </div>
+                <div style="text-align: right; font-weight: 600; color: var(--color-primary);">{{ "%.2f"|format(product.price) }} €</div>
             </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="admin-empty-state">
+            <div class="admin-empty-icon">📊</div>
+            <p class="admin-empty-message">Aucune vente enregistrée</p>
         </div>
         {% endif %}
-
-        <!-- COMMANDES RÉCENTES -->
-        <div class="admin-panel">
-            <div class="panel-header">
-                <h2>📊 Commandes Récentes</h2>
-                <p class="subtitle">{{ recent_orders|length }} commande{{ 's' if recent_orders|length > 1 else '' }} récente{{ 's' if recent_orders|length > 1 else '' }}</p>
-            </div>
-            {% if recent_orders %}
-            <div class="admin-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#ID</th>
-                            <th>Client</th>
-                            <th>Email</th>
-                            <th>Montant</th>
-                            <th>Date</th>
-                            <th>Statut</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for order in recent_orders %}
-                        <tr>
-                            <td><strong>#{{ order.id }}</strong></td>
-                            <td>{{ order.customer_name }}</td>
-                            <td style="font-size: 0.9rem; color: #666;">{{ order.email }}</td>
-                            <td><strong>{{ "%.2f"|format(order.total) }} €</strong></td>
-                            <td>{{ order.date }}</td>
-                            <td>
-                                <span class="status status-{{ order.status|lower|replace(' ', '-') }}">
-                                    {{ order.status }}
-                                </span>
-                            </td>
-                            <td>
-                                <a href="{{ url_for('admin_orders') }}" class="btn-link">👁️ Voir</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <p style="text-align: center; padding: 30px; color: #9ca3af;">Aucune commande pour le moment</p>
-            {% endif %}
-        </div>
-
-        <!-- GRILLE STATISTIQUES PRODUITS -->
-        <div class="products-stats-grid">
-            <!-- PRODUITS LES PLUS VENDUS -->
-            <div class="admin-panel">
-                <div class="panel-header">
-                    <h2>🏆 Top 5 Produits Vendus</h2>
-                    <p class="subtitle">Les peintures les plus commercialisées</p>
-                </div>
-                {% if top_selling %}
-                <div class="top-products-list">
-                    {% for product in top_selling %}
-                    <div class="top-product-item">
-                        <div class="product-rank">#{{ loop.index }}</div>
-                        <div class="product-image-small">
-                            <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}">
-                        </div>
-                        <div class="product-details">
-                            <h4>{{ product.name }}</h4>
-                            <p class="product-meta">
-                                <span class="product-price">{{ "%.2f"|format(product.price) }} €</span>
-                                <span class="product-sold">{{ product.total_sold }} vendues</span>
-                            </p>
-                        </div>
-                        <a href="{{ url_for('painting_detail', painting_id=product.id) }}" class="btn-view" target="_blank">👁️</a>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="empty-state">Aucune vente enregistrée pour le moment.</p>
-                {% endif %}
-            </div>
-
-            <!-- PRODUITS LES PLUS AIMÉS -->
-            <div class="admin-panel">
-                <div class="panel-header">
-                    <h2>❤️ Top 5 Produits Aimés</h2>
-                    <p class="subtitle">Les peintures les plus ajoutées en favoris</p>
-                </div>
-                {% if most_loved %}
-                <div class="top-products-list">
-                    {% for product in most_loved %}
-                    <div class="top-product-item">
-                        <div class="product-rank loved">#{{ loop.index }}</div>
-                        <div class="product-image-small">
-                            <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}">
-                        </div>
-                        <div class="product-details">
-                            <h4>{{ product.name }}</h4>
-                            <p class="product-meta">
-                                <span class="product-price">{{ "%.2f"|format(product.price) }} €</span>
-                                <span class="product-loved">❤️ {{ product.favorite_count }} favoris</span>
-                            </p>
-                        </div>
-                        <a href="{{ url_for('painting_detail', painting_id=product.id) }}" class="btn-view" target="_blank">👁️</a>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="empty-state">Aucun favori enregistré pour le moment.</p>
-                {% endif %}
-            </div>
-        </div>
     </div>
-</section>
-
-<style>
-.products-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: var(--spacing-2xl);
-    margin-top: var(--spacing-2xl);
-}
-
-.top-products-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.top-product-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-lg);
-    background: #fafafa;
-    border-radius: 10px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 2px solid transparent;
-}
-
-.top-product-item:hover {
-    background: white;
-    border-color: var(--color-primary);
-    transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.product-rank {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: white;
-    min-width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.product-rank.loved {
-    background: linear-gradient(135deg, #ec4899, #f43f5e);
-}
-
-.product-image-small {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    flex-shrink: 0;
-}
-
-.product-image-small img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.product-details {
-    flex: 1;
-}
-
-.product-details h4 {
-    margin: 0 0 6px 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--color-text);
-    font-family: var(--font-primary);
-}
-
-.product-meta {
-    display: flex;
-    gap: var(--spacing-lg);
-    align-items: center;
-    font-size: 0.9rem;
-    flex-wrap: wrap;
-}
-
-.product-price {
-    font-weight: 700;
-    color: var(--color-primary);
-}
-
-.product-sold, .product-loved {
-    font-weight: 600;
-    color: #059669;
-}
-
-.product-loved {
-    color: #ec4899;
-}
-
-.btn-view {
-    padding: 8px 12px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    color: white;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 1rem;
-    transition: all 0.25s ease;
-    flex-shrink: 0;
-}
-
-.btn-view:hover {
-    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
-    transform: translateY(-2px);
-}
-
-.empty-state {
-    text-align: center;
-    padding: 40px;
-    color: #9ca3af;
-    font-style: italic;
-    font-family: var(--font-primary);
-}
-
-@media (max-width: 1024px) {
-    .products-stats-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
+    
+    <!-- TOP FAVORITE PRODUCTS -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <div>
+                <h3 class="admin-card-title">❤️ Top 5 Produits Aimés</h3>
+                <p class="admin-card-subtitle">Les plus ajoutés en favoris</p>
+            </div>
+        </div>
+        
+        {% if most_loved %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for product in most_loved %}
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--color-border);">
+                <div style="flex-shrink: 0;">
+                    <img src="{{ url_for('static', filename=product.image) }}" alt="{{ product.name }}" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;">
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: var(--color-text);">{{ product.name }}</div>
+                    <div style="font-size: 0.85rem; color: #6b7280;">❤️ {{ product.favorite_count }} favoris</div>
+                </div>
+                <div style="text-align: right; font-weight: 600; color: var(--color-primary);">{{ "%.2f"|format(product.price) }} €</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="admin-empty-state">
+            <div class="admin-empty-icon">❤️</div>
+            <p class="admin-empty-message">Aucun favori enregistré</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
 
 {% endblock %}

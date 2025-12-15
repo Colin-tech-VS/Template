@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin - {{ site_settings.site_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+    <link rel="stylesheet" href="{{ url_for('dynamic_colors') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .admin-wrapper {
+            position: relative;
+        }
+        
+        .sidebar-toggle {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                display: flex;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- TOP BAR -->
+        <div class="admin-topbar">
+            <div class="admin-topbar-content">
+                <div class="admin-topbar-left">
+                    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+                    <h1 class="admin-title">{{ site_settings.site_logo or 'Admin Panel' }}</h1>
+                </div>
+                <div class="admin-topbar-right">
+                    {% if new_notifications_count > 0 %}
+                    <a href="{{ url_for('admin_notifications') }}" style="color: white; text-decoration: none; position: relative;">
+                        🔔
+                        <span class="sidebar-badge" style="position: absolute; top: -5px; right: -10px;">{{ new_notifications_count }}</span>
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('index') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; transition: color 0.2s;">Voir le site</a>
+                    <a href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; transition: color 0.2s;">Déconnexion</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="admin-sidebar" id="adminSidebar">
+            <nav class="sidebar-nav">
+                <!-- MAIN SECTION -->
+                <div class="sidebar-section">
+                    <a href="{{ url_for('admin_dashboard') }}" class="sidebar-nav-item {% if active == 'dashboard' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">📊</span>
+                        <span>Dashboard</span>
+                    </a>
+                </div>
+                
+                <!-- CONTENT SECTION -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">Contenu</span>
+                    <a href="{{ url_for('admin_paintings') }}" class="sidebar-nav-item {% if active == 'paintings' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">🖼️</span>
+                        <span>Peintures</span>
+                    </a>
+                    <a href="{{ url_for('admin_exhibitions') }}" class="sidebar-nav-item {% if active == 'exhibitions' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">🎭</span>
+                        <span>Expositions</span>
+                    </a>
+                </div>
+                
+                <!-- ORDERS & CUSTOMERS SECTION -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">Ventes</span>
+                    <a href="{{ url_for('admin_orders') }}" class="sidebar-nav-item {% if active == 'orders' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">📦</span>
+                        <span>Commandes</span>
+                    </a>
+                    <a href="{{ url_for('admin_users') }}" class="sidebar-nav-item {% if active == 'users' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">👥</span>
+                        <span>Utilisateurs</span>
+                    </a>
+                </div>
+                
+                <!-- REQUESTS SECTION -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">Demandes</span>
+                    <a href="{{ url_for('admin_custom_requests') }}" class="sidebar-nav-item {% if active == 'custom_requests' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">✨</span>
+                        <span>Sur Mesure</span>
+                    </a>
+                    <a href="{{ url_for('admin_notifications') }}" class="sidebar-nav-item {% if active == 'notifications' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">🔔</span>
+                        <span>Notifications</span>
+                        {% if new_notifications_count > 0 %}<span class="sidebar-badge">{{ new_notifications_count }}</span>{% endif %}
+                    </a>
+                </div>
+                
+                <!-- SETTINGS SECTION -->
+                <div class="sidebar-section">
+                    <span class="sidebar-section-title">Configuration</span>
+                    <a href="{{ url_for('admin_settings_page') }}" class="sidebar-nav-item {% if active == 'settings' %}active{% endif %}">
+                        <span class="sidebar-nav-item-icon">⚙️</span>
+                        <span>Paramètres</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- MAIN CONTENT AREA -->
+        <main class="admin-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="admin-alert admin-alert-{% if category == 'error' %}error{% elif category == 'success' %}success{% else %}info{% endif %}">
+                            <div class="admin-alert-icon">
+                                {% if category == 'error' %}❌{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+                            </div>
+                            <div class="admin-alert-content">
+                                <p class="admin-alert-message">{{ message }}</p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block admin_content %}{% endblock %}
+        </main>
+    </div>
+    
+    <script>
+        // Sidebar toggle on mobile
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const adminSidebar = document.getElementById('adminSidebar');
+        
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                adminSidebar.classList.toggle('open');
+            });
+            
+            // Close sidebar when clicking on a link
+            document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        adminSidebar.classList.remove('open');
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>

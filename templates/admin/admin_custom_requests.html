@@ -1,323 +1,127 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
 
-{% block title %}Gestion des Demandes sur Mesure - Admin{% endblock %}
+{% block title %}Demandes Sur Mesure - Admin{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 
-<!-- HEADER ADMIN -->
-<header class="admin-header">
-    <div class="admin-container">
-        <h1>🎨 Tableau de bord Admin</h1>
-        <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">Demandes sur Mesure</a>
-            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
-                🔔 Notifications
-                {% if new_notifications_count > 0 %}
-                <span class="badge">{{ new_notifications_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
-        </nav>
+<!-- PAGE HEADER -->
+<div class="admin-page-header">
+    <div class="admin-page-header-left">
+        <h2 class="admin-page-title">✨ Demandes Sur Mesure</h2>
+        <p class="admin-page-subtitle">{{ requests|length }} demande{{ 's' if requests|length > 1 else '' }} au total</p>
     </div>
-</header>
+</div>
 
-<!-- LISTE DES DEMANDES -->
-<section class="admin-section">
-    <div class="admin-container">
-        <div class="admin-panel">
-            <div class="panel-header">
-                <h2>Demandes de Créations sur Mesure</h2>
-                <p class="subtitle">{{ requests|length }} demande{{ 's' if requests|length > 1 else '' }}</p>
+<!-- FILTERS -->
+<div class="admin-card" style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <a href="{{ url_for('admin_custom_requests') }}" class="admin-btn {% if not request.args.get('status') %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}" style="padding: 8px 16px; font-size: 0.9rem;">
+            Toutes ({{ total_count }})
+        </a>
+        <a href="{{ url_for('admin_custom_requests', status='En attente') }}" class="admin-btn {% if request.args.get('status')=='En attente' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}" style="padding: 8px 16px; font-size: 0.9rem;">
+            En attente ({{ pending_count }})
+        </a>
+        <a href="{{ url_for('admin_custom_requests', status='En cours') }}" class="admin-btn {% if request.args.get('status')=='En cours' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}" style="padding: 8px 16px; font-size: 0.9rem;">
+            En cours ({{ in_progress_count }})
+        </a>
+        <a href="{{ url_for('admin_custom_requests', status='Acceptée') }}" class="admin-btn {% if request.args.get('status')=='Acceptée' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}" style="padding: 8px 16px; font-size: 0.9rem;">
+            Acceptée ({{ accepted_count }})
+        </a>
+        <a href="{{ url_for('admin_custom_requests', status='Refusée') }}" class="admin-btn {% if request.args.get('status')=='Refusée' %}admin-btn-primary{% else %}admin-btn-secondary{% endif %}" style="padding: 8px 16px; font-size: 0.9rem;">
+            Refusée ({{ refused_count }})
+        </a>
+    </div>
+</div>
+
+<!-- REQUESTS LIST -->
+{% if requests %}
+<div style="display: flex; flex-direction: column; gap: 16px;">
+    {% for req in requests %}
+    <div class="admin-card">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border);">
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: var(--color-text); font-size: 1.1rem;">{{ req[1] }}</h3>
+                <p style="margin: 0; font-size: 0.9rem; color: #6b7280;">{{ req[2] }}{% if req[3] %} • 📞 {{ req[3] }}{% endif %}</p>
             </div>
-
-            <!-- FILTRES PAR STATUT -->
-            <div class="filter-bar">
-                <a href="{{ url_for('admin_custom_requests') }}" class="filter-btn {% if not request.args.get('status') %}active{% endif %}">
-                    Toutes ({{ total_count }})
-                </a>
-                <a href="{{ url_for('admin_custom_requests', status='En attente') }}" class="filter-btn {% if request.args.get('status')=='En attente' %}active{% endif %}">
-                    En attente ({{ pending_count }})
-                </a>
-                <a href="{{ url_for('admin_custom_requests', status='En cours') }}" class="filter-btn {% if request.args.get('status')=='En cours' %}active{% endif %}">
-                    En cours ({{ in_progress_count }})
-                </a>
-                <a href="{{ url_for('admin_custom_requests', status='Acceptée') }}" class="filter-btn {% if request.args.get('status')=='Acceptée' %}active{% endif %}">
-                    Acceptée ({{ accepted_count }})
-                </a>
-                <a href="{{ url_for('admin_custom_requests', status='Refusée') }}" class="filter-btn {% if request.args.get('status')=='Refusée' %}active{% endif %}">
-                    Refusée ({{ refused_count }})
-                </a>
+            <span class="status-badge status-{{ req[10]|lower|replace(' ', '-') }}">{{ req[10] }}</span>
+        </div>
+        
+        <!-- DETAILS -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Type</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ req[4] }}</div>
             </div>
-
-            {% if requests %}
-            <div class="requests-grid">
-                {% for req in requests %}
-                <div class="request-card">
-                    <div class="request-header">
-                        <div class="request-info">
-                            <h3>{{ req[1] }}</h3>
-                            <p class="request-email">{{ req[2] }}</p>
-                            {% if req[3] %}<p class="request-phone">📞 {{ req[3] }}</p>{% endif %}
-                        </div>
-                        <span class="status-badge status-{{ req[10]|lower|replace(' ', '-') }}">{{ req[10] }}</span>
-                    </div>
-
-                    <div class="request-details">
-                        <div class="detail-item">
-                            <strong>Type:</strong> {{ req[4] }}
-                        </div>
-                        <div class="detail-item">
-                            <strong>Date:</strong> {{ req[11] }}
-                        </div>
-                        {% if req[6] %}
-                        <div class="detail-item">
-                            <strong>Budget:</strong> {{ req[6] }}
-                        </div>
-                        {% endif %}
-                        {% if req[7] %}
-                        <div class="detail-item">
-                            <strong>Dimensions:</strong> {{ req[7] }}
-                        </div>
-                        {% endif %}
-                        {% if req[8] %}
-                        <div class="detail-item">
-                            <strong>Délai:</strong> {{ req[8] }}
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="request-description">
-                        <strong>Description:</strong>
-                        <p>{{ req[5][:150] }}{% if req[5]|length > 150 %}...{% endif %}</p>
-                    </div>
-
-                    {% if req[9] %}
-                    <div class="request-images">
-                        <strong>Images de référence:</strong>
-                        <div class="images-preview">
-                            {% set images = req[9]|from_json %}
-                            {% for image in images %}
-                            <img src="{{ url_for('static', filename=image) }}" alt="Référence" class="ref-img">
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <div class="request-actions">
-                        <form method="POST" action="{{ url_for('update_custom_request_status', request_id=req[0]) }}" style="display: inline;">
-                            <select name="status" onchange="this.form.submit()" class="status-select">
-                                <option value="En attente" {% if req[10]=='En attente' %}selected{% endif %}>En attente</option>
-                                <option value="En cours" {% if req[10]=='En cours' %}selected{% endif %}>En cours</option>
-                                <option value="Acceptée" {% if req[10]=='Acceptée' %}selected{% endif %}>Acceptée</option>
-                                <option value="Refusée" {% if req[10]=='Refusée' %}selected{% endif %}>Refusée</option>
-                                <option value="Terminée" {% if req[10]=='Terminée' %}selected{% endif %}>Terminée</option>
-                            </select>
-                        </form>
-                        <a href="mailto:{{ req[2] }}?subject=Votre demande de création sur mesure" class="btn-link">✉️ Répondre</a>
-                        <form method="POST" action="{{ url_for('delete_custom_request', request_id=req[0]) }}" style="display: inline;" onsubmit="return confirm('Supprimer cette demande ?')">
-                            <button type="submit" class="btn-link btn-danger">🗑️ Supprimer</button>
-                        </form>
-                    </div>
-                </div>
+            {% if req[6] %}
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Budget</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ req[6] }}</div>
+            </div>
+            {% endif %}
+            {% if req[7] %}
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Dimensions</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ req[7] }}</div>
+            </div>
+            {% endif %}
+            {% if req[8] %}
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Délai</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ req[8] }}</div>
+            </div>
+            {% endif %}
+            <div>
+                <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 4px;">Date</div>
+                <div style="font-weight: 600; color: var(--color-text);">{{ req[11] }}</div>
+            </div>
+        </div>
+        
+        <!-- DESCRIPTION -->
+        <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: var(--color-text);">Description</div>
+            <p style="margin: 0; color: var(--color-text-secondary); line-height: 1.6;">{{ req[5][:300] }}{% if req[5]|length > 300 %}...{% endif %}</p>
+        </div>
+        
+        <!-- REFERENCE IMAGES -->
+        {% if req[9] %}
+        <div style="margin-bottom: 16px;">
+            <div style="font-weight: 600; margin-bottom: 8px; color: var(--color-text);">Images de référence</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                {% set images = req[9]|from_json %}
+                {% for image in images %}
+                <img src="{{ url_for('static', filename=image) }}" alt="Référence" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: transform 0.2s; border: 1px solid var(--color-border);" onclick="window.open('{{ url_for('static', filename=image) }}')">
                 {% endfor %}
             </div>
-            {% else %}
-            <p style="text-align: center; color: #999; padding: 40px;">Aucune demande pour le moment.</p>
-            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- ACTIONS -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <form method="POST" action="{{ url_for('update_custom_request_status', request_id=req[0]) }}" style="display: inline;">
+                <select name="status" onchange="this.form.submit()" class="admin-form-select" style="padding: 8px 12px;">
+                    <option value="En attente" {% if req[10]=='En attente' %}selected{% endif %}>En attente</option>
+                    <option value="En cours" {% if req[10]=='En cours' %}selected{% endif %}>En cours</option>
+                    <option value="Acceptée" {% if req[10]=='Acceptée' %}selected{% endif %}>Acceptée</option>
+                    <option value="Refusée" {% if req[10]=='Refusée' %}selected{% endif %}>Refusée</option>
+                    <option value="Terminée" {% if req[10]=='Terminée' %}selected{% endif %}>Terminée</option>
+                </select>
+            </form>
+            
+            <a href="mailto:{{ req[2] }}?subject=Demande de création sur mesure" class="admin-btn admin-btn-secondary" style="padding: 8px 16px;">✉️ Répondre</a>
+            
+            <form method="POST" action="{{ url_for('delete_custom_request', request_id=req[0]) }}" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr ?');">
+                <button type="submit" class="admin-btn admin-btn-danger" style="padding: 8px 16px;">🗑️ Supprimer</button>
+            </form>
         </div>
     </div>
-</section>
-
-<style>
-.filter-bar {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
-    flex-wrap: wrap;
-}
-
-.filter-btn {
-    padding: 10px 20px;
-    background: #f0f0f0;
-    color: #333;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    transition: all 0.3s;
-}
-
-.filter-btn:hover {
-    background: #e0e0e0;
-}
-
-.filter-btn.active {
-    background: #1E3A8A;
-    color: white;
-}
-
-.requests-grid {
-    display: grid;
-    gap: 25px;
-}
-
-.request-card {
-    background: white;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.request-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-}
-
-.request-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #f0f0f0;
-}
-
-.request-info h3 {
-    font-size: 20px;
-    color: #1E3A8A;
-    margin: 0 0 5px 0;
-}
-
-.request-email {
-    color: #666;
-    font-size: 14px;
-    margin: 3px 0;
-}
-
-.request-phone {
-    color: #888;
-    font-size: 13px;
-    margin: 3px 0;
-}
-
-.status-badge {
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.status-en-attente { background: #FFF3CD; color: #856404; }
-.status-en-cours { background: #CCE5FF; color: #004085; }
-.status-acceptée { background: #D4EDDA; color: #155724; }
-.status-refusée { background: #F8D7DA; color: #721C24; }
-.status-terminée { background: #E2E3E5; color: #383D41; }
-
-.request-details {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
-    margin-bottom: 15px;
-}
-
-.detail-item {
-    font-size: 14px;
-    color: #555;
-}
-
-.detail-item strong {
-    color: #333;
-    display: block;
-    margin-bottom: 3px;
-}
-
-.request-description {
-    margin-bottom: 15px;
-    padding: 15px;
-    background: #f9f9f9;
-    border-radius: 8px;
-}
-
-.request-description strong {
-    display: block;
-    margin-bottom: 8px;
-    color: #333;
-}
-
-.request-description p {
-    margin: 0;
-    color: #555;
-    line-height: 1.6;
-}
-
-.request-images {
-    margin-bottom: 15px;
-}
-
-.images-preview {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-    flex-wrap: wrap;
-}
-
-.ref-img {
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: transform 0.3s;
-}
-
-.ref-img:hover {
-    transform: scale(1.1);
-}
-
-.request-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.status-select {
-    padding: 8px 12px;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-@media (max-width: 768px) {
-    .request-header {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .request-details {
-        grid-template-columns: 1fr;
-    }
-    
-    .request-actions {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .status-select,
-    .btn-link {
-        width: 100%;
-    }
-}
-</style>
+    {% endfor %}
+</div>
+{% else %}
+<div class="admin-empty-state">
+    <div class="admin-empty-icon">✨</div>
+    <h3 class="admin-empty-title">Aucune demande</h3>
+    <p class="admin-empty-message">Aucune demande trouvée</p>
+</div>
+{% endif %}
 
 {% endblock %}

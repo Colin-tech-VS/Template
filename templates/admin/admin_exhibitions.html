@@ -1,113 +1,72 @@
-{% extends "base.html" %}
+{% extends "admin/base_admin.html" %}
 
-{% block title %}Tableau de bord Admin - Exhibitions{% endblock %}
+{% block title %}Expositions - Admin{% endblock %}
 
-{% block content %}
+{% block admin_content %}
 
-<!-- HEADER ADMIN -->
-<header class="admin-header">
-    <div class="admin-container">
-        <h1>🎨 Tableau de bord Admin</h1>
-        <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">Demandes sur Mesure</a>
-            <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
-                🔔 Notifications
-                {% if new_notifications_count > 0 %}
-                <span class="badge">{{ new_notifications_count }}</span>
-                {% endif %}
-            </a>
-            <!-- Nouvel onglet Paramètres -->
-            <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
-        </nav>
+<!-- PAGE HEADER -->
+<div class="admin-page-header">
+    <div class="admin-page-header-left">
+        <h2 class="admin-page-title">🎭 Expositions</h2>
+        <p class="admin-page-subtitle">{{ exhibitions|length }} exposition{{ 's' if exhibitions|length > 1 else '' }} enregistrée{{ 's' if exhibitions|length > 1 else '' }}</p>
     </div>
-</header>
+    <div class="admin-page-actions">
+        <a href="{{ url_for('add_exhibition') }}" class="admin-btn admin-btn-primary">+ Ajouter une exposition</a>
+    </div>
+</div>
 
-<section class="admin-section">
-    <div class="admin-container">
-        <!-- Bouton Ajouter -->
-        <div style="margin-bottom: 20px;">
-            <a href="{{ url_for('add_exhibition') }}" class="btn-primary">+ Ajouter une exhibition</a>
-        </div>
-
-        <!-- Liste des exhibitions -->
-        <div class="admin-panel">
-            <h2>Exhibitions existantes</h2>
-            {% if exhibitions %}
-            <table class="admin-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Titre</th>
-                        <th>Lieu</th>
-                        <th>Date</th>
-                        <th>Horaires</th>
-                        <th>Organisateur</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for exhibition in exhibitions %}
-                    <tr>
-                        <td>#{{ exhibition.id }}</td>
-                        <td>{{ exhibition.title }}</td>
-                        <td>{{ exhibition.location }}</td>
-                        <td>{{ exhibition.date }}</td>
-                        <td>
-                            {% if exhibition.start_time %}
-                                {{ exhibition.start_time }}{% if exhibition.end_time %} - {{ exhibition.end_time }}{% endif %}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>{{ exhibition.organizer if exhibition.organizer else '-' }}</td>
-                        <td>
-                            <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition.id) }}" class="btn-link">Éditer</a>
-                            <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Supprimer cette exhibition ?');">
-                                <button type="submit" class="btn-link btn-danger">Supprimer</button>
+<!-- EXHIBITIONS LIST -->
+{% if exhibitions %}
+<div class="admin-card">
+    <div class="admin-table-container">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Titre</th>
+                    <th>Lieu</th>
+                    <th>Date</th>
+                    <th>Horaires</th>
+                    <th>Organisateur</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exhibition in exhibitions %}
+                <tr>
+                    <td><strong>#{{ exhibition.id }}</strong></td>
+                    <td>{{ exhibition.title }}</td>
+                    <td>{{ exhibition.location }}</td>
+                    <td>{{ exhibition.date }}</td>
+                    <td>
+                        {% if exhibition.start_time %}
+                        {{ exhibition.start_time }}{% if exhibition.end_time %} - {{ exhibition.end_time }}{% endif %}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td>{{ exhibition.organizer if exhibition.organizer else '-' }}</td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="{{ url_for('edit_exhibition', exhibition_id=exhibition.id) }}" class="admin-btn admin-btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;">✏️ Éditer</a>
+                            <form action="{{ url_for('remove_exhibition', exhibition_id=exhibition.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr ?');">
+                                <button type="submit" class="admin-btn admin-btn-danger" style="padding: 6px 12px; font-size: 0.85rem;">🗑️ Supprimer</button>
                             </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>Aucune exhibition pour le moment.</p>
-            {% endif %}
-        </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-</section>
-
-<style>
-.btn-primary {
-    color: #fff;
-    background-color: #007bff;
-    border: none;
-    padding: 10px 18px; /* augmente la taille */
-    border-radius: 6px;
-    font-size: 16px; /* même taille que les autres boutons */
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.btn-primary:hover {
-    background-color: #0069d9;
-}
-
-.btn-link.btn-danger {
-    background-color: #dc3545;
-}
-
-.btn-link.btn-danger:hover {
-    background-color: #c82333;
-}
-</style>
+</div>
+{% else %}
+<div class="admin-empty-state">
+    <div class="admin-empty-icon">🎭</div>
+    <h3 class="admin-empty-title">Aucune exposition</h3>
+    <p class="admin-empty-message">Commencez par en ajouter une nouvelle</p>
+    <a href="{{ url_for('add_exhibition') }}" class="admin-btn admin-btn-primary" style="margin-top: 16px;">+ Ajouter une exposition</a>
+</div>
+{% endif %}
 
 {% endblock %}
