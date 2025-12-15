@@ -207,43 +207,69 @@
             <!-- TAB 5: DESIGN -->
             <div id="design" class="tab-content">
                 <h2>🎭 Thème des Couleurs</h2>
-                <p class="tab-description">Personnalisez la palette de votre site</p>
+                <p class="tab-description">Personnalisez la palette de votre site — aperçu en direct à droite.</p>
 
-                <div class="color-grid">
-                    <div class="color-item">
-                        <label for="primary_color">Couleur primaire</label>
-                        <input type="color" name="primary_color" id="primary_color" value="{{ settings['primary_color'] }}" class="color-picker">
-                        <span class="color-value">{{ settings['primary_color'] }}</span>
+                <div class="design-grid">
+                    <div class="design-controls">
+                        <div class="color-grid compact">
+                            <div class="color-item small">
+                                <label for="primary_color">Couleur primaire</label>
+                                <input type="color" name="primary_color" id="primary_color" value="{{ settings['primary_color'] }}" class="color-picker">
+                                <span class="color-value">{{ settings['primary_color'] }}</span>
+                            </div>
+
+                            <div class="color-item small">
+                                <label for="secondary_color">Couleur secondaire</label>
+                                <input type="color" name="secondary_color" id="secondary_color" value="{{ settings['secondary_color'] }}" class="color-picker">
+                                <span class="color-value">{{ settings['secondary_color'] }}</span>
+                            </div>
+
+                            <div class="color-item small">
+                                <label for="accent_color">Accent</label>
+                                <input type="color" name="accent_color" id="accent_color" value="{{ settings['accent_color'] }}" class="color-picker">
+                                <span class="color-value">{{ settings['accent_color'] }}</span>
+                            </div>
+
+                            <div class="color-item small">
+                                <label for="button_text_color">Texte boutons</label>
+                                <input type="color" name="button_text_color" id="button_text_color" value="{{ settings.get('button_text_color', '#FFFFFF') }}" class="color-picker">
+                                <span class="color-value">{{ settings.get('button_text_color', '#FFFFFF') }}</span>
+                            </div>
+
+                            <div class="color-item small">
+                                <label for="content_text_color">Texte contenu</label>
+                                <input type="color" name="content_text_color" id="content_text_color" value="{{ settings.get('content_text_color', '#000000') }}" class="color-picker">
+                                <span class="color-value">{{ settings.get('content_text_color', '#000000') }}</span>
+                            </div>
+
+                            <div class="color-item small">
+                                <label for="button_hover_color">Survol</label>
+                                <input type="color" name="button_hover_color" id="button_hover_color" value="{{ settings.get('button_hover_color', '#9C27B0') }}" class="color-picker">
+                                <span class="color-value">{{ settings.get('button_hover_color', '#9C27B0') }}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="color-item">
-                        <label for="secondary_color">Couleur secondaire</label>
-                        <input type="color" name="secondary_color" id="secondary_color" value="{{ settings['secondary_color'] }}" class="color-picker">
-                        <span class="color-value">{{ settings['secondary_color'] }}</span>
-                    </div>
-
-                    <div class="color-item">
-                        <label for="accent_color">Couleur d'accentuation</label>
-                        <input type="color" name="accent_color" id="accent_color" value="{{ settings['accent_color'] }}" class="color-picker">
-                        <span class="color-value">{{ settings['accent_color'] }}</span>
-                    </div>
-
-                    <div class="color-item">
-                        <label for="button_text_color">Texte des boutons</label>
-                        <input type="color" name="button_text_color" id="button_text_color" value="{{ settings.get('button_text_color', '#FFFFFF') }}" class="color-picker">
-                        <span class="color-value">{{ settings.get('button_text_color', '#FFFFFF') }}</span>
-                    </div>
-
-                    <div class="color-item">
-                        <label for="content_text_color">Texte du contenu</label>
-                        <input type="color" name="content_text_color" id="content_text_color" value="{{ settings.get('content_text_color', '#000000') }}" class="color-picker">
-                        <span class="color-value">{{ settings.get('content_text_color', '#000000') }}</span>
-                    </div>
-
-                    <div class="color-item">
-                        <label for="button_hover_color">Couleur au survol</label>
-                        <input type="color" name="button_hover_color" id="button_hover_color" value="{{ settings.get('button_hover_color', '#9C27B0') }}" class="color-picker">
-                        <span class="color-value">{{ settings.get('button_hover_color', '#9C27B0') }}</span>
+                    <div class="design-preview">
+                        <h3>Aperçu</h3>
+                        <div class="preview-card compact" id="color_preview_card">
+                            <div class="preview-navbar">Logo</div>
+                            <div class="preview-hero">
+                                <h4>Bienvenue — Aperçu</h4>
+                                <p class="preview-content">Exemple de texte pour vérifier la couleur du contenu.</p>
+                                <div class="preview-actions">
+                                    <button class="preview-btn">Call to action</button>
+                                    <button class="preview-btn preview-secondary">Secondaire</button>
+                                </div>
+                            </div>
+                            <div class="preview-swatches">
+                                <div class="swatch"><div class="swatch-sample swatch-primary"></div><span>Primaire</span></div>
+                                <div class="swatch"><div class="swatch-sample swatch-secondary"></div><span>Secondaire</span></div>
+                                <div class="swatch"><div class="swatch-sample swatch-accent"></div><span>Accent</span></div>
+                                <div class="swatch"><div class="swatch-sample swatch-button-text"></div><span>Texte btn</span></div>
+                                <div class="swatch"><div class="swatch-sample swatch-content-text"></div><span>Texte</span></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -425,9 +451,9 @@
 /* COLORS */
 .color-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 25px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
 }
 
 .color-item {
@@ -441,7 +467,7 @@
 
 .color-picker {
     width: 100%;
-    height: 60px;
+    height: 40px;
     border: 2px solid #e2e8f0;
     border-radius: 6px;
     cursor: pointer;
@@ -453,12 +479,28 @@
 }
 
 .color-value {
-    margin-top: 8px;
+    margin-top: 6px;
     font-family: monospace;
     color: #718096;
-    font-size: 13px;
+    font-size: 12px;
     text-align: center;
 }
+
+/* Compact variants used in Design tab */
+.color-grid.compact { gap: 12px; }
+.color-item.small { padding: 6px 4px; }
+.design-grid { display: grid; grid-template-columns: 1fr 360px; gap: 20px; align-items: start; }
+.design-controls { min-width: 0; }
+.design-preview { position: relative; }
+.preview-card.compact { min-height: 160px; }
+.preview-navbar { padding: 8px 12px; font-size: 14px; }
+.preview-hero { padding: 12px; }
+.preview-hero h4 { font-size: 16px; }
+.preview-content { font-size: 13px; }
+.preview-swatches { gap: 8px; }
+
+/* Keep the save button visible without scrolling too far */
+.form-actions { margin-top: 20px; margin-bottom: 10px; }
 
 /* API KEY */
 .api-key-section {
