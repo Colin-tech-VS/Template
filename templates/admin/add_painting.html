@@ -236,7 +236,7 @@ function previewImage(input, previewId) {
 .form-section h3 {
     font-size: 20px;
     font-weight: 600;
-    color: #1E3A8A;
+    color: var(--color-primary, #1E3A8A);
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 2px solid #e5e7eb;
@@ -282,7 +282,7 @@ function previewImage(input, previewId) {
 
 .file-input-wrapper {
     position: relative;
-    border: 2px dashed #1E3A8A;
+    border: 2px dashed var(--color-primary, #1E3A8A);
     border-radius: 8px;
     padding: 30px 20px;
     text-align: center;
@@ -297,7 +297,7 @@ function previewImage(input, previewId) {
 
 .file-input-wrapper:hover { 
     background: #f0f4f8; 
-    border-color: #3B65C4; 
+    border-color: var(--color-secondary, #3B65C4); 
 }
 
 .file-input-wrapper input { 
@@ -305,7 +305,7 @@ function previewImage(input, previewId) {
 }
 
 .file-label { 
-    color: #1E3A8A; 
+    color: var(--color-primary, #1E3A8A); 
     font-weight: 600; 
     font-size: 14px; 
     cursor: pointer; 
@@ -332,7 +332,7 @@ select {
 
 select:focus {
     outline: none;
-    border-color: #1E3A8A;
+    border-color: var(--color-primary, #1E3A8A);
     box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
 }
 </style>

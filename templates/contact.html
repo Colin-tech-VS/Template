@@ -6,13 +6,13 @@
 <style>
 .auth-section {display: flex; justify-content: center; padding: 60px 20px;}
 .auth-container {background: white; border-radius: 15px; padding: 40px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); max-width: 500px; width: 100%;}
-.auth-container h2 {color: #1E3A8A; text-align: center; margin-bottom: 30px; font-size: 32px; font-weight: 700;}
+.auth-container h2 {color: var(--color-primary, #1E3A8A); text-align: center; margin-bottom: 30px; font-size: 32px; font-weight: 700;}
 .auth-form {display: flex; flex-direction: column; gap: 15px;}
 .auth-form label {font-weight: 600; color: #333;}
 .auth-form input,.auth-form textarea {padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-family: Poppins, sans-serif;}
 .auth-form textarea {resize: vertical; min-height: 150px;}
-.auth-form button {padding: 12px; background: linear-gradient(90deg, #1E3A8A, #3B65C4); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.3s;}
-.auth-form button:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+.auth-form button {padding: 12px; background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4)); color: var(--button-text-color, white); border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.3s;}
+.auth-form button:hover {background: linear-gradient(90deg, var(--color-secondary, #3B65C4), var(--color-primary, #1E3A8A));}
 .flash-messages {list-style: none; padding: 0; margin-bottom: 20px;}
 .flash-messages li {background: #f44336; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px;}
 @media (max-width: 768px) {

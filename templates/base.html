@@ -264,11 +264,11 @@
     <!-- NAVIGATION -->
     <nav>
         <div class="logo" data-shop-name>{{ site_settings.site_logo }}</div>
-        <div class="hamburger" onclick="toggleMenu()">
+        <button class="hamburger" type="button" aria-label="Toggle menu">
             <span></span>
             <span></span>
             <span></span>
-        </div>
+        </button>
         <ul id="nav-menu">
             <li><a href="/">Accueil</a></li>
             <li><a href="/galerie">Galerie</a></li>
@@ -372,13 +372,35 @@
     <!-- SCRIPTS -->
     <script>
         function toggleMenu() {
-            document.getElementById("nav-menu").classList.toggle("show");
+            const navMenu = document.getElementById("nav-menu");
+            const hamburger = document.querySelector(".hamburger");
+            navMenu.classList.toggle("show");
+            hamburger.classList.toggle("active");
         }
 
         function toggleUserMenu() {
             const menu = document.querySelector('.user-menu-content');
             menu.classList.toggle('show');
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const hamburger = document.querySelector('.hamburger');
+            if (hamburger) {
+                hamburger.addEventListener('click', toggleMenu);
+            }
+
+            const navLinks = document.querySelectorAll('#nav-menu a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    const navMenu = document.getElementById('nav-menu');
+                    const hamburgerBtn = document.querySelector('.hamburger');
+                    if (navMenu.classList.contains('show')) {
+                        navMenu.classList.remove('show');
+                        hamburgerBtn.classList.remove('active');
+                    }
+                });
+            });
+        });
 
         window.addEventListener('click', function(e) {
             const userMenu = document.querySelector('.user-menu');

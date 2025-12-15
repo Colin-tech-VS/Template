@@ -6,7 +6,7 @@
 
 <style>
 .seo-intro {text-align: center; padding: 40px 20px;}
-.seo-intro h1 {font-size: 36px; color: #1E3A8A; font-weight: 700; margin-bottom: 20px;}
+.seo-intro h1 {font-size: 36px; color: var(--color-primary, #1E3A8A); font-weight: 700; margin-bottom: 20px;}
 .seo-intro p {font-size: 16px; color: #555; line-height: 1.6;}
 
 .latest-gallery {
@@ -83,11 +83,11 @@
 .info h3 {
     margin: 0;
     font-size: 18px;
-    color: #1E3A8A;
+    color: var(--color-primary, #1E3A8A);
 }
 .info span {
     font-weight: 700;
-    color: #1E3A8A;
+    color: var(--color-primary, #1E3A8A);
 }
 .info p.stock {
     font-size: 14px;
@@ -112,15 +112,15 @@
 .buy-btn {
     margin-top: 10px;
     padding: 10px 15px;
-    background: linear-gradient(90deg, #1E3A8A, #3B65C4);
-    color: white;
+    background: linear-gradient(90deg, var(--color-primary, #1E3A8A), var(--color-secondary, #3B65C4));
+    color: var(--button-text-color, white);
     border: none;
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
     transition: background 0.3s;
 }
-.buy-btn:hover {background: linear-gradient(90deg, #3B65C4, #1E3A8A);}
+.buy-btn:hover {background: linear-gradient(90deg, var(--color-secondary, #3B65C4), var(--color-primary, #1E3A8A));}
 .buy-btn[disabled] {background:#ccc; cursor:not-allowed;}
 
 @media (max-width: 768px) {
@@ -162,7 +162,7 @@
         {% for painting in paintings %}
         <article class="latest-artwork">
             {% if painting.quantity == 0 %}
-                <div class="badge" style="background:linear-gradient(90deg, #FF7F50, #FF4500); color:white; font-weight:700; text-transform:uppercase;" aria-label="Rupture de stock">Rupture</div>
+                <div class="badge" style="background: var(--color-accent, #FF7F50); color: var(--button-text-color, white); font-weight:700; text-transform:uppercase;" aria-label="Rupture de stock">Rupture</div>
             {% endif %}
             <a href="{{ url_for('painting_detail', painting_id=painting.id) }}" style="text-decoration: none; color: inherit;">
                 <div class="artwork-image-wrapper">

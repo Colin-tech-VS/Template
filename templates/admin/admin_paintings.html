@@ -1,42 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Gestion des peintures - Admin{% endblock %}
+{% block title %}Gestion des Peintures - Admin{% endblock %}
 
 {% block content %}
 
 <!-- HEADER ADMIN -->
 <header class="admin-header">
     <div class="admin-container">
-        <h1>🎨 Tableau de bord Admin</h1>
+        <h1>🎨 Tableau de Bord Admin</h1>
         <nav class="admin-nav">
-            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">Dashboard</a>
-            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">Peintures</a>
-            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">Commandes</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">Utilisateurs</a>
-            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">Exhibitions</a>
-            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">Demandes sur Mesure</a>
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-btn {% if active=='dashboard' %}active{% endif %}">📊 Dashboard</a>
+            <a href="{{ url_for('admin_paintings') }}" class="nav-btn {% if active=='paintings' %}active{% endif %}">🖼️ Peintures</a>
+            <a href="{{ url_for('admin_orders') }}" class="nav-btn {% if active=='orders' %}active{% endif %}">📦 Commandes</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-btn {% if active=='users' %}active{% endif %}">👥 Utilisateurs</a>
+            <a href="{{ url_for('admin_exhibitions') }}" class="nav-btn {% if active=='exhibitions' %}active{% endif %}">🎭 Exhibitions</a>
+            <a href="{{ url_for('admin_custom_requests') }}" class="nav-btn {% if active=='custom_requests' %}active{% endif %}">✨ Sur Mesure</a>
             <a href="{{ url_for('admin_notifications') }}" class="nav-btn {% if active=='notifications' %}active{% endif %}">
                 🔔 Notifications
-                {% if new_notifications_count > 0 %}
-                <span class="badge">{{ new_notifications_count }}</span>
-                {% endif %}
+                {% if new_notifications_count > 0 %}<span class="badge">{{ new_notifications_count }}</span>{% endif %}
             </a>
-            <!-- Nouvel onglet Paramètres -->
             <a href="{{ url_for('admin_settings_page') }}" class="nav-btn {% if active=='settings' %}active{% endif %}">⚙️ Paramètres</a>
-
-            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">+ Ajouter</a>
+            <a href="{{ url_for('add_painting_web') }}" class="nav-btn btn-primary">✚ Ajouter</a>
         </nav>
     </div>
 </header>
 
-
-<!-- LISTE DES PEINTURES -->
+<!-- GESTION DES PEINTURES -->
 <section class="admin-section">
     <div class="admin-container">
         <div class="admin-panel">
             <div class="panel-header">
-                <h2>Toutes les peintures</h2>
-                <p class="subtitle">{{ paintings|length }} peinture{{ 's' if paintings|length > 1 else '' }}</p>
+                <h2>🖼️ Gestion des Peintures</h2>
+                <p class="subtitle">{{ paintings|length }} peinture{{ 's' if paintings|length > 1 else '' }} en total</p>
             </div>
 
             {% if paintings %}
@@ -53,22 +48,166 @@
                     <div class="painting-info">
                         <h3>{{ painting.name }}</h3>
                         <div class="painting-details">
-                            <span class="detail">
-                                💰 {{ painting.price }} €
-                            </span>
-                            <span class="detail {% if painting.quantity == 0 %}out-of-stock{% endif %}">
-                                📦 {{ painting.quantity }} unité{{ 's' if painting.quantity > 1 else '' }}
-                            </span>
+                            <span class="detail detail-price">💰 {{ painting.price }} €</span>
+                            <span class="detail {% if painting.quantity == 0 %}out-of-stock{% endif %}">📦 {{ painting.quantity }} unité{{ 's' if painting.quantity > 1 else '' }}</span>
                         </div>
-                        <p class="painting-id">ID: {{ painting.id }}</p>
+                        <p class="painting-id">ID: #{{ painting.id }}</p>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p style="text-align: center; color: #999; padding: 40px;">Aucune peinture pour le moment.</p>
+            <div style="text-align: center; padding: 60px 30px; color: #9ca3af;">
+                <p style="font-size: 3rem; margin-bottom: 10px;">🖼️</p>
+                <p style="font-size: 1.1rem; margin-bottom: 10px;">Aucune peinture pour le moment</p>
+                <p style="font-size: 0.9rem;">Commencez par en ajouter une nouvelle!</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </section>
+
+<style>
+.paintings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.painting-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: var(--font-primary);
+}
+
+.painting-card:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+    border-color: var(--color-primary);
+}
+
+.painting-image {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.painting-image img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.painting-card:hover .painting-image img {
+    transform: scale(1.05);
+}
+
+.painting-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.painting-card:hover .painting-overlay {
+    opacity: 1;
+}
+
+.btn-overlay {
+    padding: 10px 14px;
+    background: white;
+    color: #1f2937;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font-primary);
+}
+
+.btn-overlay:hover {
+    background: var(--color-primary);
+    color: white;
+}
+
+.btn-overlay.btn-danger {
+    background: var(--color-danger);
+    color: white;
+}
+
+.btn-overlay.btn-danger:hover {
+    background: #dc2626;
+}
+
+.painting-info {
+    padding: var(--spacing-lg);
+}
+
+.painting-info h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    font-family: var(--font-primary);
+    line-height: 1.3;
+}
+
+.painting-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.detail {
+    font-size: 0.85rem;
+    color: #6b7280;
+    font-family: var(--font-primary);
+}
+
+.detail-price {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.detail.out-of-stock {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+.painting-id {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-family: monospace;
+    font-family: var(--font-primary);
+}
+
+@media (max-width: 768px) {
+    .paintings-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: var(--spacing-md);
+    }
+}
+</style>
+
 {% endblock %}
