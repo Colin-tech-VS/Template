@@ -1351,6 +1351,7 @@ input[type="button"]:disabled,
     border-bottom: 2px solid var(--color-accent);
     box-shadow: var(--shadow-md);
     font-family: var(--font-primary);
+    margin-top: var(--spacing-lg);
 }
 
 .admin-container {
