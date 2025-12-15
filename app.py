@@ -45,7 +45,7 @@ def invalidate_all_settings_cache():
 # --------------------------------
 # IMPORTS
 # --------------------------------
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify, g
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
@@ -154,6 +154,45 @@ def select_site_template_loader():
         # if anything goes wrong, leave loader as default
         pass
 
+
+# Tenant resolution: map request host -> tenants table row
+def get_tenant_by_host(host):
+    try:
+        host = (host or '').lower()
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT id, host, stripe_pk, stripe_sk, settings_json FROM tenants WHERE host = ?"), (host,))
+        row = cur.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return {
+            'id': safe_row_get(row, 'id', index=0),
+            'host': safe_row_get(row, 'host', index=1),
+            'stripe_pk': safe_row_get(row, 'stripe_pk', index=2),
+            'stripe_sk': safe_row_get(row, 'stripe_sk', index=3),
+            'settings_json': safe_row_get(row, 'settings_json', index=4)
+        }
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return None
+
+
+@app.before_request
+def resolve_tenant():
+    # Determine tenant by host; fallback to env DEFAULT_TENANT_HOST
+    host = (request.host or '').split(':')[0].lower()
+    tenant = get_tenant_by_host(host)
+    if tenant is None:
+        default_host = os.getenv('DEFAULT_TENANT_HOST') or os.getenv('DEFAULT_HOST') or None
+        if default_host:
+            tenant = get_tenant_by_host(default_host)
+    # If still None, tenant remains None (app will fall back to env keys)
+    g.tenant = tenant
+
 # --- Performance: optional HTTP compression (Flask-Compress) ---
 try:
     from flask_compress import Compress
@@ -198,6 +237,18 @@ def save_image_and_convert_to_webp(file, dest_folder, db_prefix=None, quality=80
     name, ext = os.path.splitext(filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     base = f"{name}_{timestamp}"
+    # Namespace uploads per-tenant when possible (uploads/<tenant_host>/...)
+    tenant_host = None
+    try:
+        tenant_host = getattr(g, 'tenant', None)
+        if tenant_host:
+            tenant_host = tenant_host.get('host') if isinstance(tenant_host, dict) else None
+    except Exception:
+        tenant_host = None
+
+    if tenant_host:
+        dest_folder = os.path.join(dest_folder, tenant_host)
+
     os.makedirs(dest_folder, exist_ok=True)
     original_path = os.path.join(dest_folder, f"{base}{ext}")
     file.save(original_path)
@@ -220,6 +271,9 @@ def save_image_and_convert_to_webp(file, dest_folder, db_prefix=None, quality=80
         webp_name = f"{base}{ext}"
 
     if db_prefix:
+        # keep prefix but include tenant host if available
+        if tenant_host:
+            return f"{db_prefix}/{tenant_host}/{webp_name}"
         return f"{db_prefix}/{webp_name}"
     return webp_name
 
@@ -640,13 +694,27 @@ def set_setting(key, value, user_id=None):
     """
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
-    query = adapt_query("""
-        INSERT INTO settings (key, value) VALUES (?, ?)
-        ON CONFLICT(key) DO UPDATE SET value=excluded.value
-    """)
-    cur.execute(query, (key, value))
-    conn.commit()
-    conn.close()
+    try:
+        if user_id is not None:
+            # Try update first for tenant-scoped setting
+            upd_q = adapt_query("UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?")
+            cur.execute(upd_q, (value, key, user_id))
+            if getattr(cur, 'rowcount', 0) == 0:
+                ins_q = adapt_query("INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)")
+                cur.execute(ins_q, (key, value, user_id))
+        else:
+            # fallback: upsert on global key
+            query = adapt_query("""
+                INSERT INTO settings (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """)
+            cur.execute(query, (key, value))
+        conn.commit()
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
     # Invalidate cache for this setting
     try:
         SETTINGS_CACHE.pop((key, user_id), None)
@@ -1250,37 +1318,36 @@ def register():
 
         conn = get_db()
         c = conn.cursor()
-        try:
-            # Check if email already exists to avoid UniqueViolation
-            c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
-                    existing = c.fetchone()
-                    if existing:
-                        conn.close()
-                        print(f"[REGISTER] Email déjà utilisé: {email}")
-                        flash("Cet email est déjà utilisé.")
-                        return redirect(url_for('register'))
+        # Check if email already exists to avoid UniqueViolation
+        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+        existing = c.fetchone()
+        if existing:
+            conn.close()
+            print(f"[REGISTER] Email déjà utilisé: {email}")
+            flash("Cet email est déjà utilisé.")
+            return redirect(url_for('register'))
 
-                    print(f"[REGISTER] Début inscription: {email}")
-                
-                    c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
-                    count_result = c.fetchone()
-                    user_count = safe_row_get(count_result, 'count', index=0, default=0)
-                    is_first_user = (user_count == 0)
-                
-                    if is_first_user:
-                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                                  (name, email, hashed_password, 'admin'))
-                        print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
-                    else:
-                        c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                                  (name, email, hashed_password, 'user'))
-                        print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
-                
-                    conn.commit()
-                    conn.close()
-                    print(f"[REGISTER] Inscription réussie pour {email}")
-                    flash("Inscription réussie !")
-                    return redirect(url_for('login'))
+        print(f"[REGISTER] Début inscription: {email}")
+
+        c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+        count_result = c.fetchone()
+        user_count = safe_row_get(count_result, 'count', index=0, default=0)
+        is_first_user = (user_count == 0)
+
+        if is_first_user:
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                      (name, email, hashed_password, 'admin'))
+            print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+        else:
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
+                      (name, email, hashed_password, 'user'))
+            print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
+
+        conn.commit()
+        conn.close()
+        print(f"[REGISTER] Inscription réussie pour {email}")
+        flash("Inscription réussie !")
+        return redirect(url_for('login'))
     return render_template("register.html")
 
 
