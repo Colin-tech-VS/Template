@@ -8,6 +8,7 @@ import os
 from urllib.parse import urlparse
 from contextlib import contextmanager
 import time
+import atexit
 import logging
 
 # Prefer psycopg (psycopg3) when available (provides psycopg_pool and wheels
@@ -153,9 +154,37 @@ def close_connection_pool():
     global CONNECTION_POOL
     
     if CONNECTION_POOL is not None:
-        CONNECTION_POOL.closeall()
-        CONNECTION_POOL = None
-        print("✅ Connection pool fermé")
+        try:
+            if USING_PSYCOPG3:
+                # psycopg3 ConnectionPool: close background workers cleanly
+                try:
+                    CONNECTION_POOL.close()
+                except Exception:
+                    pass
+                # wait_closed exists on newer psycopg_pool implementations
+                try:
+                    wait = getattr(CONNECTION_POOL, 'wait_closed', None)
+                    if callable(wait):
+                        wait(5.0)
+                except Exception:
+                    pass
+            else:
+                # psycopg2 ThreadedConnectionPool
+                try:
+                    CONNECTION_POOL.closeall()
+                except Exception:
+                    pass
+        finally:
+            CONNECTION_POOL = None
+            print("✅ Connection pool fermé")
+
+
+# Register atexit handler to ensure the pool is closed on process exit.
+# This avoids psycopg.pool warnings about background threads not stopping.
+try:
+    atexit.register(close_connection_pool)
+except Exception:
+    pass
 
 
 class ConnectionWrapper:
