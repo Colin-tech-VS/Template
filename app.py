@@ -2131,6 +2131,14 @@ def checkout_success():
             (customer_name, email, address, total_price, user_id)
         )
         order_id = c.lastrowid
+        # Safety: if DB driver didn't populate lastrowid, try to fetch the newest order id as fallback
+        if not order_id:
+            try:
+                c.execute("SELECT id FROM orders ORDER BY id DESC LIMIT 1")
+                maybe = c.fetchone()
+                order_id = safe_row_get(maybe, 'id', index=0) if maybe else None
+            except Exception:
+                order_id = None
 
         # ----------------------------------------------------------
         # 3) Ajouter les items + mettre à jour les stocks
@@ -2166,8 +2174,13 @@ def checkout_success():
         # ----------------------------------------------------------
         # 5) Notifications
         # ----------------------------------------------------------
-        admin_order_url = url_for("admin_order_detail", order_id=order_id)
-        user_order_url = url_for("order_status", order_id=order_id)
+        # Build URLs with graceful fallback if order_id is missing
+        if order_id:
+            admin_order_url = url_for("admin_order_detail", order_id=order_id)
+            user_order_url = url_for("order_status", order_id=order_id)
+        else:
+            admin_order_url = url_for("admin_orders")
+            user_order_url = url_for("orders")
 
         # Admin
         c.execute(
@@ -3141,6 +3154,21 @@ def admin_dashboard():
         LIMIT 5
     """)
     recent_orders = c.fetchall()
+    # Normalize recent_orders to tuples (id, customer_name, email, total_price, order_date, status)
+    normalized_recent = []
+    for r in recent_orders:
+        if isinstance(r, dict):
+            normalized_recent.append((
+                r.get('id'),
+                r.get('customer_name'),
+                r.get('email'),
+                r.get('total_price'),
+                r.get('order_date'),
+                r.get('status')
+            ))
+        else:
+            normalized_recent.append(r)
+    recent_orders = normalized_recent
     
     # Peintures en rupture de stock
     c.execute("""
@@ -3150,6 +3178,19 @@ def admin_dashboard():
         ORDER BY id DESC
     """)
     out_of_stock = c.fetchall()
+    # Normalize out_of_stock to tuples (id, name, price, quantity)
+    normalized_oos = []
+    for p in out_of_stock:
+        if isinstance(p, dict):
+            normalized_oos.append((
+                p.get('id'),
+                p.get('name'),
+                p.get('price'),
+                p.get('quantity')
+            ))
+        else:
+            normalized_oos.append(p)
+    out_of_stock = normalized_oos
     
     # Produits les plus vendus (TOP 5)
     c.execute(adapt_query("""
@@ -3161,6 +3202,20 @@ def admin_dashboard():
         LIMIT 5
     """))
     top_selling = c.fetchall()
+    # Normalize top_selling to tuples (id, name, image, price, total_sold)
+    normalized_top = []
+    for p in top_selling:
+        if isinstance(p, dict):
+            normalized_top.append((
+                p.get('id'),
+                p.get('name'),
+                p.get('image'),
+                p.get('price'),
+                p.get('total_sold')
+            ))
+        else:
+            normalized_top.append(p)
+    top_selling = normalized_top
     
     # Produits les plus aimés (TOP 5)
     c.execute(adapt_query("""
@@ -3172,6 +3227,20 @@ def admin_dashboard():
         LIMIT 5
     """))
     most_loved = c.fetchall()
+    # Normalize most_loved to tuples (id, name, image, price, favorite_count)
+    normalized_loved = []
+    for p in most_loved:
+        if isinstance(p, dict):
+            normalized_loved.append((
+                p.get('id'),
+                p.get('name'),
+                p.get('image'),
+                p.get('price'),
+                p.get('favorite_count')
+            ))
+        else:
+            normalized_loved.append(p)
+    most_loved = normalized_loved
     
     # Compter les notifications non lues
     c.execute("""
