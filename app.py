@@ -2697,6 +2697,21 @@ def admin_notifications():
         """)
         notifications = c.fetchall()
 
+        # Normalize notifications to tuples (id, message, url, is_read, created_at)
+        normalized_notifs = []
+        for n in notifications:
+            if isinstance(n, dict):
+                normalized_notifs.append((
+                    n.get('id'),
+                    n.get('message'),
+                    n.get('url'),
+                    n.get('is_read'),
+                    n.get('created_at')
+                ))
+            else:
+                normalized_notifs.append(n)
+        notifications = normalized_notifs
+
         # Compter les notifications non lues
         new_notifications_count = sum(
             1 for n in notifications 
