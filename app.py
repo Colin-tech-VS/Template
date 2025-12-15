@@ -1973,12 +1973,37 @@ def checkout():
 
     # Récupérer les articles du panier
     c.execute(adapt_query('''
-        SELECT paintings.id, paintings.name, paintings.image, paintings.price, cart_items.quantity, paintings.quantity
+        SELECT paintings.id, paintings.name, paintings.image, paintings.price,
+               cart_items.quantity AS cart_quantity, paintings.quantity AS available_qty
         FROM cart_items
         JOIN paintings ON cart_items.painting_id = paintings.id
         WHERE cart_items.cart_id=?
     '''), (cart_id,))
     items = c.fetchall()
+
+    # Normalize rows to tuples (id, name, image, price, quantity, available_qty)
+    normalized_items = []
+    for it in items:
+        try:
+            # Prefer indexed access (works for tuple-like rows)
+            idv = it[0]
+            namev = it[1]
+            imagev = it[2]
+            pricev = it[3]
+            qtyv = it[4]
+            availv = it[5]
+        except Exception:
+            # Fallback for mapping-like rows (dict, RealDictRow)
+            idv = safe_row_get(it, 'id', 0)
+            namev = safe_row_get(it, 'name', 1)
+            imagev = safe_row_get(it, 'image', 2)
+            pricev = safe_row_get(it, 'price', 3)
+            # cart quantity alias is 'cart_quantity'
+            qtyv = safe_row_get(it, 'cart_quantity', 4)
+            # painting available quantity alias is 'available_qty'
+            availv = safe_row_get(it, 'available_qty', 5)
+        normalized_items.append((idv, namev, imagev, pricev, qtyv, availv))
+    items = normalized_items
 
     # Debug: log cart contents to help diagnose missing products
     try:
