@@ -631,6 +631,7 @@ google_places_key = os.getenv("GOOGLE_PLACES_KEY") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
 
+
 def set_setting(key, value, user_id=None):
     """
     Met à jour ou crée une clé de paramètre
@@ -639,24 +640,29 @@ def set_setting(key, value, user_id=None):
         value: Valeur du paramètre
         user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
     """
+    # Détection dynamique de la colonne tenant_id (cache pour perf)
+    if not hasattr(set_setting, '_has_tenant_id'):
+        conn = get_db()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT * FROM settings LIMIT 1")
+            colnames = [desc[0] for desc in cur.description]
+            set_setting._has_tenant_id = 'tenant_id' in colnames
+        except Exception:
+            set_setting._has_tenant_id = False
+        finally:
+            conn.close()
+    has_tenant_id = getattr(set_setting, '_has_tenant_id', False)
+
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
     try:
-        if user_id is not None:
-            # Tente d'insérer avec tenant_id/user_id si la colonne existe
-            try:
-                query = adapt_query("""
-                    INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
-                    ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
-                """)
-                cur.execute(query, (key, value, user_id))
-            except Exception as e:
-                # Fallback si la colonne n'existe pas
-                query = adapt_query("""
-                    INSERT INTO settings (key, value) VALUES (?, ?)
-                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
-                """)
-                cur.execute(query, (key, value))
+        if user_id is not None and has_tenant_id:
+            query = adapt_query("""
+                INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
+            """)
+            cur.execute(query, (key, value, user_id))
         else:
             query = adapt_query("""
                 INSERT INTO settings (key, value) VALUES (?, ?)
