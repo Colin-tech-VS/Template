@@ -2141,12 +2141,18 @@ def checkout_success():
             temp_password = secrets.token_hex(3)
             hashed_pw = generate_password_hash(temp_password)
 
-            c.execute(
-                adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)"),
-                (customer_name, email, hashed_pw)
-            )
-            conn.commit()
-            user_id = c.lastrowid
+            if IS_POSTGRES:
+                # Use RETURNING to obtain inserted id with PostgreSQL
+                c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?) RETURNING id"),
+                          (customer_name, email, hashed_pw))
+                row = c.fetchone()
+                conn.commit()
+                user_id = safe_row_get(row, 'id', 0)
+            else:
+                c.execute(adapt_query("INSERT INTO users (name, email, password) VALUES (?, ?, ?)") ,
+                          (customer_name, email, hashed_pw))
+                conn.commit()
+                user_id = c.lastrowid
 
             session["user_id"] = user_id
             session["user_email"] = email
@@ -2154,22 +2160,28 @@ def checkout_success():
         # ----------------------------------------------------------
         # 2) Créer la commande (AVEC address)
         # ----------------------------------------------------------
-        c.execute(
-            adapt_query("""
+        if IS_POSTGRES:
+            c.execute(adapt_query("INSERT INTO orders (customer_name, email, address, total_price, order_date, user_id) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?) RETURNING id"),
+                      (customer_name, email, address, total_price, user_id))
+            maybe = c.fetchone()
+            conn.commit()
+            order_id = safe_row_get(maybe, 'id', index=0)
+        else:
+            c.execute(adapt_query("""
             INSERT INTO orders (customer_name, email, address, total_price, order_date, user_id)
             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
             """),
             (customer_name, email, address, total_price, user_id)
         )
-        order_id = c.lastrowid
-        # Safety: if DB driver didn't populate lastrowid, try to fetch the newest order id as fallback
-        if not order_id:
-            try:
-                c.execute("SELECT id FROM orders ORDER BY id DESC LIMIT 1")
-                maybe = c.fetchone()
-                order_id = safe_row_get(maybe, 'id', index=0) if maybe else None
-            except Exception:
-                order_id = None
+            order_id = c.lastrowid
+            # Safety: if DB driver didn't populate lastrowid, try to fetch the newest order id as fallback
+            if not order_id:
+                try:
+                    c.execute("SELECT id FROM orders ORDER BY id DESC LIMIT 1")
+                    maybe = c.fetchone()
+                    order_id = safe_row_get(maybe, 'id', index=0) if maybe else None
+                except Exception:
+                    order_id = None
 
         # ----------------------------------------------------------
         # 3) Ajouter les items + mettre à jour les stocks
