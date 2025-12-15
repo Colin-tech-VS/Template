@@ -3500,7 +3500,7 @@ def admin_orders():
 
     if q:
         # Requête avec recherche par ID ou nom client
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT o.id, o.customer_name, o.email, o.address, o.total_price, o.order_date, o.status
             FROM orders o
             LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -3511,7 +3511,7 @@ def admin_orders():
                OR LOWER(p.name) LIKE ?
             GROUP BY o.id
             ORDER BY o.order_date DESC
-        """, (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"))
+        """), (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"))
     else:
         # Si pas de recherche, tout afficher
         c.execute("""
@@ -3526,12 +3526,12 @@ def admin_orders():
     all_items = {}
     for order in orders_list:
         order_id = safe_row_get(order, 'id', index=0)
-        c.execute("""
+        c.execute(adapt_query("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
             JOIN paintings p ON oi.painting_id = p.id
             WHERE oi.order_id=?
-        """, (order_id,))
+        """), (order_id,))
         all_items[order_id] = c.fetchall()
 
     # Normaliser les commandes en objets avec attributs pour les templates (order.total_price, etc.)
