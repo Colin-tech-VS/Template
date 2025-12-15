@@ -24,13 +24,6 @@
     <!-- Stripe.js (v3) -->
     <script src="https://js.stripe.com/v3/"></script>
     <script src="{{ url_for('static', filename='js/stripe-init.js') }}" defer></script>
-        {% if site_settings.ga4_property %}
-        <!-- Google Analytics 4 (loaded only with cookie consent) -->
-        <script>
-            // Store GA id for the runtime loader (do NOT initialize here)
-            window.__GA4_MEASUREMENT_ID = "{{ site_settings.ga4_property }}";
-        </script>
-        {% endif %}
     <style>
         /* USER MENU / MEGA MENU */
         .user-menu {position: relative; cursor: pointer;}
@@ -582,78 +575,7 @@
         }
     </script>
 
-    <!-- COOKIE CONSENT BANNER -->
-    <style>
-    #cookie-consent-banner {position: fixed; left: 20px; right:20px; bottom: 20px; z-index: 3000; display:flex; align-items:center; gap:16px; padding:14px 18px; background: rgba(255,255,255,0.98); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); font-family: inherit;}
-    #cookie-consent-banner .cc-text {flex:1; color:#222; font-size:14px}
-    #cookie-consent-banner .cc-actions {display:flex; gap:10px}
-    #cookie-consent-banner .cc-btn {padding:10px 14px; border-radius:8px; border:none; cursor:pointer; font-weight:600}
-    #cookie-consent-banner .cc-accept {background: linear-gradient(90deg,var(--color-primary, #1E3A8A),var(--color-secondary, #3B65C4)); color:var(--button-text-color, #fff)}
-    #cookie-consent-banner .cc-decline {background:#eee; color:#333}
-    #cookie-consent-toast {position:fixed; right:18px; bottom:18px; z-index:2999}
-    #cookie-manage-btn {position: fixed; right: 18px; bottom: 80px; z-index: 2950; background: rgba(0,0,0,0.06); border-radius: 12px; padding:8px 10px; font-size:13px; cursor:pointer;}
-    @media (max-width:600px){ #cookie-consent-banner{left:12px; right:12px; bottom:12px; flex-direction:column; align-items:flex-start}}
-    </style>
-
-    <div id="cookie-consent-banner" style="display:none;">
-        <div class="cc-text">
-            Nous utilisons des cookies pour améliorer votre expérience et pour des outils d'analyse (Google Analytics). Acceptez-vous l'utilisation de ces cookies ?
-        </div>
-        <div class="cc-actions">
-            <button id="cc-decline" class="cc-btn cc-decline">Refuser</button>
-            <button id="cc-accept" class="cc-btn cc-accept">Accepter</button>
-        </div>
-    </div>
-
-    <button id="cookie-manage-btn" title="Gérer les cookies">Cookies</button>
-
-    <script>
-    (function(){
-        function setCookie(name, value, days){
-            var d = new Date(); d.setTime(d.getTime() + (days*24*60*60*1000));
-            document.cookie = name + "=" + encodeURIComponent(value) + ";path=/;SameSite=Lax;expires=" + d.toUTCString();
-        }
-        function getCookie(name){
-            var v = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
-            return v ? decodeURIComponent(v[1]) : null;
-        }
-
-        function loadGA(){
-            try{
-                var id = window.__GA4_MEASUREMENT_ID;
-                if(!id) return;
-                if(window.__ga4_loaded) return;
-                var s = document.createElement('script');
-                s.async = true;
-                s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
-                document.head.appendChild(s);
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);} window.gtag=gtag;
-                gtag('js', new Date());
-                gtag('config', id, { 'anonymize_ip': true });
-                window.__ga4_loaded = true;
-            }catch(e){console.warn('GA load failed', e)}
-        }
-
-        function updateBannerVisibility(){
-            var banner = document.getElementById('cookie-consent-banner');
-            var manage = document.getElementById('cookie-manage-btn');
-            var consent = getCookie('cookie_consent');
-            if(!consent){ banner.style.display = 'flex'; manage.style.display='none'; }
-            else { banner.style.display = 'none'; manage.style.display='block'; }
-            if(consent === 'accepted'){ loadGA(); }
-        }
-
-        document.addEventListener('DOMContentLoaded', function(){
-            document.getElementById('cc-accept').addEventListener('click', function(){ setCookie('cookie_consent','accepted',365); updateBannerVisibility(); });
-            document.getElementById('cc-decline').addEventListener('click', function(){ setCookie('cookie_consent','declined',365); updateBannerVisibility(); });
-            document.getElementById('cookie-manage-btn').addEventListener('click', function(){ document.getElementById('cookie-consent-banner').style.display='flex'; this.style.display='none'; });
-            updateBannerVisibility();
-        });
-    })();
-    </script>
-
-        <!-- Runtime color normalizer: replace inline hard-coded palette hexes with CSS variables -->
+    <!-- Runtime color normalizer: replace inline hard-coded palette hexes with CSS variables -->
         <script>
         (function(){
             const mapping = {
