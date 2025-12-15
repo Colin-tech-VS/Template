@@ -2946,7 +2946,7 @@ def profile():
 
 
 @app.route('/orders')
-def orders():
+def user_orders():
     user_id = session.get("user_id")
     if not user_id:
         flash("Vous devez être connecté pour accéder à vos commandes.")
