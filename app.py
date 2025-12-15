@@ -31,6 +31,15 @@ def get_stripe_secret_key():
         print(f"[SAAS] Erreur récupération clé Stripe dashboard: {e}")
 
     return None
+
+
+# In-memory settings cache (simple TTL)
+SETTINGS_CACHE = {}
+# TTL in seconds for cached settings
+SETTINGS_CACHE_TTL = int(os.getenv('SETTINGS_CACHE_TTL', '300'))
+
+def invalidate_all_settings_cache():
+    SETTINGS_CACHE.clear()
 # --------------------------------
 # IMPORTS
 # --------------------------------
@@ -462,6 +471,21 @@ def get_setting(key, user_id=None):
         key: Clé du paramètre
         user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
     """
+    # Simple in-process TTL cache to reduce DB reads for frequently requested settings
+    cache_key = (key, user_id)
+    now = time.time()
+    cache_entry = SETTINGS_CACHE.get(cache_key)
+    if cache_entry:
+        value, expires_at = cache_entry
+        if now < expires_at:
+            return value
+        else:
+            # expired
+            try:
+                del SETTINGS_CACHE[cache_key]
+            except KeyError:
+                pass
+
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
     query = adapt_query("SELECT value FROM settings WHERE key = ?")
@@ -469,7 +493,10 @@ def get_setting(key, user_id=None):
     row = cur.fetchone()
     conn.close()
     if row:
-        return row['value'] if IS_POSTGRES else row["value"]
+        val = row['value'] if IS_POSTGRES else row["value"]
+        # store in cache for a short TTL
+        SETTINGS_CACHE[cache_key] = (val, now + SETTINGS_CACHE_TTL)
+        return val
     return None
 
 # Charger la clé Stripe de manière lazy (depuis env var en priorité pour éviter les connexions au démarrage)
@@ -536,6 +563,11 @@ def set_setting(key, value, user_id=None):
     cur.execute(query, (key, value))
     conn.commit()
     conn.close()
+    # Invalidate cache for this setting
+    try:
+        SETTINGS_CACHE.pop((key, user_id), None)
+    except Exception:
+        pass
 
 
 # Prévisualisation / Dashboard helpers
@@ -4084,11 +4116,18 @@ def dynamic_colors():
         }
 
         css = render_template('dynamic_colors.css.j2', settings=settings)
+        # ETag for client caching
+        import hashlib
+        etag = hashlib.sha1(css.encode('utf-8')).hexdigest()
+        if_none = request.headers.get('If-None-Match')
+        if if_none == etag:
+            return '', 304
+
         response = make_response(css)
         response.mimetype = 'text/css'
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+        # Cache for a short period; admin updates invalidate via set_setting cache invalidation
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        response.headers['ETag'] = etag
         return response
     except Exception as e:
         print(f"[DYNAMIC_COLORS] Erreur génération CSS couleurs: {e}")
