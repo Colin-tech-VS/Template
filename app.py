@@ -2363,6 +2363,31 @@ def orders():
         """, (order_id,))
         all_items[order_id] = c.fetchall()
 
+    # Normaliser les articles en objets avec attributs pour les templates
+    from types import SimpleNamespace
+    for oid, items in list(all_items.items()):
+        normalized = []
+        for item in items:
+            if isinstance(item, dict):
+                obj = SimpleNamespace(
+                    painting_id=item.get('painting_id') or item.get('id'),
+                    name=item.get('name'),
+                    image=item.get('image',''),
+                    price=item.get('price',0),
+                    quantity=item.get('quantity',0)
+                )
+            else:
+                # tuple: painting_id, name, image, price, quantity
+                obj = SimpleNamespace(
+                    painting_id=item[0],
+                    name=item[1],
+                    image=item[2],
+                    price=item[3],
+                    quantity=item[4]
+                )
+            normalized.append(obj)
+        all_items[oid] = normalized
+
     conn.close()
 
     return render_template("order.html", orders=orders_list, all_items=all_items)
@@ -3393,9 +3418,59 @@ def admin_orders():
         """, (order_id,))
         all_items[order_id] = c.fetchall()
 
+    # Normaliser les commandes en objets avec attributs pour les templates (order.total_price, etc.)
+    from types import SimpleNamespace
+    orders_objs = []
+    for order in orders_list:
+        if isinstance(order, dict):
+            o = SimpleNamespace(
+                id=order.get('id'),
+                customer_name=order.get('customer_name'),
+                email=order.get('email'),
+                address=order.get('address'),
+                total_price=order.get('total_price'),
+                order_date=order.get('order_date'),
+                status=order.get('status')
+            )
+        else:
+            o = SimpleNamespace(
+                id=order[0],
+                customer_name=order[1],
+                email=order[2],
+                address=order[3],
+                total_price=order[4],
+                order_date=order[5],
+                status=order[6]
+            )
+        orders_objs.append(o)
+
+    # Normaliser les articles en objets avec attributs pour les templates
+    from types import SimpleNamespace
+    for oid, items in list(all_items.items()):
+        normalized = []
+        for item in items:
+            if isinstance(item, dict):
+                obj = SimpleNamespace(
+                    painting_id=item.get('painting_id') or item.get('id'),
+                    name=item.get('name'),
+                    image=item.get('image',''),
+                    price=item.get('price',0),
+                    quantity=item.get('quantity',0)
+                )
+            else:
+                obj = SimpleNamespace(
+                    painting_id=item[0],
+                    name=item[1],
+                    image=item[2],
+                    price=item[3],
+                    quantity=item[4]
+                )
+            normalized.append(obj)
+        all_items[oid] = normalized
+
     conn.close()
     return render_template('admin/admin_orders.html', 
-                         orders=orders_list, 
+                         orders=orders_objs, 
                          all_items=all_items, 
                          new_notifications_count=get_new_notifications_count(),
                          active="orders")
