@@ -5,13 +5,23 @@ OPTIMISÉ: Connection pooling, logging de performance
 """
 
 import os
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
 from urllib.parse import urlparse
 from contextlib import contextmanager
 import time
 import logging
+
+# Prefer psycopg (psycopg3) when available (provides psycopg_pool and wheels
+# compatible with newer Python versions). Fall back to psycopg2 if needed.
+USING_PSYCOPG3 = False
+try:
+    import psycopg as psycopg3  # type: ignore
+    from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
+    from psycopg.rows import dict_row  # type: ignore
+    USING_PSYCOPG3 = True
+except Exception:
+    import psycopg2
+    import psycopg2.extras
+    import psycopg2.pool
 
 # Configuration du logging pour la performance
 logging.basicConfig(level=logging.INFO)
@@ -76,12 +86,17 @@ def init_connection_pool(minconn=1, maxconn=5):
         return CONNECTION_POOL
     
     try:
-        CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
-            minconn=minconn,
-            maxconn=maxconn,
-            **DB_CONFIG
-        )
-        print(f"✅ Connection pool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
+        if USING_PSYCOPG3:
+            # psycopg_pool expects a connection string (DATABASE_URL)
+            CONNECTION_POOL = PsycopgPool(conninfo=DATABASE_URL, min_size=minconn, max_size=maxconn)
+            print(f"✅ psycopg ConnectionPool initialisé: {minconn}-{maxconn} connexions")
+        else:
+            CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
+                minconn=minconn,
+                maxconn=maxconn,
+                **DB_CONFIG
+            )
+            print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
         return CONNECTION_POOL
     except Exception as e:
         print(f"❌ Erreur initialisation connection pool: {e}")
@@ -98,7 +113,12 @@ def get_pool_connection():
     
     if CONNECTION_POOL is None:
         init_connection_pool()
-    
+
+    if USING_PSYCOPG3:
+        # For psycopg3 we prefer using the context-manager API via get_db_connection();
+        # this function is kept for compatibility but shouldn't be used for psycopg3.
+        raise RuntimeError("get_pool_connection() is not supported when using psycopg (psycopg3); use get_db_connection() or get_db() instead")
+
     try:
         return CONNECTION_POOL.getconn()
     except Exception as e:
@@ -114,8 +134,19 @@ def return_pool_connection(conn):
     """
     global CONNECTION_POOL
     
-    if CONNECTION_POOL is not None and conn is not None:
-        CONNECTION_POOL.putconn(conn)
+    if CONNECTION_POOL is None or conn is None:
+        return
+
+    if USING_PSYCOPG3:
+        # psycopg3 pool connections are returned by exiting the context manager.
+        # If someone obtained a raw connection, close it normally.
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return
+
+    CONNECTION_POOL.putconn(conn)
 
 def close_connection_pool():
     """Ferme toutes les connexions du pool"""
@@ -137,7 +168,16 @@ class ConnectionWrapper:
     """
     
     def __init__(self, connection):
-        object.__setattr__(self, '_connection', connection)
+        # connection: actual DB connection object
+        # release_func: optional callable to release the connection back to pool
+        connection_obj = connection
+        release_func = None
+        if isinstance(connection, tuple) and len(connection) == 2:
+            # (conn, release_func) tuple provided
+            connection_obj, release_func = connection
+
+        object.__setattr__(self, '_connection', connection_obj)
+        object.__setattr__(self, '_release_func', release_func)
         object.__setattr__(self, '_closed', False)
     
     def __getattr__(self, name):
@@ -166,7 +206,18 @@ class ConnectionWrapper:
         Peut être appelé plusieurs fois sans problème.
         """
         if not self._closed:
-            return_pool_connection(self._connection)
+            # If a release function (from psycopg3 pool) is provided, call it; else use putconn
+            if getattr(self, '_release_func', None):
+                try:
+                    # release_func follows contextmanager __exit__(exc_type, exc, tb) signature
+                    self._release_func(None, None, None)
+                except Exception:
+                    try:
+                        return_pool_connection(self._connection)
+                    except Exception:
+                        pass
+            else:
+                return_pool_connection(self._connection)
             object.__setattr__(self, '_closed', True)
     
     @property
@@ -187,17 +238,36 @@ def get_db_connection():
             cursor.execute(...)
     """
     start_time = time.time()
-    conn = get_pool_connection()
-    conn_time = (time.time() - start_time) * 1000
-    
-    # Logger si la connexion prend trop de temps
-    if conn_time > 10:
-        perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
-    
-    try:
-        yield conn
-    finally:
-        return_pool_connection(conn)
+    # Branch behavior depending on driver
+    if USING_PSYCOPG3:
+        if CONNECTION_POOL is None:
+            init_connection_pool()
+        ctx = CONNECTION_POOL.connection()
+        conn = ctx.__enter__()
+        conn_time = (time.time() - start_time) * 1000
+        if conn_time > 10:
+            perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
+        try:
+            yield conn
+        finally:
+            # release connection back to pool
+            try:
+                ctx.__exit__(None, None, None)
+            except Exception:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    else:
+        conn = get_pool_connection()
+        conn_time = (time.time() - start_time) * 1000
+        # Logger si la connexion prend trop de temps
+        if conn_time > 10:
+            perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
+        try:
+            yield conn
+        finally:
+            return_pool_connection(conn)
 
 
 def get_db(user_id=None):
@@ -219,13 +289,32 @@ def get_db(user_id=None):
           lors de la réassignation de conn.close qui est read-only dans psycopg2.
     """
     start_time = time.time()
+    if USING_PSYCOPG3:
+        if CONNECTION_POOL is None:
+            init_connection_pool()
+        ctx = CONNECTION_POOL.connection()
+        conn = ctx.__enter__()
+        # use dict_row as row factory to emulate RealDictCursor
+        try:
+            conn.row_factory = dict_row
+        except Exception:
+            pass
+
+        conn_time = (time.time() - start_time) * 1000
+        if conn_time > 10:
+            perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
+
+        # Return a wrapper that knows how to release the pooled connection
+        return ConnectionWrapper((conn, ctx.__exit__))
+
+    # psycopg2 path
     conn = get_pool_connection()
     conn.cursor_factory = psycopg2.extras.RealDictCursor
-    
+
     conn_time = (time.time() - start_time) * 1000
     if conn_time > 10:
         perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
-    
+
     # Utiliser le wrapper pour gérer le close() proprement
     return ConnectionWrapper(conn)
 
