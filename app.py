@@ -49,6 +49,7 @@ import json
 import requests
 import urllib.parse
 import hmac
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -76,6 +77,15 @@ from database import (
     IS_POSTGRES,
     PARAM_PLACEHOLDER
 )
+
+# Import du service de synchronisation Template
+try:
+    from sync_service import init_template_tables
+    from sync_service.routes import register_sync_routes
+    SYNC_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"[SYNC] Service de synchronisation non disponible: {e}")
+    SYNC_SERVICE_AVAILABLE = False
 
 
 # --------------------------------
@@ -998,6 +1008,15 @@ try:
 except Exception as e:
     print(f"[STARTUP] ⚠️  Erreur initialisation DB: {e}")
     print(f"[STARTUP] Pool size réduit pour Supabase Session mode - L'app continuera")
+
+# Initialize sync service tables
+if SYNC_SERVICE_AVAILABLE:
+    try:
+        init_template_tables()
+        register_sync_routes(app)
+        print("[STARTUP] ✅ Service de synchronisation Template initialisé")
+    except Exception as e:
+        print(f"[STARTUP] ⚠️  Erreur initialisation sync service: {e}")
 
 try:
     set_admin_user('coco.cayre@gmail.com')
@@ -2243,7 +2262,8 @@ def admin_settings_page():
         "accent_color",
         "button_text_color",
         "content_text_color",
-        "button_hover_color"
+        "button_hover_color",
+        "site_font"
     ]
 
     if request.method == "POST":
@@ -2307,7 +2327,8 @@ def admin_settings_page():
         "boutique_title": "Boutique en ligne",
         "boutique_description": "Explorez la boutique et découvrez toutes les œuvres disponibles à la vente.",
         "expositions_title": "Expositions",
-        "expositions_description": "Découvrez les expositions passées et à venir."
+        "expositions_description": "Découvrez les expositions passées et à venir.",
+        "site_font": "Poppins"
     }
     
     for key, default_value in defaults.items():
@@ -3852,7 +3873,7 @@ def send_order_email(customer_email, customer_name, order_id, total_price, items
 
 @app.route('/dynamic-colors.css')
 def dynamic_colors():
-    """Génère dynamiquement le CSS des couleurs du site"""
+    """Génère dynamiquement le CSS des couleurs et de la police du site"""
     try:
         color_primary = get_setting("primary_color") or "#1E3A8A"
         color_secondary = get_setting("secondary_color") or "#3B65C4"
@@ -3860,8 +3881,12 @@ def dynamic_colors():
         button_text_color = get_setting("button_text_color") or "#FFFFFF"
         content_text_color = get_setting("content_text_color") or "#000000"
         button_hover_color = get_setting("button_hover_color") or "#9C27B0"
+        site_font = get_setting("site_font") or "Poppins"
         
-        css = f"""
+        google_fonts_url = f"https://fonts.googleapis.com/css2?family={site_font.replace(' ', '+')}&display=swap"
+        
+        css = f"""@import url('{google_fonts_url}');
+        
         /* Variables CSS */
         :root {{
             --color-primary: {color_primary};
@@ -3870,6 +3895,12 @@ def dynamic_colors():
             --button-text-color: {button_text_color};
             --content-text-color: {content_text_color};
             --button-hover-color: {button_hover_color};
+            --font-primary: "{site_font}", sans-serif;
+        }}
+
+        /* Apply custom font family to all text elements */
+        body, html, * {{
+            font-family: var(--font-primary) !important;
         }}
 
         /* Links use the button/text color (per admin setting) */
@@ -3937,6 +3968,36 @@ def dynamic_colors():
         .bg-secondary {{ background-color: var(--color-secondary) !important; }}
         .text-primary {{ color: var(--color-primary) !important; }}
         .text-secondary {{ color: var(--color-secondary) !important; }}
+
+        /* ============================================
+           MEGA MENU EXCLUSION - Keep Black Colors
+           ============================================ */
+        .user-menu-content,
+        .user-menu-links a,
+        .user-menu-section-title,
+        .mega-menu-cart-btn {{
+            color: #000000 !important;
+        }}
+        
+        .user-menu-links a {{
+            color: var(--color-primary, #1E3A8A) !important;
+            text-decoration: none !important;
+        }}
+        
+        .user-menu-links a:hover {{
+            color: var(--color-primary, #1E3A8A) !important;
+            background: #e8f0ff !important;
+        }}
+        
+        .mega-menu-cart-btn {{
+            background-color: var(--color-primary, #1E3A8A) !important;
+            color: white !important;
+        }}
+        
+        .mega-menu-cart-btn:hover {{
+            background-color: var(--button-hover-color, #9C27B0) !important;
+            color: white !important;
+        }}
         """
         response = make_response(css)
         response.mimetype = 'text/css'
@@ -5026,6 +5087,129 @@ def init_auto_registration():
 # Exécuter l'auto-registration au chargement du module
 # (fonctionne avec 'python app.py' ET 'gunicorn app:app')
 init_auto_registration()
+
+# --------------------------------
+# ROUTES DE SYNCHRONISATION (UI FRONTEND)
+# --------------------------------
+
+@app.route('/admin/sync', methods=['GET'])
+def admin_sync_dashboard():
+    """Page principale de synchronisation"""
+    return render_template('admin/sync_dashboard.html')
+
+@app.route('/admin/sync/paintings', methods=['GET'])
+def admin_sync_paintings():
+    """Page de gestion des peintures synchronisées"""
+    return render_template('admin/sync_paintings.html')
+
+@app.route('/admin/sync/users', methods=['GET'])
+def admin_sync_users():
+    """Page de gestion des utilisateurs synchronisés"""
+    return render_template('admin/sync_users.html')
+
+@app.route('/admin/sync/orders', methods=['GET'])
+def admin_sync_orders():
+    """Page de gestion des commandes synchronisées"""
+    return render_template('admin/sync_orders.html')
+
+# API Endpoints for sync data
+@app.route('/api/admin/sync/paintings', methods=['GET'])
+def api_get_sync_paintings():
+    """Récupère les peintures synchronisées"""
+    try:
+        query = """
+            SELECT id, template_id, name, price, category, image, status, 
+                   display_order, site_name, sync_timestamp
+            FROM template_paintings 
+            WHERE site_id=%s 
+            ORDER BY display_order DESC, id DESC
+        """
+        paintings = execute_query(query, ('default',), fetch_all=True)
+        
+        result = {
+            'paintings': [],
+            'count': 0,
+            'available': 0,
+            'sold': 0
+        }
+        
+        if paintings:
+            for p in paintings:
+                painting_dict = dict(p) if hasattr(p, '__getitem__') else p
+                painting_dict['image_full_url'] = f"/static/{painting_dict.get('image', '')}"
+                result['paintings'].append(painting_dict)
+                result['count'] += 1
+                if painting_dict.get('status') == 'Disponible':
+                    result['available'] += 1
+                elif painting_dict.get('status') == 'Vendu':
+                    result['sold'] += 1
+        
+        return jsonify(result), 200
+    except Exception as e:
+        logger = logging.getLogger()
+        logger.exception(f"Error fetching sync paintings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/sync/users', methods=['GET'])
+def api_get_sync_users():
+    """Récupère les utilisateurs synchronisés"""
+    try:
+        query = """
+            SELECT id, template_id, name, email, role, created_at
+            FROM template_users 
+            WHERE site_id=%s 
+            ORDER BY created_at DESC
+        """
+        users = execute_query(query, ('default',), fetch_all=True)
+        
+        result = {
+            'users': []
+        }
+        
+        if users:
+            for u in users:
+                user_dict = dict(u) if hasattr(u, '__getitem__') else u
+                result['users'].append(user_dict)
+        
+        return jsonify(result), 200
+    except Exception as e:
+        logger = logging.getLogger()
+        logger.exception(f"Error fetching sync users: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/sync/orders', methods=['GET'])
+def api_get_sync_orders():
+    """Récupère les commandes synchronisées"""
+    try:
+        query = """
+            SELECT id, template_id, customer_name, email, total_price, status, 
+                   order_date, items
+            FROM template_orders 
+            WHERE site_id=%s 
+            ORDER BY order_date DESC
+        """
+        orders = execute_query(query, ('default',), fetch_all=True)
+        
+        result = {
+            'orders': []
+        }
+        
+        if orders:
+            for o in orders:
+                order_dict = dict(o) if hasattr(o, '__getitem__') else o
+                # Parse items if they're stored as JSON string
+                if isinstance(order_dict.get('items'), str):
+                    try:
+                        order_dict['items'] = json.loads(order_dict['items'])
+                    except:
+                        order_dict['items'] = []
+                result['orders'].append(order_dict)
+        
+        return jsonify(result), 200
+    except Exception as e:
+        logger = logging.getLogger()
+        logger.exception(f"Error fetching sync orders: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # --------------------------------
 # LANCEMENT DE L'APPLICATION

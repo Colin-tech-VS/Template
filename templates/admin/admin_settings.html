@@ -248,6 +248,26 @@
                     </div>
                     </div>
 
+                    <div class="font-selection">
+                        <h3>🔤 Sélection de Police</h3>
+                        <p class="section-hint">Choisissez la police pour tout le texte du site</p>
+                        <div class="form-group">
+                            <label for="site_font">Police du site</label>
+                            <select name="site_font" id="site_font" class="form-input">
+                                <option value="Poppins" {% if settings.get('site_font', 'Poppins') == 'Poppins' %}selected{% endif %}>Poppins (Défaut)</option>
+                                <option value="Roboto" {% if settings.get('site_font', 'Poppins') == 'Roboto' %}selected{% endif %}>Roboto</option>
+                                <option value="Inter" {% if settings.get('site_font', 'Poppins') == 'Inter' %}selected{% endif %}>Inter</option>
+                                <option value="Montserrat" {% if settings.get('site_font', 'Poppins') == 'Montserrat' %}selected{% endif %}>Montserrat</option>
+                                <option value="Open Sans" {% if settings.get('site_font', 'Poppins') == 'Open Sans' %}selected{% endif %}>Open Sans</option>
+                                <option value="Lato" {% if settings.get('site_font', 'Poppins') == 'Lato' %}selected{% endif %}>Lato</option>
+                                <option value="Ubuntu" {% if settings.get('site_font', 'Poppins') == 'Ubuntu' %}selected{% endif %}>Ubuntu</option>
+                                <option value="Quicksand" {% if settings.get('site_font', 'Poppins') == 'Quicksand' %}selected{% endif %}>Quicksand</option>
+                                <option value="Raleway" {% if settings.get('site_font', 'Poppins') == 'Raleway' %}selected{% endif %}>Raleway</option>
+                                <option value="Plus Jakarta Sans" {% if settings.get('site_font', 'Poppins') == 'Plus Jakarta Sans' %}selected{% endif %}>Plus Jakarta Sans</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <aside class="preview-column" aria-label="Aperçu des couleurs">
                         <div id="color_preview_panel_wrapper">
                             <h3>Aperçu des couleurs appliquées</h3>
@@ -611,6 +631,22 @@
     .btn-small {
         flex: 1;
     }
+}
+
+/* FONT SELECTION */
+.font-selection {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+.font-selection h3 {
+    margin-top: 0;
+    color: #1a202c;
+    font-size: 18px;
+    margin-bottom: 8px;
 }
 
 /* ------------------ Preview styles ------------------ */
