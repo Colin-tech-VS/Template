@@ -263,23 +263,39 @@
     <div class="cart-new__grid">
         <div class="cart-new__list">
             {% for item in items %}
+            {% if item is mapping %}
+                {% set item_id = item.get('id') %}
+                {% set item_name = item.get('name') %}
+                {% set item_image = item.get('image') %}
+                {% set item_price = item.get('price') %}
+                {% set item_qty = item.get('quantity') %}
+                {% set item_description = item.get('description') %}
+            {% else %}
+                {% set item_id = item[0] %}
+                {% set item_name = item[1] %}
+                {% set item_image = item[2] %}
+                {% set item_price = item[3] %}
+                {% set item_qty = item[4] %}
+                {% set item_description = item[5] %}
+            {% endif %}
+
             <div class="cart-new__card">
                 <div class="cart-new__image-container">
-                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
-                    <a href="/remove_from_cart/{{ item[0] }}" class="cart-new__remove">×</a>
+                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}">
+                    <a href="/remove_from_cart/{{ item_id }}" class="cart-new__remove">×</a>
                 </div>
                 <div class="cart-new__details">
                     <div class="cart-new__title-price">
-                        <h3 class="cart-new__title">{{ item[1] }}</h3>
-                        <span class="cart-new__price">{{ item[3] }} €</span>
+                        <h3 class="cart-new__title">{{ item_name }}</h3>
+                        <span class="cart-new__price">{{ item_price }} €</span>
                     </div>
-                    <p class="cart-new__description">{{ item[5] or 'Aucune description disponible.' }}</p>
+                    <p class="cart-new__description">{{ item_description or 'Aucune description disponible.' }}</p>
                     <div class="cart-new__quantity">
-                        <a href="/decrease_from_cart/{{ item[0] }}" class="cart-new__qty-btn">-</a>
-                        <span class="cart-new__qty">{{ item[4] }}</span>
-                        <a href="/add_to_cart/{{ item[0] }}" class="cart-new__qty-btn">+</a>
+                        <a href="/decrease_from_cart/{{ item_id }}" class="cart-new__qty-btn">-</a>
+                        <span class="cart-new__qty">{{ item_qty }}</span>
+                        <a href="/add_to_cart/{{ item_id }}" class="cart-new__qty-btn">+</a>
                     </div>
-                    <p class="cart-new__subtotal">Sous-total : <strong>{{ (item[3] * item[4])|round(2) }} €</strong></p>
+                    <p class="cart-new__subtotal">Sous-total : <strong>{{ (item_price * item_qty)|round(2) }} €</strong></p>
                 </div>
             </div>
             {% endfor %}
@@ -288,12 +304,25 @@
         <div class="cart-new__summary">
             <h3>Récapitulatif</h3>
             {% for item in items %}
+            {% if item is mapping %}
+                {% set item_id = item.get('id') %}
+                {% set item_name = item.get('name') %}
+                {% set item_image = item.get('image') %}
+                {% set item_price = item.get('price') %}
+                {% set item_qty = item.get('quantity') %}
+            {% else %}
+                {% set item_id = item[0] %}
+                {% set item_name = item[1] %}
+                {% set item_image = item[2] %}
+                {% set item_price = item[3] %}
+                {% set item_qty = item[4] %}
+            {% endif %}
             <div class="cart-new__summary-row">
                 <div class="cart-new__summary-product">
-                    <img src="{{ url_for('static', filename=item[2]) }}" alt="{{ item[1] }}">
-                    <span>{{ item[1] }} (x{{ item[4] }})</span>
+                    <img src="{{ url_for('static', filename=item_image) }}" alt="{{ item_name }}">
+                    <span>{{ item_name }} (x{{ item_qty }})</span>
                 </div>
-                <span class="cart-new__summary-price">{{ (item[3] * item[4])|round(2) }} €</span>
+                <span class="cart-new__summary-price">{{ (item_price * item_qty)|round(2) }} €</span>
             </div>
             {% endfor %}
             <div class="cart-new__summary-total">
