@@ -1197,48 +1197,56 @@ except Exception as e:
 # UTILITAIRES
 # --------------------------------
 def get_paintings():
-    """Récupère toutes les peintures - OPTIMISÉ: colonnes spécifiques"""
+    """Récupère toutes les peintures - OPTIMISÉ: colonnes spécifiques - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Sélection de colonnes spécifiques au lieu de SELECT *
-    # Ajout d'ORDER BY et LIMIT pour pagination future
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status, display_order
         FROM paintings 
+        WHERE tenant_id = ?
         ORDER BY display_order DESC, id DESC
-    """)
+    """), (tenant_id,))
     paintings = c.fetchall()
     conn.close()
     return paintings
 
 def is_admin():
-    """Vérifie si l'utilisateur connecté est admin"""
+    """Vérifie si l'utilisateur connecté est admin - MULTI-TENANT: vérifie dans le tenant courant"""
     user_id = session.get("user_id")
     if not user_id:
         return False
     
     try:
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         c = conn.cursor()
-        c.execute(adapt_query("SELECT role FROM users WHERE id=?"), (user_id,))
+        # MULTI-TENANT: Vérifier que l'utilisateur appartient au tenant courant
+        c.execute(adapt_query("SELECT role FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
         result = c.fetchone()
         conn.close()
         
         # Vérification robuste: result doit être non vide
         if result is None:
-            print(f"[is_admin] Aucun résultat pour user_id={user_id}")
+            print(f"[is_admin] Aucun résultat pour user_id={user_id} tenant_id={tenant_id}")
             return False
         
         # Accès sécurisé au rôle avec safe_row_get
         role = safe_row_get(result, 'role', index=0)
         if role is None:
-            print(f"[is_admin] Rôle NULL pour user_id={user_id}")
+            print(f"[is_admin] Rôle NULL pour user_id={user_id} tenant_id={tenant_id}")
             return False
         
         is_admin_role = (role == 'admin')
         # Log uniquement en mode debug pour éviter le bruit et les fuites d'info
         if not is_admin_role and os.getenv('DEBUG_AUTH'):
-            print(f"[is_admin] user_id={user_id} a le rôle '{role}' (non admin)")
+            print(f"[is_admin] user_id={user_id} tenant_id={tenant_id} a le rôle '{role}' (non admin)")
         
         return is_admin_role
         
@@ -1261,28 +1269,33 @@ def require_admin(f):
 # --------------------------------
 @app.route('/')
 def home():
-    """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT *"""
+    """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT * - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
     # OPTIMISÉ: Sélection explicite des colonnes nécessaires + LIMIT
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC 
         LIMIT 4
-    """)
+    """), (tenant_id,))
     latest_paintings = c.fetchall()
 
     # OPTIMISÉ: Sélection explicite pour toutes les peintures
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC
         LIMIT 100
-    """)
+    """), (tenant_id,))
     all_paintings = c.fetchall()
 
     conn.close()
@@ -1290,18 +1303,22 @@ def home():
 
 @app.route('/about')
 def about():
-    """Page à propos - OPTIMISÉ: colonnes spécifiques + LIMIT"""
+    """Page à propos - OPTIMISÉ: colonnes spécifiques + LIMIT - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     # Récupérer toutes les peintures pour affichage dans la page à propos
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Colonnes spécifiques + LIMIT pour éviter de charger trop de données
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image 
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC
         LIMIT 50
-    """)
+    """), (tenant_id,))
     paintings = c.fetchall()
     conn.close()
 
@@ -1316,6 +1333,9 @@ def boutique():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         name = request.form['name']
         email = request.form['email']
         password = request.form['password']
@@ -1325,33 +1345,36 @@ def register():
         conn = get_db()
         c = conn.cursor()
         try:
-            # Check if email already exists to avoid UniqueViolation
-            c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+            # MULTI-TENANT: Check if email already exists within this tenant
+            c.execute(adapt_query("SELECT id FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
             existing = c.fetchone()
             if existing:
                 conn.close()
-                print(f"[REGISTER] Email déjà utilisé: {email}")
+                print(f"[REGISTER] Email déjà utilisé dans tenant {tenant_id}: {email}")
                 flash("Cet email est déjà utilisé.")
                 return redirect(url_for('register'))
 
-            print(f"[REGISTER] Début inscription: {email}")
-            c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+            print(f"[REGISTER] Début inscription tenant {tenant_id}: {email}")
+            # MULTI-TENANT: Count users within this tenant only
+            c.execute(adapt_query("SELECT COUNT(*) as count FROM users WHERE tenant_id=?"), (tenant_id,))
             count_result = c.fetchone()
             user_count = safe_row_get(count_result, 'count', index=0, default=0)
             is_first_user = (user_count == 0)
 
             if is_first_user:
-                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                          (name, email, hashed_password, 'admin'))
-                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+                # MULTI-TENANT: Include tenant_id in INSERT
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'admin', tenant_id))
+                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin' pour tenant {tenant_id}")
             else:
-                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                          (name, email, hashed_password, 'user'))
-                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
+                # MULTI-TENANT: Include tenant_id in INSERT
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'user', tenant_id))
+                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user' pour tenant {tenant_id}")
 
             conn.commit()
             conn.close()
-            print(f"[REGISTER] Inscription réussie pour {email}")
+            print(f"[REGISTER] Inscription réussie pour {email} (tenant {tenant_id})")
             flash("Inscription réussie !")
             return redirect(url_for('login'))
         except Exception as e:
@@ -1495,14 +1518,17 @@ def api_login_preview():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         email = request.form['email']
         password = request.form['password']
 
         conn = get_db()
         c = conn.cursor()
 
-        # Vérifier utilisateur
-        c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
+        # MULTI-TENANT: Vérifier utilisateur dans ce tenant uniquement
+        c.execute(adapt_query("SELECT id, password FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
         user = c.fetchone()
         # Correction : vérifie le type et la présence des données
         if not user:
@@ -2540,6 +2566,9 @@ def orders():
 @require_admin
 def add_painting_web():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         name = request.form['name']
         price = float(request.form['price'])
         quantity = int(request.form['quantity'])
@@ -2590,16 +2619,17 @@ def add_painting_web():
 
             conn = get_db()
             c = conn.cursor()
+            # MULTI-TENANT: Include tenant_id in INSERT
             c.execute(adapt_query("""
                 INSERT INTO paintings (
                     name, image, price, quantity, description, create_date,
                     description_long, dimensions, technique, year, category, status,
-                    image_2, image_3, image_4, weight, framed, certificate, unique_piece
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    image_2, image_3, image_4, weight, framed, certificate, unique_piece, tenant_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """), (
                 name, image_path, price, quantity, description, create_date,
                 description_long, dimensions, technique, year, category, status,
-                image_2, image_3, image_4, weight, framed, certificate, unique_piece
+                image_2, image_3, image_4, weight, framed, certificate, unique_piece, tenant_id
             ))
             conn.commit()
             conn.close()
@@ -3214,18 +3244,40 @@ def add_favorite(painting_id):
         flash("Vous devez être connecté pour ajouter aux favoris.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
     try:
-        c.execute(adapt_query("INSERT INTO favorites (user_id, painting_id) VALUES (?, ?)"), (user_id, painting_id))
+        # MULTI-TENANT: Vérifier que la peinture appartient au même tenant
+        c.execute(adapt_query("SELECT id FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
+        painting = c.fetchone()
+        if not painting:
+            conn.close()
+            flash("Peinture non trouvée.")
+            return redirect(url_for('home'))
+        
+        # MULTI-TENANT: Vérifier que l'utilisateur appartient au même tenant
+        c.execute(adapt_query("SELECT id FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
+        user = c.fetchone()
+        if not user:
+            conn.close()
+            flash("Erreur d'authentification.")
+            return redirect(url_for('login'))
+        
+        # MULTI-TENANT: Insert avec tenant_id
+        c.execute(adapt_query("INSERT INTO favorites (user_id, painting_id, tenant_id) VALUES (?, ?, ?)"), 
+                  (user_id, painting_id, tenant_id))
         conn.commit()
         flash("Ajouté aux favoris !")
     except Exception as e:
         # IntegrityError pour doublon (favoris déjà existant)
-        if 'UNIQUE' in str(e) or 'unique' in str(e):
+        if 'UNIQUE' in str(e) or 'unique' in str(e) or 'duplicate' in str(e).lower():
             flash("Cette peinture est déjà dans vos favoris.")
         else:
+            print(f"[FAVORITES] Erreur ajout favori: {e}")
             flash("Erreur lors de l'ajout aux favoris.")
     finally:
         conn.close()
@@ -3239,10 +3291,15 @@ def remove_favorite(painting_id):
         flash("Vous devez être connecté.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("DELETE FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
+    # MULTI-TENANT: Delete avec tenant_id pour isolation stricte
+    c.execute(adapt_query("DELETE FROM favorites WHERE user_id=? AND painting_id=? AND tenant_id=?"), 
+              (user_id, painting_id, tenant_id))
     conn.commit()
     conn.close()
 
@@ -3255,10 +3312,15 @@ def is_favorite(painting_id):
     if not user_id:
         return {'is_favorite': False}
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
+    # MULTI-TENANT: Check avec tenant_id
+    c.execute(adapt_query("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=? AND tenant_id=?"), 
+              (user_id, painting_id, tenant_id))
     result = c.fetchone()
     conn.close()
 
@@ -3270,34 +3332,38 @@ def is_favorite(painting_id):
 @app.route('/admin')
 @require_admin
 def admin_dashboard():
-    """Tableau de bord administrateur"""
+    """Tableau de bord administrateur - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
-    # Statistiques
-    c.execute("SELECT COUNT(*) as count FROM paintings")
+    # MULTI-TENANT: Statistiques filtrées par tenant_id
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM paintings WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_paintings = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM orders")
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_orders = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT SUM(total_price) as total FROM orders")
+    c.execute(adapt_query("SELECT SUM(total_price) as total FROM orders WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
     
-    c.execute("SELECT COUNT(*) as count FROM users")
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM users WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_users = safe_row_get(result, 'count', index=0, default=0)
     
-    # Dernières commandes
-    c.execute("""
+    # MULTI-TENANT: Dernières commandes de ce tenant uniquement
+    c.execute(adapt_query("""
         SELECT id, customer_name, email, total_price, order_date, status 
         FROM orders 
+        WHERE tenant_id=?
         ORDER BY order_date DESC 
         LIMIT 5
-    """)
+    """), (tenant_id,))
     recent_orders = c.fetchall()
     # Normalize recent_orders to tuples (id, customer_name, email, total_price, order_date, status)
     normalized_recent = []
