@@ -716,6 +716,8 @@ def set_setting(key, value, user_id=None):
             try:
                 cur.execute(query, (key, value, user_id))
             except Exception as e:
+                # Catch generic Exception because we support multiple DB drivers (psycopg3, psycopg2, pg8000)
+                # Each has different exception hierarchies. We check error message to identify constraint issues.
                 # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
                 error_msg = str(e).lower()
                 if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
@@ -734,6 +736,8 @@ def set_setting(key, value, user_id=None):
                 try:
                     cur.execute(query, (key, value, DEFAULT_TENANT_ID))
                 except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers (psycopg3, psycopg2, pg8000)
+                    # Each has different exception hierarchies. We check error message to identify constraint issues.
                     # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
                     error_msg = str(e).lower()
                     if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
@@ -1109,14 +1113,18 @@ def migrate_db():
             if old_constraint:
                 old_constraint_name = old_constraint[0] if isinstance(old_constraint, (tuple, list)) else old_constraint['constraint_name']
                 try:
+                    # Validate constraint name to prevent SQL injection (it's from DB metadata, not user input)
                     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', old_constraint_name):
                         raise ValueError(f"Invalid constraint name: {old_constraint_name}")
                     
                     print(f"ℹ️  Dropping old constraint '{old_constraint_name}'...")
+                    # Using f-string is safe here because constraint name is validated with regex above
+                    # PostgreSQL doesn't support parameterized constraint names in DDL statements
                     cur.execute(f"ALTER TABLE settings DROP CONSTRAINT {old_constraint_name}")
                     conn.commit()
                     print(f"✅ Old constraint '{old_constraint_name}' dropped")
                 except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers
                     print(f"⚠️  Error dropping old constraint: {e}")
                     conn.rollback()
             
@@ -1141,12 +1149,13 @@ def migrate_db():
             # Add the UNIQUE constraint only if duplicate removal succeeded
             if duplicate_removal_success:
                 try:
-                    # Use parameterized query to avoid SQL injection
-                    # Note: Constraint names must be SQL identifiers, not string values
-                    # so we validate and use string formatting safely here
+                    # Validate constraint name from constant to prevent SQL injection
+                    # SETTINGS_CONSTRAINT_NAME is a module-level constant, not user input
                     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', SETTINGS_CONSTRAINT_NAME):
                         raise ValueError(f"Invalid constraint name: {SETTINGS_CONSTRAINT_NAME}")
                     
+                    # Using f-string is safe here because constraint name is validated with regex above
+                    # PostgreSQL doesn't support parameterized constraint names in DDL statements
                     cur.execute(f"""
                         ALTER TABLE settings 
                         ADD CONSTRAINT {SETTINGS_CONSTRAINT_NAME} 
@@ -1155,6 +1164,7 @@ def migrate_db():
                     conn.commit()
                     print("✅ UNIQUE constraint added on settings(key, tenant_id)")
                 except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers
                     print(f"⚠️  Error adding UNIQUE constraint: {e}")
                     conn.rollback()
             else:
