@@ -2321,8 +2321,13 @@ def checkout_success():
             address = order_row[3] if len(order_row) > 3 else ""
             total_price = order_row[4] if len(order_row) > 4 else 0
             order_id = order_row[0]
-            # MULTI-TENANT: Filtrer order_items par tenant_id via la jointure avec orders
-            c.execute(adapt_query("SELECT * FROM order_items WHERE order_id=? AND tenant_id=?"), (order_id, tenant_id))
+            # MULTI-TENANT: Filtrer order_items par tenant_id (sécurité supplémentaire)
+            # Note: order_items a un tenant_id et une FK vers orders, donc double vérification
+            c.execute(adapt_query("""
+                SELECT oi.* FROM order_items oi
+                INNER JOIN orders o ON oi.order_id = o.id
+                WHERE oi.order_id=? AND oi.tenant_id=? AND o.tenant_id=?
+            """), (order_id, tenant_id, tenant_id))
             items = c.fetchall()
     return render_template(
         "checkout_success.html",
