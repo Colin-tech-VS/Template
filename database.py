@@ -60,6 +60,7 @@ elif DRIVER == "psycopg2":
     PsycopgPool = None
     dict_row = None
 elif DRIVER == "pg8000":
+    import pg8000  # type: ignore
     import pg8000.dbapi  # type: ignore
     PsycopgPool = None
     dict_row = None
