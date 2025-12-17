@@ -77,11 +77,12 @@ def check_no_startup_set_admin_user():
         lines = f.readlines()
     
     # Look for the pattern of init_database() followed by set_admin_user()
-    for i in range(len(lines) - 5):
+    for i in range(len(lines) - 6):
         if 'init_database()' in lines[i]:
             # Check next few lines for set_admin_user
-            next_5_lines = ''.join(lines[i:i+6])
-            if "set_admin_user('coco.cayre@gmail.com')" in next_5_lines:
+            next_lines = ''.join(lines[i:min(len(lines), i+10)])
+            # Check for set_admin_user with any email (not specific to avoid exposing email)
+            if "set_admin_user(" in next_lines and "@" in next_lines:
                 print("❌ FOUND: set_admin_user called at startup")
                 print(f"   Around line {i+1}")
                 return False

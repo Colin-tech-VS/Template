@@ -91,14 +91,15 @@ def test_startup_no_set_admin_user():
         lines = content.split('\n')
         
         found_startup_call = False
-        for i, line in enumerate(lines, 1):
-            # Skip if it's within a function definition
-            if 'try:' in line and i < len(lines) - 10:
+        for i in range(len(lines) - 10):
+            # Look for init_database() at module level (not inside a function)
+            if 'init_database()' in lines[i] and not lines[i].startswith('    '):
                 # Check next few lines for set_admin_user
-                next_lines = '\n'.join(lines[i:min(i+10, len(lines))])
-                if 'init_database()' in next_lines and "set_admin_user('coco.cayre@gmail.com')" in next_lines:
+                next_lines = '\n'.join(lines[i:min(len(lines), i+15)])
+                # Check for set_admin_user with any email (not specific to avoid exposing email)
+                if 'set_admin_user(' in next_lines and '@' in next_lines:
                     found_startup_call = True
-                    print(f"❌ FOUND: set_admin_user called at startup around line {i}")
+                    print(f"❌ FOUND: set_admin_user called at startup around line {i+1}")
                     break
         
         if not found_startup_call:
