@@ -12,6 +12,28 @@ import atexit
 import logging
 import threading
 
+
+def detect_driver():
+    try:
+        import psycopg as psycopg3
+        return "psycopg3"
+    except Exception:
+        pass
+
+    try:
+        import psycopg2
+        return "psycopg2"
+    except Exception:
+        pass
+
+    try:
+        import pg8000.dbapi
+        return "pg8000"
+    except Exception:
+        pass
+
+    raise ImportError("Aucun driver PostgreSQL disponible")
+
 # ============================================================
 # ✅ Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
 # ✅ Version corrigée, compatible Termux, PC, serveur
@@ -19,37 +41,8 @@ import threading
 # ✅ pg8000.dbapi conservé
 # ============================================================
 
-DRIVER = None
+DRIVER = detect_driver()
 
-# --- Try psycopg3 (driver only) ---
-try:
-    import psycopg as psycopg3  # type: ignore
-    DRIVER = "psycopg3"
-except Exception:
-    psycopg3 = None
-
-# --- Try psycopg2 ---
-if DRIVER is None:
-    try:
-        import psycopg2
-        import psycopg2.extras
-        import psycopg2.pool
-        DRIVER = "psycopg2"
-    except Exception:
-        psycopg2 = None
-
-# --- Final fallback: pg8000 ---
-if DRIVER is None:
-    try:
-        import pg8000.dbapi
-        DRIVER = "pg8000"
-    except Exception:
-        raise ImportError(
-            "No PostgreSQL driver found. Please install one of:\n"
-            "  - psycopg[binary]>=3.0.0 (recommended for PC/server)\n"
-            "  - psycopg2-binary (alternative for PC/server)\n"
-            "  - pg8000 (for Termux/Android or pure Python environments)"
-        )
 
 # --- Optional psycopg3 extras (pool, dict_row) ---
 if DRIVER == "psycopg3":
