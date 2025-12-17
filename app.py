@@ -375,13 +375,21 @@ def generate_email_html(title, content, button_text=None, button_url=None):
     """
 
 TABLES = {
+    # Table tenants pour l'isolation multi-tenant
+    "tenants": {
+        "id": "SERIAL PRIMARY KEY",
+        "host": "TEXT UNIQUE NOT NULL",
+        "name": "TEXT",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    },
     "users": {
         "id": "SERIAL PRIMARY KEY",
         "name": "TEXT NOT NULL",
-        "email": "TEXT UNIQUE NOT NULL",
+        "email": "TEXT NOT NULL",
         "password": "TEXT NOT NULL",
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "role": "TEXT DEFAULT 'user'"
+        "role": "TEXT DEFAULT 'user'",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "paintings": {
         "id": "SERIAL PRIMARY KEY",
@@ -404,7 +412,8 @@ TABLES = {
         "framed": "INTEGER DEFAULT 0",
         "certificate": "INTEGER DEFAULT 1",
         "unique_piece": "INTEGER DEFAULT 1",
-        "display_order": "INTEGER DEFAULT 0"
+        "display_order": "INTEGER DEFAULT 0",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "orders": {
         "id": "SERIAL PRIMARY KEY",
@@ -414,25 +423,36 @@ TABLES = {
         "total_price": "REAL NOT NULL DEFAULT 0",
         "order_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
         "status": "TEXT NOT NULL DEFAULT 'En cours'",
-        "user_id": "INTEGER"
+        "user_id": "INTEGER",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "order_items": {
         "id": "SERIAL PRIMARY KEY",
         "order_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL",
-        "price": "REAL NOT NULL"
+        "price": "REAL NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "cart_items": {
         "id": "SERIAL PRIMARY KEY",
         "cart_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
-        "quantity": "INTEGER NOT NULL"
+        "quantity": "INTEGER NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "carts": {
         "id": "SERIAL PRIMARY KEY",
         "session_id": "TEXT NOT NULL UNIQUE",
-        "user_id": "INTEGER"
+        "user_id": "INTEGER",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
+    },
+    "favorites": {
+        "id": "SERIAL PRIMARY KEY",
+        "user_id": "INTEGER NOT NULL",
+        "painting_id": "INTEGER NOT NULL",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "notifications": {
         "id": "SERIAL PRIMARY KEY",
@@ -441,7 +461,8 @@ TABLES = {
         "type": "TEXT NOT NULL",
         "url": "TEXT",
         "is_read": "INTEGER NOT NULL DEFAULT 0",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "exhibitions": {
         "id": "SERIAL PRIMARY KEY",
@@ -456,7 +477,8 @@ TABLES = {
         "entry_price": "TEXT",
         "contact_info": "TEXT",
         "image": "TEXT",
-        "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "custom_requests": {
         "id": "SERIAL PRIMARY KEY",
@@ -471,17 +493,20 @@ TABLES = {
         "reference_images": "TEXT",
         "status": "TEXT NOT NULL DEFAULT 'En attente'",
         "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "admin_notes": "TEXT"
+        "admin_notes": "TEXT",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     # Nouvelle table settings pour stocker toutes les clés API et configs
     "settings": {
         "id": "SERIAL PRIMARY KEY",
-        "key": "TEXT UNIQUE NOT NULL",
-        "value": "TEXT NOT NULL"
+        "key": "TEXT NOT NULL",
+        "value": "TEXT NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "stripe_events": {
         "id": "TEXT PRIMARY KEY",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     # Table SAAS: suivi du cycle de vie des sites artistes
     "saas_sites": {
@@ -490,7 +515,8 @@ TABLES = {
         "status": "TEXT NOT NULL DEFAULT 'pending_approval'",
         "sandbox_url": "TEXT",
         "final_domain": "TEXT",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     }
 }
 
@@ -1171,48 +1197,56 @@ except Exception as e:
 # UTILITAIRES
 # --------------------------------
 def get_paintings():
-    """Récupère toutes les peintures - OPTIMISÉ: colonnes spécifiques"""
+    """Récupère toutes les peintures - OPTIMISÉ: colonnes spécifiques - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Sélection de colonnes spécifiques au lieu de SELECT *
-    # Ajout d'ORDER BY et LIMIT pour pagination future
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status, display_order
         FROM paintings 
+        WHERE tenant_id = ?
         ORDER BY display_order DESC, id DESC
-    """)
+    """), (tenant_id,))
     paintings = c.fetchall()
     conn.close()
     return paintings
 
 def is_admin():
-    """Vérifie si l'utilisateur connecté est admin"""
+    """Vérifie si l'utilisateur connecté est admin - MULTI-TENANT: vérifie dans le tenant courant"""
     user_id = session.get("user_id")
     if not user_id:
         return False
     
     try:
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         c = conn.cursor()
-        c.execute(adapt_query("SELECT role FROM users WHERE id=?"), (user_id,))
+        # MULTI-TENANT: Vérifier que l'utilisateur appartient au tenant courant
+        c.execute(adapt_query("SELECT role FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
         result = c.fetchone()
         conn.close()
         
         # Vérification robuste: result doit être non vide
         if result is None:
-            print(f"[is_admin] Aucun résultat pour user_id={user_id}")
+            print(f"[is_admin] Aucun résultat pour user_id={user_id} tenant_id={tenant_id}")
             return False
         
         # Accès sécurisé au rôle avec safe_row_get
         role = safe_row_get(result, 'role', index=0)
         if role is None:
-            print(f"[is_admin] Rôle NULL pour user_id={user_id}")
+            print(f"[is_admin] Rôle NULL pour user_id={user_id} tenant_id={tenant_id}")
             return False
         
         is_admin_role = (role == 'admin')
         # Log uniquement en mode debug pour éviter le bruit et les fuites d'info
         if not is_admin_role and os.getenv('DEBUG_AUTH'):
-            print(f"[is_admin] user_id={user_id} a le rôle '{role}' (non admin)")
+            print(f"[is_admin] user_id={user_id} tenant_id={tenant_id} a le rôle '{role}' (non admin)")
         
         return is_admin_role
         
@@ -1235,28 +1269,33 @@ def require_admin(f):
 # --------------------------------
 @app.route('/')
 def home():
-    """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT *"""
+    """Page d'accueil - OPTIMISÉ: requêtes spécifiques, pas de SELECT * - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
     # OPTIMISÉ: Sélection explicite des colonnes nécessaires + LIMIT
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC 
         LIMIT 4
-    """)
+    """), (tenant_id,))
     latest_paintings = c.fetchall()
 
     # OPTIMISÉ: Sélection explicite pour toutes les peintures
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, category, status
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC
         LIMIT 100
-    """)
+    """), (tenant_id,))
     all_paintings = c.fetchall()
 
     conn.close()
@@ -1264,18 +1303,22 @@ def home():
 
 @app.route('/about')
 def about():
-    """Page à propos - OPTIMISÉ: colonnes spécifiques + LIMIT"""
+    """Page à propos - OPTIMISÉ: colonnes spécifiques + LIMIT - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     # Récupérer toutes les peintures pour affichage dans la page à propos
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Colonnes spécifiques + LIMIT pour éviter de charger trop de données
-    c.execute("""
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("""
         SELECT id, name, image 
         FROM paintings 
-        WHERE status = 'disponible'
+        WHERE status = 'disponible' AND tenant_id = ?
         ORDER BY display_order DESC, id DESC
         LIMIT 50
-    """)
+    """), (tenant_id,))
     paintings = c.fetchall()
     conn.close()
 
@@ -1290,6 +1333,9 @@ def boutique():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         name = request.form['name']
         email = request.form['email']
         password = request.form['password']
@@ -1299,33 +1345,36 @@ def register():
         conn = get_db()
         c = conn.cursor()
         try:
-            # Check if email already exists to avoid UniqueViolation
-            c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+            # MULTI-TENANT: Check if email already exists within this tenant
+            c.execute(adapt_query("SELECT id FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
             existing = c.fetchone()
             if existing:
                 conn.close()
-                print(f"[REGISTER] Email déjà utilisé: {email}")
+                print(f"[REGISTER] Email déjà utilisé dans tenant {tenant_id}: {email}")
                 flash("Cet email est déjà utilisé.")
                 return redirect(url_for('register'))
 
-            print(f"[REGISTER] Début inscription: {email}")
-            c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+            print(f"[REGISTER] Début inscription tenant {tenant_id}: {email}")
+            # MULTI-TENANT: Count users within this tenant only
+            c.execute(adapt_query("SELECT COUNT(*) as count FROM users WHERE tenant_id=?"), (tenant_id,))
             count_result = c.fetchone()
             user_count = safe_row_get(count_result, 'count', index=0, default=0)
             is_first_user = (user_count == 0)
 
             if is_first_user:
-                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                          (name, email, hashed_password, 'admin'))
-                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin'")
+                # MULTI-TENANT: Include tenant_id in INSERT
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'admin', tenant_id))
+                print(f"[REGISTER] Premier utilisateur {email} créé avec rôle 'admin' pour tenant {tenant_id}")
             else:
-                c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"),
-                          (name, email, hashed_password, 'user'))
-                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user'")
+                # MULTI-TENANT: Include tenant_id in INSERT
+                c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)"),
+                          (name, email, hashed_password, 'user', tenant_id))
+                print(f"[REGISTER] Utilisateur {email} créé avec rôle 'user' pour tenant {tenant_id}")
 
             conn.commit()
             conn.close()
-            print(f"[REGISTER] Inscription réussie pour {email}")
+            print(f"[REGISTER] Inscription réussie pour {email} (tenant {tenant_id})")
             flash("Inscription réussie !")
             return redirect(url_for('login'))
         except Exception as e:
@@ -1469,14 +1518,17 @@ def api_login_preview():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         email = request.form['email']
         password = request.form['password']
 
         conn = get_db()
         c = conn.cursor()
 
-        # Vérifier utilisateur
-        c.execute(adapt_query("SELECT id, password FROM users WHERE email=?"), (email,))
+        # MULTI-TENANT: Vérifier utilisateur dans ce tenant uniquement
+        c.execute(adapt_query("SELECT id, password FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
         user = c.fetchone()
         # Correction : vérifie le type et la présence des données
         if not user:
@@ -2514,6 +2566,9 @@ def orders():
 @require_admin
 def add_painting_web():
     if request.method == 'POST':
+        # MULTI-TENANT: Récupérer le tenant_id courant
+        tenant_id = get_current_tenant_id()
+        
         name = request.form['name']
         price = float(request.form['price'])
         quantity = int(request.form['quantity'])
@@ -2564,16 +2619,17 @@ def add_painting_web():
 
             conn = get_db()
             c = conn.cursor()
+            # MULTI-TENANT: Include tenant_id in INSERT
             c.execute(adapt_query("""
                 INSERT INTO paintings (
                     name, image, price, quantity, description, create_date,
                     description_long, dimensions, technique, year, category, status,
-                    image_2, image_3, image_4, weight, framed, certificate, unique_piece
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    image_2, image_3, image_4, weight, framed, certificate, unique_piece, tenant_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """), (
                 name, image_path, price, quantity, description, create_date,
                 description_long, dimensions, technique, year, category, status,
-                image_2, image_3, image_4, weight, framed, certificate, unique_piece
+                image_2, image_3, image_4, weight, framed, certificate, unique_piece, tenant_id
             ))
             conn.commit()
             conn.close()
@@ -3188,18 +3244,40 @@ def add_favorite(painting_id):
         flash("Vous devez être connecté pour ajouter aux favoris.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
     try:
-        c.execute(adapt_query("INSERT INTO favorites (user_id, painting_id) VALUES (?, ?)"), (user_id, painting_id))
+        # MULTI-TENANT: Vérifier que la peinture appartient au même tenant
+        c.execute(adapt_query("SELECT id FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
+        painting = c.fetchone()
+        if not painting:
+            conn.close()
+            flash("Peinture non trouvée.")
+            return redirect(url_for('home'))
+        
+        # MULTI-TENANT: Vérifier que l'utilisateur appartient au même tenant
+        c.execute(adapt_query("SELECT id FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
+        user = c.fetchone()
+        if not user:
+            conn.close()
+            flash("Erreur d'authentification.")
+            return redirect(url_for('login'))
+        
+        # MULTI-TENANT: Insert avec tenant_id
+        c.execute(adapt_query("INSERT INTO favorites (user_id, painting_id, tenant_id) VALUES (?, ?, ?)"), 
+                  (user_id, painting_id, tenant_id))
         conn.commit()
         flash("Ajouté aux favoris !")
     except Exception as e:
         # IntegrityError pour doublon (favoris déjà existant)
-        if 'UNIQUE' in str(e) or 'unique' in str(e):
+        if 'UNIQUE' in str(e) or 'unique' in str(e) or 'duplicate' in str(e).lower():
             flash("Cette peinture est déjà dans vos favoris.")
         else:
+            print(f"[FAVORITES] Erreur ajout favori: {e}")
             flash("Erreur lors de l'ajout aux favoris.")
     finally:
         conn.close()
@@ -3213,10 +3291,15 @@ def remove_favorite(painting_id):
         flash("Vous devez être connecté.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("DELETE FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
+    # MULTI-TENANT: Delete avec tenant_id pour isolation stricte
+    c.execute(adapt_query("DELETE FROM favorites WHERE user_id=? AND painting_id=? AND tenant_id=?"), 
+              (user_id, painting_id, tenant_id))
     conn.commit()
     conn.close()
 
@@ -3229,10 +3312,15 @@ def is_favorite(painting_id):
     if not user_id:
         return {'is_favorite': False}
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=?"), (user_id, painting_id))
+    # MULTI-TENANT: Check avec tenant_id
+    c.execute(adapt_query("SELECT 1 FROM favorites WHERE user_id=? AND painting_id=? AND tenant_id=?"), 
+              (user_id, painting_id, tenant_id))
     result = c.fetchone()
     conn.close()
 
@@ -3244,34 +3332,38 @@ def is_favorite(painting_id):
 @app.route('/admin')
 @require_admin
 def admin_dashboard():
-    """Tableau de bord administrateur"""
+    """Tableau de bord administrateur - MULTI-TENANT: filtré par tenant_id"""
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
-    # Statistiques
-    c.execute("SELECT COUNT(*) as count FROM paintings")
+    # MULTI-TENANT: Statistiques filtrées par tenant_id
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM paintings WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_paintings = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM orders")
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_orders = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT SUM(total_price) as total FROM orders")
+    c.execute(adapt_query("SELECT SUM(total_price) as total FROM orders WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
     
-    c.execute("SELECT COUNT(*) as count FROM users")
+    c.execute(adapt_query("SELECT COUNT(*) as count FROM users WHERE tenant_id=?"), (tenant_id,))
     result = c.fetchone()
     total_users = safe_row_get(result, 'count', index=0, default=0)
     
-    # Dernières commandes
-    c.execute("""
+    # MULTI-TENANT: Dernières commandes de ce tenant uniquement
+    c.execute(adapt_query("""
         SELECT id, customer_name, email, total_price, order_date, status 
         FROM orders 
+        WHERE tenant_id=?
         ORDER BY order_date DESC 
         LIMIT 5
-    """)
+    """), (tenant_id,))
     recent_orders = c.fetchall()
     # Normalize recent_orders to tuples (id, customer_name, email, total_price, order_date, status)
     normalized_recent = []
@@ -4228,8 +4320,11 @@ def api_export_full():
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
 def api_orders():
-    """Récupère toutes les commandes au format dashboard - OPTIMISÉ"""
+    """Récupère toutes les commandes au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
@@ -4237,25 +4332,29 @@ def api_orders():
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
         
+        # MULTI-TENANT: Filtrer par tenant_id
         cur.execute(adapt_query("""
             SELECT id, customer_name, email, total_price, order_date, status 
             FROM orders 
+            WHERE tenant_id = ?
             ORDER BY order_date DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         orders_rows = cur.fetchall()
         orders = convert_rows_to_dicts(orders_rows, cur.description)
         
         # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
+        # MULTI-TENANT: Filtrer order_items et paintings par tenant_id
         order_ids = [o['id'] for o in orders]
         if order_ids:
             placeholders = ','.join(['%s'] * len(order_ids))
+            # MULTI-TENANT: Double vérification - order_items et paintings doivent appartenir au tenant
             cur.execute(f"""
                 SELECT oi.order_id, oi.painting_id, p.name, p.image, oi.price, oi.quantity
                 FROM order_items oi
-                LEFT JOIN paintings p ON oi.painting_id = p.id
-                WHERE oi.order_id IN ({placeholders})
-            """, order_ids)
+                LEFT JOIN paintings p ON oi.painting_id = p.id AND p.tenant_id = %s
+                WHERE oi.order_id IN ({placeholders}) AND oi.tenant_id = %s
+            """, [tenant_id] + order_ids + [tenant_id])
             all_items = cur.fetchall()
             
             # Grouper les items par order_id
@@ -4286,21 +4385,26 @@ def api_orders():
 @app.route('/api/export/users', methods=['GET'])
 @require_api_key
 def api_users():
-    """Récupère tous les utilisateurs au format dashboard - OPTIMISÉ"""
+    """Récupère tous les utilisateurs au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
         # OPTIMISÉ: Colonnes spécifiques + pagination
+        # MULTI-TENANT: Filtrer par tenant_id
         limit = request.args.get('limit', 500, type=int)
         offset = request.args.get('offset', 0, type=int)
         
         cur.execute(adapt_query("""
             SELECT id, name, email, create_date, role
             FROM users
+            WHERE tenant_id = ?
             ORDER BY id DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         rows = cur.fetchall()
         users = convert_rows_to_dicts(rows, cur.description)
         
@@ -4317,21 +4421,26 @@ def api_users():
 @app.route('/api/export/paintings', methods=['GET'])
 @require_api_key
 def api_paintings():
-    """Récupère toutes les peintures au format dashboard - OPTIMISÉ"""
+    """Récupère toutes les peintures au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
         # OPTIMISÉ: Colonnes spécifiques + pagination
+        # MULTI-TENANT: Filtrer par tenant_id
         limit = request.args.get('limit', 200, type=int)
         offset = request.args.get('offset', 0, type=int)
         
         cur.execute(adapt_query("""
             SELECT id, name, price, category, technique, year, quantity, status, image, display_order
             FROM paintings 
+            WHERE tenant_id = ?
             ORDER BY display_order DESC, id DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         rows = cur.fetchall()
         paintings = convert_rows_to_dicts(rows, cur.description)
         
