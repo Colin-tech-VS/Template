@@ -96,6 +96,9 @@ from database import (
 # CONFIGURATION
 # --------------------------------
 
+# Default tenant ID for non-tenant-specific settings
+DEFAULT_TENANT_ID = 1
+
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
 if TEMPLATE_MASTER_API_KEY:
@@ -690,14 +693,14 @@ def set_setting(key, value, user_id=None):
             """)
             cur.execute(query, (key, value, user_id))
         else:
-            # Fallback: use default tenant_id = 1 if tenant_id column exists
+            # Fallback: use default tenant_id if tenant_id column exists
             # This ensures compatibility with the UNIQUE constraint on (key, tenant_id)
             if has_tenant_id:
                 query = adapt_query("""
                     INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                     ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
                 """)
-                cur.execute(query, (key, value, 1))
+                cur.execute(query, (key, value, DEFAULT_TENANT_ID))
             else:
                 # Legacy mode for databases without tenant_id column
                 query = adapt_query("""
@@ -1024,6 +1027,9 @@ def get_new_notifications_count():
 
 def migrate_db():
     """Migration complète : crée tables puis ajoute colonnes manquantes"""
+    # Constant for constraint name to ensure consistency
+    SETTINGS_CONSTRAINT_NAME = 'settings_key_tenant_id_unique'
+    
     # --- Créer toutes les tables si elles n'existent pas ---
     for table_name, cols in TABLES.items():
         create_table_if_not_exists(table_name, cols)
@@ -1034,6 +1040,7 @@ def migrate_db():
             add_column_if_not_exists(table_name, col_name, col_type)
     
     # --- Add UNIQUE constraint on settings(key, tenant_id) ---
+    # NOTE: This runs after column migration, so tenant_id column is guaranteed to exist
     conn = None
     try:
         conn = get_db()
@@ -1045,8 +1052,8 @@ def migrate_db():
             FROM information_schema.table_constraints 
             WHERE table_name = 'settings' 
             AND constraint_type = 'UNIQUE'
-            AND constraint_name = 'settings_key_tenant_id_unique'
-        """)
+            AND constraint_name = %s
+        """, (SETTINGS_CONSTRAINT_NAME,))
         
         constraint_exists = cur.fetchone() is not None
         
@@ -1072,9 +1079,9 @@ def migrate_db():
             # Add the UNIQUE constraint only if duplicate removal succeeded
             if duplicate_removal_success:
                 try:
-                    cur.execute("""
+                    cur.execute(f"""
                         ALTER TABLE settings 
-                        ADD CONSTRAINT settings_key_tenant_id_unique 
+                        ADD CONSTRAINT {SETTINGS_CONSTRAINT_NAME} 
                         UNIQUE (key, tenant_id)
                     """)
                     conn.commit()
@@ -1093,7 +1100,7 @@ def migrate_db():
         if conn is not None:
             try:
                 conn.close()
-            except:
+            except Exception:
                 pass
     
     try:
