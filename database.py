@@ -10,6 +10,7 @@ from contextlib import contextmanager
 import time
 import atexit
 import logging
+import threading
 
 # Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
 # 1. Keep psycopg3 as the primary driver on PC/server
@@ -23,19 +24,19 @@ try:
     from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
     from psycopg.rows import dict_row  # type: ignore
     DRIVER = "psycopg3"
-except Exception:
+except (ImportError, ModuleNotFoundError):
     # Fallback to psycopg2
     try:
         import psycopg2
         import psycopg2.extras
         import psycopg2.pool
         DRIVER = "psycopg2"
-    except Exception:
+    except (ImportError, ModuleNotFoundError):
         # Final fallback to pg8000 (pure Python, works on Termux)
         try:
             import pg8000.dbapi
             DRIVER = "pg8000"
-        except Exception:
+        except (ImportError, ModuleNotFoundError):
             raise ImportError(
                 "No PostgreSQL driver found. Please install one of: "
                 "psycopg[binary], psycopg2-binary, or pg8000"
@@ -121,13 +122,13 @@ def init_connection_pool(minconn=1, maxconn=5):
             )
             print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
         elif DRIVER == "pg8000":
-            # pg8000 doesn't have built-in pooling, we'll use a simple list-based pool
-            # For pg8000, we store a list of connections
+            # pg8000 doesn't have built-in pooling, we'll use a simple thread-safe pool
             CONNECTION_POOL = {
                 'connections': [],
                 'min_size': minconn,
                 'max_size': maxconn,
-                'in_use': set()
+                'in_use': set(),
+                'lock': threading.Lock()  # Thread safety
             }
             print(f"✅ pg8000 simple pool initialisé: {minconn}-{maxconn} connexions")
         return CONNECTION_POOL
@@ -159,23 +160,23 @@ def get_pool_connection():
             perf_logger.error(f"Erreur obtention connexion du pool: {e}")
             raise
     elif DRIVER == "pg8000":
-        # Simple pool for pg8000
+        # Simple thread-safe pool for pg8000
         try:
-            # Try to reuse an existing connection
-            if CONNECTION_POOL['connections']:
-                conn = CONNECTION_POOL['connections'].pop(0)
-                CONNECTION_POOL['in_use'].add(id(conn))
-                return conn
+            with CONNECTION_POOL['lock']:
+                # Try to reuse an existing connection
+                if CONNECTION_POOL['connections']:
+                    conn = CONNECTION_POOL['connections'].pop(0)
+                    CONNECTION_POOL['in_use'].add(id(conn))
+                    return conn
+                
+                # Create new connection if space available in pool
+                if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
+                    conn = pg8000.dbapi.connect(**DB_CONFIG)
+                    CONNECTION_POOL['in_use'].add(id(conn))
+                    return conn
             
-            # Create new connection if space available in pool
-            if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
-                conn = pg8000.dbapi.connect(**DB_CONFIG)
-                CONNECTION_POOL['in_use'].add(id(conn))
-                return conn
-            
-            # Pool is full, create connection anyway (will be closed after use)
+            # Pool is full, create connection outside pool (will be closed after use, not pooled)
             conn = pg8000.dbapi.connect(**DB_CONFIG)
-            CONNECTION_POOL['in_use'].add(id(conn))
             return conn
         except Exception as e:
             perf_logger.error(f"Erreur obtention connexion pg8000: {e}")
@@ -205,15 +206,19 @@ def return_pool_connection(conn):
     elif DRIVER == "psycopg2":
         CONNECTION_POOL.putconn(conn)
     elif DRIVER == "pg8000":
-        # Return connection to pg8000 simple pool
+        # Return connection to pg8000 thread-safe pool
         try:
-            conn_id = id(conn)
-            if conn_id in CONNECTION_POOL['in_use']:
-                CONNECTION_POOL['in_use'].remove(conn_id)
-                # Keep connection alive if pool not full
-                if len(CONNECTION_POOL['connections']) < CONNECTION_POOL['min_size']:
-                    CONNECTION_POOL['connections'].append(conn)
+            with CONNECTION_POOL['lock']:
+                conn_id = id(conn)
+                if conn_id in CONNECTION_POOL['in_use']:
+                    CONNECTION_POOL['in_use'].remove(conn_id)
+                    # Keep connection alive if pool not full
+                    if len(CONNECTION_POOL['connections']) < CONNECTION_POOL['min_size']:
+                        CONNECTION_POOL['connections'].append(conn)
+                    else:
+                        conn.close()
                 else:
+                    # Connection was created outside pool (when pool was full), just close it
                     conn.close()
         except Exception:
             try:
@@ -247,13 +252,14 @@ def close_connection_pool():
                 except Exception:
                     pass
             elif DRIVER == "pg8000":
-                # Close all pg8000 connections
+                # Close all pg8000 connections (thread-safe)
                 try:
-                    for conn in CONNECTION_POOL['connections']:
-                        try:
-                            conn.close()
-                        except Exception:
-                            pass
+                    with CONNECTION_POOL['lock']:
+                        for conn in CONNECTION_POOL['connections']:
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
         finally:
