@@ -690,11 +690,31 @@ def set_setting(key, value, user_id=None):
     cur = conn.cursor()
     try:
         if user_id is not None and has_tenant_id:
+            # Try with (key, tenant_id) constraint first
             query = adapt_query("""
                 INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                 ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
             """)
-            cur.execute(query, (key, value, user_id))
+            try:
+                cur.execute(query, (key, value, user_id))
+            except Exception as e:
+                # If constraint doesn't exist on (key, tenant_id), try updating or inserting manually
+                error_msg = str(e).lower()
+                if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
+                    conn.rollback()
+                    # Try to update first
+                    update_query = adapt_query("""
+                        UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
+                    """)
+                    cur.execute(update_query, (value, key, user_id))
+                    if cur.rowcount == 0:
+                        # No row updated, try to insert
+                        insert_query = adapt_query("""
+                            INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                        """)
+                        cur.execute(insert_query, (key, value, user_id))
+                else:
+                    raise
         else:
             # Fallback: use default tenant_id if tenant_id column exists
             # This ensures compatibility with the UNIQUE constraint on (key, tenant_id)
@@ -703,7 +723,26 @@ def set_setting(key, value, user_id=None):
                     INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                     ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
                 """)
-                cur.execute(query, (key, value, DEFAULT_TENANT_ID))
+                try:
+                    cur.execute(query, (key, value, DEFAULT_TENANT_ID))
+                except Exception as e:
+                    # If constraint doesn't exist on (key, tenant_id), try updating or inserting manually
+                    error_msg = str(e).lower()
+                    if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
+                        conn.rollback()
+                        # Try to update first
+                        update_query = adapt_query("""
+                            UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
+                        """)
+                        cur.execute(update_query, (value, key, DEFAULT_TENANT_ID))
+                        if cur.rowcount == 0:
+                            # No row updated, try to insert
+                            insert_query = adapt_query("""
+                                INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                            """)
+                            cur.execute(insert_query, (key, value, DEFAULT_TENANT_ID))
+                    else:
+                        raise
             else:
                 # Legacy mode for databases without tenant_id column
                 query = adapt_query("""
@@ -1046,7 +1085,7 @@ def migrate_db():
         conn = get_db()
         cur = conn.cursor()
         
-        # Check if constraint already exists
+        # Check if the new constraint already exists
         cur.execute("""
             SELECT constraint_name 
             FROM information_schema.table_constraints 
@@ -1058,6 +1097,32 @@ def migrate_db():
         constraint_exists = cur.fetchone() is not None
         
         if not constraint_exists:
+            # Check for old constraint on just 'key' column (e.g., settings_key_key)
+            cur.execute("""
+                SELECT constraint_name 
+                FROM information_schema.table_constraints 
+                WHERE table_name = 'settings' 
+                AND constraint_type = 'UNIQUE'
+                AND constraint_name LIKE 'settings_key%'
+                AND constraint_name != %s
+            """, (SETTINGS_CONSTRAINT_NAME,))
+            
+            old_constraint = cur.fetchone()
+            if old_constraint:
+                old_constraint_name = old_constraint[0] if isinstance(old_constraint, (tuple, list)) else old_constraint['constraint_name']
+                try:
+                    import re
+                    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', old_constraint_name):
+                        raise ValueError(f"Invalid constraint name: {old_constraint_name}")
+                    
+                    print(f"ℹ️  Dropping old constraint '{old_constraint_name}'...")
+                    cur.execute(f"ALTER TABLE settings DROP CONSTRAINT {old_constraint_name}")
+                    conn.commit()
+                    print(f"✅ Old constraint '{old_constraint_name}' dropped")
+                except Exception as e:
+                    print(f"⚠️  Error dropping old constraint: {e}")
+                    conn.rollback()
+            
             # First, remove duplicates keeping the most recent (highest id)
             duplicate_removal_success = True
             try:
