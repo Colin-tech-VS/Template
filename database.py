@@ -88,11 +88,11 @@ if not DATABASE_URL:
 
 # Parser l'URL PostgreSQL/Supabase
 try:
-    result = urlparse(DATABASE_URL)
+    result = urlparse(DATABASE_URL.strip())
     DB_CONFIG = {
         'host': result.hostname,
         'port': result.port or 5432,
-        'database': result.path[1:] if result.path else '',
+        'database': (result.path[1:] if result.path else '').strip(),
         'user': result.username,
         'password': result.password,
         'sslmode': 'require'
