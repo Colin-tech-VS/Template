@@ -1077,6 +1077,9 @@ def migrate_orders_db():
     pass
 
 def get_or_create_cart(conn=None):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     close_conn = False
     if conn is None:
         conn = get_db()
@@ -1086,19 +1089,24 @@ def get_or_create_cart(conn=None):
     session_id = request.cookies.get('cart_session')
     if not session_id:
         session_id = str(uuid.uuid4())
-        c.execute(adapt_query("INSERT INTO carts (session_id) VALUES (?)"), (session_id,))
+        # MULTI-TENANT: Inclure tenant_id dans INSERT
+        c.execute(adapt_query("INSERT INTO carts (session_id, tenant_id) VALUES (?, ?)"), (session_id, tenant_id))
     else:
-        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=? AND tenant_id=?"), (session_id, tenant_id))
         if not c.fetchone():
-            c.execute(adapt_query("INSERT INTO carts (session_id) VALUES (?)"), (session_id,))
+            # MULTI-TENANT: Inclure tenant_id dans INSERT
+            c.execute(adapt_query("INSERT INTO carts (session_id, tenant_id) VALUES (?, ?)"), (session_id, tenant_id))
 
-    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=? AND tenant_id=?"), (session_id, tenant_id))
     cart_result = c.fetchone()
     cart_id = safe_row_get(cart_result, 'id', index=0)
 
     user_id = session.get("user_id")
     if user_id:
-        c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=?"), (user_id, cart_id))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=? AND tenant_id=?"), (user_id, cart_id, tenant_id))
 
     if close_conn:
         conn.close()
@@ -1142,13 +1150,16 @@ def set_admin_user(email):
         conn.close()
 
 def merge_carts(user_id, session_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
-    # Récupère l'id du panier connecté
-    c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT id FROM carts WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
     user_cart = c.fetchone()
-    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
+    c.execute(adapt_query("SELECT id FROM carts WHERE session_id=? AND tenant_id=?"), (session_id, tenant_id))
     session_cart = c.fetchone()
 
     if session_cart:
@@ -1157,27 +1168,30 @@ def merge_carts(user_id, session_id):
         if user_cart:
             user_cart_id = safe_row_get(user_cart, 'id', index=0)
             # Fusion des articles
-            c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=?"), (session_cart_id,))
+            # MULTI-TENANT: Filtrer par tenant_id
+            c.execute(adapt_query("SELECT painting_id, quantity FROM cart_items WHERE cart_id=? AND tenant_id=?"), (session_cart_id, tenant_id))
             items = c.fetchall()
             for item in items:
                 painting_id = safe_row_get(item, 'painting_id', index=0)
                 qty = safe_row_get(item, 'quantity', index=1)
-                c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"),
-                          (user_cart_id, painting_id))
+                # MULTI-TENANT: Filtrer par tenant_id
+                c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=? AND tenant_id=?"),
+                          (user_cart_id, painting_id, tenant_id))
                 row = c.fetchone()
                 if row:
-                    row_qty = safe_row_get(row, 'quantity', index=0)
-                    c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"),
-                              (row_qty+qty, user_cart_id, painting_id))
+                    # MULTI-TENANT: Ajouter tenant_id au WHERE
+                    c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=? AND tenant_id=?"),
+                              (row_qty+qty, user_cart_id, painting_id, tenant_id))
                 else:
-                    c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"),
-                              (user_cart_id, painting_id, qty))
+                    # MULTI-TENANT: Inclure tenant_id dans INSERT
+                    c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity, tenant_id) VALUES (?, ?, ?, ?)"),
+                              (user_cart_id, painting_id, qty, tenant_id))
             # Supprime l’ancien panier de session
-            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=?"), (session_cart_id,))
-            c.execute(adapt_query("DELETE FROM carts WHERE id=?"), (session_cart_id,))
+            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND tenant_id=?"), (session_cart_id, tenant_id))
+            c.execute(adapt_query("DELETE FROM carts WHERE id=? AND tenant_id=?"), (session_cart_id, tenant_id))
         else:
             # Associe le panier de session à l'utilisateur
-            c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=?"), (user_id, session_cart_id))
+            c.execute(adapt_query("UPDATE carts SET user_id=? WHERE id=? AND tenant_id=?"), (user_id, session_cart_id, tenant_id))
 
     conn.commit()
     conn.close()
@@ -2068,9 +2082,19 @@ def remove_exhibition(exhibition_id):
 # ---------------------------------------------------------
 @app.route('/add_to_cart/<int:painting_id>', methods=['GET', 'POST'])
 def add_to_cart(painting_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     cart_id, session_id = get_or_create_cart()
     conn = get_db()
     c = conn.cursor()
+    
+    # MULTI-TENANT: Valider que painting_id appartient au tenant courant
+    c.execute(adapt_query("SELECT id FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
+    if not c.fetchone():
+        conn.close()
+        flash("Peinture non trouvée", "error")
+        return redirect(url_for('galerie'))
     
     # Récupérer la quantité depuis le formulaire POST ou défaut 1
     quantity_to_add = 1
@@ -2078,14 +2102,17 @@ def add_to_cart(painting_id):
         quantity_to_add = int(request.form.get('quantity', 1))
 
     # Vérifie si l'article existe déjà
-    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (cart_id, painting_id, tenant_id))
     row = c.fetchone()
     if row:
         current_qty = safe_row_get(row, 'quantity', index=0)
         new_quantity = current_qty + quantity_to_add
-        c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (new_quantity, cart_id, painting_id))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (new_quantity, cart_id, painting_id, tenant_id))
     else:
-        c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity) VALUES (?, ?, ?)"), (cart_id, painting_id, quantity_to_add))
+        # MULTI-TENANT: Inclure tenant_id dans INSERT
+        c.execute(adapt_query("INSERT INTO cart_items (cart_id, painting_id, quantity, tenant_id) VALUES (?, ?, ?, ?)"), (cart_id, painting_id, quantity_to_add, tenant_id))
 
     conn.commit()
     conn.close()
@@ -2100,19 +2127,25 @@ def add_to_cart(painting_id):
 # ---------------------------------------------------------
 @app.route('/decrease_from_cart/<int:painting_id>')
 def decrease_from_cart(painting_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     cart_id, session_id = get_or_create_cart()
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT quantity FROM cart_items WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (cart_id, painting_id, tenant_id))
     row = c.fetchone()
     if row:
         current_qty = safe_row_get(row, 'quantity', index=0)
         new_qty = current_qty - 1
         if new_qty <= 0:
-            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
+            # MULTI-TENANT: Ajouter tenant_id au WHERE
+            c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (cart_id, painting_id, tenant_id))
         else:
-            c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=?"), (new_qty, cart_id, painting_id))
+            # MULTI-TENANT: Ajouter tenant_id au WHERE
+            c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (new_qty, cart_id, painting_id, tenant_id))
 
     conn.commit()
     conn.close()
@@ -2126,11 +2159,15 @@ def decrease_from_cart(painting_id):
 # ---------------------------------------------------------
 @app.route('/remove_from_cart/<int:painting_id>')
 def remove_from_cart(painting_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     cart_id, session_id = get_or_create_cart()
     conn = get_db()
     c = conn.cursor()
 
-    c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=?"), (cart_id, painting_id))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("DELETE FROM cart_items WHERE cart_id=? AND painting_id=? AND tenant_id=?"), (cart_id, painting_id, tenant_id))
 
     conn.commit()
     conn.close()
@@ -2144,16 +2181,20 @@ def remove_from_cart(painting_id):
 # ---------------------------------------------------------
 @app.route('/panier', endpoint='panier')
 def cart():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     cart_id, session_id = get_or_create_cart()
     conn = get_db()
     c = conn.cursor()
 
+    # MULTI-TENANT: Filtrer cart_items et paintings par tenant_id
     c.execute(adapt_query('''
         SELECT paintings.id, paintings.name, paintings.image, paintings.price, cart_items.quantity, paintings.description
         FROM cart_items
         JOIN paintings ON cart_items.painting_id = paintings.id
-        WHERE cart_items.cart_id=?
-    '''), (cart_id,))
+        WHERE cart_items.cart_id=? AND cart_items.tenant_id=? AND paintings.tenant_id=?
+    '''), (cart_id, tenant_id, tenant_id))
     items = c.fetchall()
     conn.close()
 
@@ -2183,6 +2224,9 @@ def init_cart_count():
 # ---------------------------------------------------------
 @app.route("/checkout", methods=["GET", "POST"])
 def checkout():
+    # MULTI-TENANT: Récupérer tenant_id au début
+    tenant_id = get_current_tenant_id()
+    
     # Récupérer ou créer le panier
     cart_id, session_id = get_or_create_cart()
 
@@ -2190,13 +2234,15 @@ def checkout():
     c = conn.cursor()
 
     # Récupérer les articles du panier
+    # MULTI-TENANT: Filtrer cart_items et paintings par tenant_id
     c.execute(adapt_query('''
         SELECT paintings.id, paintings.name, paintings.image, paintings.price,
                cart_items.quantity AS cart_quantity, paintings.quantity AS available_qty
         FROM cart_items
-        JOIN paintings ON cart_items.painting_id = paintings.id
-        WHERE cart_items.cart_id=?
-    '''), (cart_id,))
+        JOIN paintings ON cart_items.painting_id = paintings.id 
+            AND cart_items.tenant_id = paintings.tenant_id
+        WHERE cart_items.cart_id=? AND cart_items.tenant_id=? AND paintings.tenant_id=?
+    '''), (cart_id, tenant_id, tenant_id))
     items = c.fetchall()
 
     # Normalize rows to tuples (id, name, image, price, quantity, available_qty)
@@ -2647,6 +2693,9 @@ def add_painting_web():
 
 @app.context_processor
 def inject_cart():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     session_id = request.cookies.get("cart_session")
     user_id = session.get("user_id")
 
@@ -2656,13 +2705,15 @@ def inject_cart():
     # --- PANIER ---
     cart_id = None
     if user_id:
-        c.execute(adapt_query("SELECT id FROM carts WHERE user_id=?"), (user_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT id FROM carts WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
         row = c.fetchone()
         if row:
             # use safe accessor to be compatible with sqlite3.Row, dicts and tuples
             cart_id = safe_row_get(row, 'id', index=0)
     elif session_id:
-        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=?"), (session_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT id FROM carts WHERE session_id=? AND tenant_id=?"), (session_id, tenant_id))
         row = c.fetchone()
         if row:
             cart_id = safe_row_get(row, 'id', index=0)
@@ -2670,12 +2721,13 @@ def inject_cart():
     cart_items = []
     total_qty = 0
     if cart_id:
+        # MULTI-TENANT: Filtrer cart_items et paintings par tenant_id
         c.execute(adapt_query("""
             SELECT ci.painting_id, p.name, p.image, p.price, ci.quantity
             FROM cart_items ci
             JOIN paintings p ON ci.painting_id = p.id
-            WHERE ci.cart_id=?
-        """), (cart_id,))
+            WHERE ci.cart_id=? AND ci.tenant_id=? AND p.tenant_id=?
+        """), (cart_id, tenant_id, tenant_id))
         cart_items = c.fetchall()
         # psycopg2 returns tuples by default
         def _qty(item):
@@ -2693,7 +2745,8 @@ def inject_cart():
     # --- FAVORIS ---
     favorite_ids = []
     if user_id:
-        c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=?"), (user_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT painting_id FROM favorites WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
         favorite_ids = []
         for row in c.fetchall():
             fav = safe_row_get(row, 'painting_id', index=0)
@@ -2703,7 +2756,8 @@ def inject_cart():
     # --- NOTIFICATIONS ADMIN ---
     new_notifications_count = 0
     if is_admin():
-        c.execute("SELECT COUNT(*) as count FROM notifications WHERE user_id IS NULL AND is_read=0")
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute("SELECT COUNT(*) as count FROM notifications WHERE user_id IS NULL AND is_read=0 AND tenant_id=%s", (tenant_id,))
         result = c.fetchone()
         new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
 
@@ -3757,23 +3811,28 @@ def admin_orders():
 
 @app.route("/order/<int:order_id>")
 def order_status(order_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
     # Récupérer la commande
-    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=?"), (order_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT id, customer_name, email, address, total_price, order_date, status FROM orders WHERE id=? AND tenant_id=?"), (order_id, tenant_id))
     order = c.fetchone()
     if not order:
         conn.close()
         abort(404)
 
     # Récupérer les articles avec info peinture
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute("""
         SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
         FROM order_items oi
         JOIN paintings p ON oi.painting_id = p.id
-        WHERE oi.order_id=?
-    """, (order_id,))
+        WHERE oi.order_id=? AND oi.tenant_id=?
+    """, (order_id, tenant_id))
     items = c.fetchall()
 
     conn.close()
@@ -3792,6 +3851,9 @@ def order_status(order_id):
 @require_admin
 def update_order_status(order_id, status):
     """Mettre à jour le statut d'une commande"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     valid_statuses = ['En cours', 'Confirmée', 'Expédiée', 'Livrée', 'Annulée']
     
     if status not in valid_statuses:
@@ -3801,7 +3863,8 @@ def update_order_status(order_id, status):
     conn = get_db()
     c = conn.cursor()
     
-    c.execute(adapt_query("UPDATE orders SET status=? WHERE id=?"), (status, order_id))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("UPDATE orders SET status=? WHERE id=? AND tenant_id=?"), (status, order_id, tenant_id))
     conn.commit()
     conn.close()
     
@@ -3815,27 +3878,32 @@ def admin_order_detail(order_id):
     if not is_admin():
         return redirect(url_for("home"))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     conn = get_db()
     c = conn.cursor()
 
     # OPTIMISÉ: Récupérer la commande avec colonnes spécifiques
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute(adapt_query("""
         SELECT id, customer_name, email, address, total_price, order_date, status 
         FROM orders 
-        WHERE id=%s
-    """), (order_id,))
+        WHERE id=%s AND tenant_id=%s
+    """), (order_id, tenant_id))
     order = c.fetchone()
     if not order:
         conn.close()
         return "Commande introuvable", 404
 
     # OPTIMISÉ: JOIN au lieu de requête séparée (évite N+1)
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute("""
         SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
         FROM order_items oi
         JOIN paintings p ON oi.painting_id = p.id
-        WHERE oi.order_id=%s
-    """, (order_id,))
+        WHERE oi.order_id=%s AND oi.tenant_id=%s
+    """, (order_id, tenant_id))
     items = c.fetchall()
     # Ensure items are tuples (template expects numeric indexes)
     normalized_items = []
@@ -4529,6 +4597,9 @@ def api_export_settings():
 @require_api_key
 def api_export_stats():
     """Exporte des statistiques générales"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -4546,8 +4617,9 @@ def api_export_stats():
                 stats[f"{table_name}_count"] = 0
         
         # Statistiques supplémentaires
+        # MULTI-TENANT: Filtrer par tenant_id
         try:
-            cur.execute(adapt_query("SELECT SUM(total_price) as total FROM orders"))
+            cur.execute(adapt_query("SELECT SUM(total_price) as total FROM orders WHERE tenant_id=?"), (tenant_id,))
             result = cur.fetchone()
             total_revenue = safe_row_get(result, 'total', index=0, default=0) or 0
             stats['total_revenue'] = float(total_revenue)
@@ -4555,7 +4627,7 @@ def api_export_stats():
             stats['total_revenue'] = 0
         
         try:
-            cur.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Livrée'"))
+            cur.execute(adapt_query("SELECT COUNT(*) as count FROM orders WHERE status = 'Livrée' AND tenant_id=?"), (tenant_id,))
             result = cur.fetchone()
             stats['delivered_orders'] = safe_row_get(result, 'count', index=0, default=0)
         except:
