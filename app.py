@@ -680,12 +680,14 @@ def _fallback_upsert_setting(cur, conn, key, value, tenant_id):
                     INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                 """)
                 cur.execute(insert_query, (key, value, tenant_id))
-            except Exception:
+            except Exception as e:
+                conn.rollback()
                 update_simple = adapt_query("""
                     UPDATE settings SET value = ? WHERE key = ?
                 """)
                 cur.execute(update_simple, (value, key))
-    except Exception:
+    except Exception as e:
+        conn.rollback()
         update_simple = adapt_query("""
             UPDATE settings SET value = ? WHERE key = ?
         """)
