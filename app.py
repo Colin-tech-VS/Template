@@ -96,6 +96,12 @@ from database import (
 # CONFIGURATION
 # --------------------------------
 
+# Default tenant ID for non-tenant-specific settings
+DEFAULT_TENANT_ID = 1
+
+# Settings table constraint name
+SETTINGS_CONSTRAINT_NAME = 'settings_key_tenant_id_unique'
+
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
 if TEMPLATE_MASTER_API_KEY:
@@ -690,11 +696,21 @@ def set_setting(key, value, user_id=None):
             """)
             cur.execute(query, (key, value, user_id))
         else:
-            query = adapt_query("""
-                INSERT INTO settings (key, value) VALUES (?, ?)
-                ON CONFLICT(key) DO UPDATE SET value=excluded.value
-            """)
-            cur.execute(query, (key, value))
+            # Fallback: use default tenant_id if tenant_id column exists
+            # This ensures compatibility with the UNIQUE constraint on (key, tenant_id)
+            if has_tenant_id:
+                query = adapt_query("""
+                    INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                    ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value, DEFAULT_TENANT_ID))
+            else:
+                # Legacy mode for databases without tenant_id column
+                query = adapt_query("""
+                    INSERT INTO settings (key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value))
         conn.commit()
     finally:
         conn.close()
@@ -1023,6 +1039,77 @@ def migrate_db():
         for col_name, col_type in cols.items():
             add_column_if_not_exists(table_name, col_name, col_type)
     
+    # --- Add UNIQUE constraint on settings(key, tenant_id) ---
+    # NOTE: This runs after column migration, so tenant_id column is guaranteed to exist
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Check if constraint already exists
+        cur.execute("""
+            SELECT constraint_name 
+            FROM information_schema.table_constraints 
+            WHERE table_name = 'settings' 
+            AND constraint_type = 'UNIQUE'
+            AND constraint_name = %s
+        """, (SETTINGS_CONSTRAINT_NAME,))
+        
+        constraint_exists = cur.fetchone() is not None
+        
+        if not constraint_exists:
+            # First, remove duplicates keeping the most recent (highest id)
+            duplicate_removal_success = True
+            try:
+                cur.execute("""
+                    DELETE FROM settings a USING settings b
+                    WHERE a.id < b.id 
+                    AND a.key = b.key 
+                    AND a.tenant_id = b.tenant_id
+                """)
+                deleted_count = cur.rowcount
+                conn.commit()
+                if deleted_count > 0:
+                    print(f"✅ {deleted_count} duplicate(s) removed from settings")
+            except Exception as e:
+                print(f"⚠️  Error removing duplicates: {e}")
+                conn.rollback()
+                duplicate_removal_success = False
+            
+            # Add the UNIQUE constraint only if duplicate removal succeeded
+            if duplicate_removal_success:
+                try:
+                    # Use parameterized query to avoid SQL injection
+                    # Note: Constraint names must be SQL identifiers, not string values
+                    # so we validate and use string formatting safely here
+                    import re
+                    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', SETTINGS_CONSTRAINT_NAME):
+                        raise ValueError(f"Invalid constraint name: {SETTINGS_CONSTRAINT_NAME}")
+                    
+                    cur.execute(f"""
+                        ALTER TABLE settings 
+                        ADD CONSTRAINT {SETTINGS_CONSTRAINT_NAME} 
+                        UNIQUE (key, tenant_id)
+                    """)
+                    conn.commit()
+                    print("✅ UNIQUE constraint added on settings(key, tenant_id)")
+                except Exception as e:
+                    print(f"⚠️  Error adding UNIQUE constraint: {e}")
+                    conn.rollback()
+            else:
+                print("⚠️  Skipping UNIQUE constraint creation due to duplicate removal failure")
+        else:
+            print("ℹ️  UNIQUE constraint on settings(key, tenant_id) already exists")
+    except Exception as e:
+        print(f"⚠️  Error in settings constraint migration: {e}")
+    finally:
+        # Ensure connection is always closed
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception as close_error:
+                print(f"⚠️  Error closing connection: {close_error}")
+    
     try:
         print("Migration terminée: OK")
     except UnicodeEncodeError:
@@ -1035,6 +1122,7 @@ def migrate_db():
             print("Auto-registration activé par défaut")
         except UnicodeEncodeError:
             print("Auto-registration activé par défaut (unicode fallback)")
+
 
 
 def generate_invoice_pdf(order, items, total_price):
