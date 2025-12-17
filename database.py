@@ -1,5 +1,5 @@
 """
-Module de gestion de base de données Supabase/PostgreSQL
+Database ou : Module de gestion de base de données Supabase/PostgreSQL
 Migration complète depuis SQLite vers Supabase/Postgres
 OPTIMISÉ: Connection pooling, logging de performance
 """
@@ -12,35 +12,45 @@ import atexit
 import logging
 import threading
 
-# Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
-# 1. Keep psycopg3 as the primary driver on PC/server
-# 2. Fallback to psycopg2 if psycopg3 is not installed
-# 3. On Termux (Android), use pg8000 as pure-Python fallback
+# ============================================================
+# ✅ Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
+# ✅ Version corrigée, compatible Termux, PC, serveur
+# ✅ Extras psycopg3 optionnels
+# ✅ pg8000.dbapi conservé
+# ============================================================
+
 DRIVER = None
 
-# Try psycopg3 first
+# --- Try psycopg3 (driver only) ---
 try:
     import psycopg as psycopg3  # type: ignore
-    from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
-    from psycopg.rows import dict_row  # type: ignore
     DRIVER = "psycopg3"
 except (ImportError, ModuleNotFoundError):
-    # Fallback to psycopg2
+    psycopg3 = None
+
+# --- Try psycopg2 ---
+if DRIVER is None:
     try:
         import psycopg2
         import psycopg2.extras
         import psycopg2.pool
         DRIVER = "psycopg2"
     except (ImportError, ModuleNotFoundError):
-        # Final fallback to pg8000 (pure Python, works on Termux)
-        try:
-            import pg8000.dbapi
-            DRIVER = "pg8000"
-        except (ImportError, ModuleNotFoundError):
-            raise ImportError(
-                "No PostgreSQL driver found. Please install one of: "
-                "psycopg[binary], psycopg2-binary, or pg8000"
-            )
+        psycopg2 = None
+
+# --- Final fallback: pg8000 ---
+if DRIVER is None:
+    import pg8000.dbapi
+    DRIVER = "pg8000"
+
+# --- Optional psycopg3 extras (pool, dict_row) ---
+if DRIVER == "psycopg3":
+    try:
+        from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
+        from psycopg.rows import dict_row  # type: ignore
+    except Exception:
+        PsycopgPool = None
+        dict_row = None
 
 # Legacy flag for backward compatibility
 USING_PSYCOPG3 = (DRIVER == "psycopg3")
@@ -50,16 +60,11 @@ logging.basicConfig(level=logging.INFO)
 perf_logger = logging.getLogger('db.performance')
 
 # Configuration Supabase/PostgreSQL
-# Priorité 1: SUPABASE_DB_URL (nouvelle variable)
-# Priorité 2: DATABASE_URL (compatibilité)
 DATABASE_URL = os.environ.get('SUPABASE_DB_URL') or os.environ.get('DATABASE_URL')
 
 if not DATABASE_URL:
     print("[WARNING] Aucune connexion PostgreSQL/Supabase configurée!")
     print("[WARNING] Définissez SUPABASE_DB_URL ou DATABASE_URL dans les variables d'environnement")
-    print("[WARNING] Format: postgresql://user:password@host:port/database")
-    # En production, on doit avoir une DB URL
-    # En développement local, utiliser une DB Supabase de test
     raise ValueError("DATABASE_URL non définie - impossible de démarrer sans base de données")
 
 # Parser l'URL PostgreSQL/Supabase
@@ -71,7 +76,7 @@ try:
         'database': result.path[1:] if result.path else '',
         'user': result.username,
         'password': result.password,
-        'sslmode': 'require'  # Supabase nécessite SSL
+        'sslmode': 'require'
     }
     print(f"✅ Configuration Supabase/Postgres: {DB_CONFIG['host']}/{DB_CONFIG['database']}")
     print(f"✅ Using database driver: {DRIVER}")
@@ -79,146 +84,117 @@ except Exception as e:
     print(f"❌ Erreur parsing DATABASE_URL: {e}")
     raise
 
-# Constantes
-IS_POSTGRES = True  # Toujours PostgreSQL maintenant
+IS_POSTGRES = True
 
 # =========================================
 # CONNECTION POOL GLOBAL (OPTIMISATION)
 # =========================================
-# Pool de connexions thread-safe pour réutiliser les connexions
-# Réduit drastiquement le temps de connexion (de ~100ms à <1ms)
 CONNECTION_POOL = None
 
 def init_connection_pool(minconn=1, maxconn=5):
-    """
-    Initialise le pool de connexions PostgreSQL/Supabase
-    Supports psycopg3, psycopg2, and pg8000 drivers
-    
-    Args:
-        minconn: Nombre minimum de connexions maintenues (réduit pour Supabase)
-        maxconn: Nombre maximum de connexions autorisées (limité par Supabase)
-    
-    IMPORTANT: Supabase en mode Session pooling limite à 10-15 connexions par projet
-    minconn=1, maxconn=5 est optimal pour éviter "MaxClientsInSessionMode" errors
-    
-    Returns:
-        Connection pool object (type depends on driver)
-    """
     global CONNECTION_POOL
-    
+
     if CONNECTION_POOL is not None:
         return CONNECTION_POOL
-    
+
     try:
         if DRIVER == "psycopg3":
-            # psycopg_pool expects a connection string (DATABASE_URL)
-            CONNECTION_POOL = PsycopgPool(conninfo=DATABASE_URL, min_size=minconn, max_size=maxconn)
-            print(f"✅ psycopg ConnectionPool initialisé: {minconn}-{maxconn} connexions")
+            if PsycopgPool:
+                CONNECTION_POOL = PsycopgPool(conninfo=DATABASE_URL, min_size=minconn, max_size=maxconn)
+                print(f"✅ psycopg ConnectionPool initialisé: {minconn}-{maxconn} connexions")
+            else:
+                print("⚠️ psycopg3 détecté mais psycopg_pool indisponible → pas de pooling")
+                CONNECTION_POOL = None
+
         elif DRIVER == "psycopg2":
             CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
                 minconn=minconn,
                 maxconn=maxconn,
                 **DB_CONFIG
             )
-            print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
+            print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions")
+
         elif DRIVER == "pg8000":
-            # pg8000 doesn't have built-in pooling, we'll use a simple thread-safe pool
             CONNECTION_POOL = {
                 'connections': [],
                 'min_size': minconn,
                 'max_size': maxconn,
                 'in_use': set(),
-                'lock': threading.Lock()  # Thread safety
+                'lock': threading.Lock()
             }
             print(f"✅ pg8000 simple pool initialisé: {minconn}-{maxconn} connexions")
+
         return CONNECTION_POOL
+
     except Exception as e:
         print(f"❌ Erreur initialisation connection pool: {e}")
         raise
 
+
 def get_pool_connection():
-    """
-    Obtient une connexion depuis le pool
-    Supports psycopg3, psycopg2, and pg8000 drivers
-    
-    Returns:
-        Database connection object
-    """
     global CONNECTION_POOL
-    
+
     if CONNECTION_POOL is None:
         init_connection_pool()
 
     if DRIVER == "psycopg3":
-        # For psycopg3 we prefer using the context-manager API via get_db_connection();
-        # this function is kept for compatibility but shouldn't be used for psycopg3.
-        raise RuntimeError("get_pool_connection() is not supported when using psycopg (psycopg3); use get_db_connection() or get_db() instead")
+        raise RuntimeError("get_pool_connection() non supporté avec psycopg3")
+
     elif DRIVER == "psycopg2":
         try:
             return CONNECTION_POOL.getconn()
         except Exception as e:
             perf_logger.error(f"Erreur obtention connexion du pool: {e}")
             raise
+
     elif DRIVER == "pg8000":
-        # Simple thread-safe pool for pg8000
         try:
             with CONNECTION_POOL['lock']:
-                # Try to reuse an existing connection
                 if CONNECTION_POOL['connections']:
                     conn = CONNECTION_POOL['connections'].pop(0)
                     CONNECTION_POOL['in_use'].add(id(conn))
                     return conn
-                
-                # Create new connection if space available in pool
+
                 if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
                     conn = pg8000.dbapi.connect(**DB_CONFIG)
                     CONNECTION_POOL['in_use'].add(id(conn))
                     return conn
-            
-            # Pool is full, create connection outside pool (will be closed after use, not pooled)
+
             conn = pg8000.dbapi.connect(**DB_CONFIG)
             return conn
+
         except Exception as e:
             perf_logger.error(f"Erreur obtention connexion pg8000: {e}")
             raise
 
+
 def return_pool_connection(conn):
-    """
-    Retourne une connexion au pool
-    Supports psycopg3, psycopg2, and pg8000 drivers
-    
-    Args:
-        conn: Connexion à retourner
-    """
     global CONNECTION_POOL
-    
+
     if CONNECTION_POOL is None or conn is None:
         return
 
     if DRIVER == "psycopg3":
-        # psycopg3 pool connections are returned by exiting the context manager.
-        # If someone obtained a raw connection, close it normally.
         try:
             conn.close()
         except Exception:
             pass
         return
+
     elif DRIVER == "psycopg2":
         CONNECTION_POOL.putconn(conn)
+
     elif DRIVER == "pg8000":
-        # Return connection to pg8000 thread-safe pool
         try:
             with CONNECTION_POOL['lock']:
                 conn_id = id(conn)
                 if conn_id in CONNECTION_POOL['in_use']:
                     CONNECTION_POOL['in_use'].remove(conn_id)
-                    # Keep connection alive if pool not full
                     if len(CONNECTION_POOL['connections']) < CONNECTION_POOL['min_size']:
                         CONNECTION_POOL['connections'].append(conn)
                     else:
                         conn.close()
                 else:
-                    # Connection was created outside pool (when pool was full), just close it
                     conn.close()
         except Exception:
             try:
@@ -226,33 +202,31 @@ def return_pool_connection(conn):
             except Exception:
                 pass
 
+
 def close_connection_pool():
-    """Ferme toutes les connexions du pool - supports all drivers"""
     global CONNECTION_POOL
-    
+
     if CONNECTION_POOL is not None:
         try:
             if DRIVER == "psycopg3":
-                # psycopg3 ConnectionPool: close background workers cleanly
                 try:
                     CONNECTION_POOL.close()
                 except Exception:
                     pass
-                # wait_closed exists on newer psycopg_pool implementations
                 try:
                     wait = getattr(CONNECTION_POOL, 'wait_closed', None)
                     if callable(wait):
                         wait(5.0)
                 except Exception:
                     pass
+
             elif DRIVER == "psycopg2":
-                # psycopg2 ThreadedConnectionPool
                 try:
                     CONNECTION_POOL.closeall()
                 except Exception:
                     pass
+
             elif DRIVER == "pg8000":
-                # Close all pg8000 connections (thread-safe)
                 try:
                     with CONNECTION_POOL['lock']:
                         for conn in CONNECTION_POOL['connections']:
@@ -262,13 +236,12 @@ def close_connection_pool():
                                 pass
                 except Exception:
                     pass
+
         finally:
             CONNECTION_POOL = None
             print("✅ Connection pool fermé")
 
 
-# Register atexit handler to ensure the pool is closed on process exit.
-# This avoids psycopg.pool warnings about background threads not stopping.
 try:
     atexit.register(close_connection_pool)
 except Exception:
@@ -278,85 +251,43 @@ except Exception:
 class ConnectionWrapper:
     """
     Wrapper pour une connexion PostgreSQL/Supabase qui retourne automatiquement
-    la connexion au pool lors du close() au lieu de la fermer réellement.
-    
-    Cette classe résout le problème d'AttributeError lorsqu'on tente de réassigner
-    conn.close qui est read-only dans psycopg2.
+    la connexion au pool lors du close()
     """
-    
+
     def __init__(self, connection):
-        # connection: actual DB connection object
-        # release_func: optional callable to release the connection back to pool
         connection_obj = connection
         release_func = None
         if isinstance(connection, tuple) and len(connection) == 2:
-            # (conn, release_func) tuple provided
             connection_obj, release_func = connection
 
         object.__setattr__(self, '_connection', connection_obj)
         object.__setattr__(self, '_release_func', release_func)
         object.__setattr__(self, '_closed', False)
-    
+
     def __getattr__(self, name):
-        """Délègue tous les attributs non définis à la connexion sous-jacente"""
         return getattr(self._connection, name)
-    
+
     def __setattr__(self, name, value):
-        """Délègue l'assignation des attributs à la connexion sous-jacente"""
         if name in ('_connection', '_closed'):
             object.__setattr__(self, name, value)
         else:
             setattr(self._connection, name, value)
-    
+
     def __enter__(self):
-        """Support pour le context manager"""
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Retourne la connexion au pool lors de la sortie du context manager"""
         self.close()
         return False
-    
-    def close(self):
-        """
-        Retourne la connexion au pool au lieu de la fermer réellement.
-        Peut être appelé plusieurs fois sans problème.
-        """
-        if not self._closed:
-            # If a release function (from psycopg3 pool) is provided, call it; else use putconn
-            if getattr(self, '_release_func', None):
-                try:
-                    # release_func follows contextmanager __exit__(exc_type, exc, tb) signature
-                    self._release_func(None, None, None)
-                except Exception:
-                    try:
-                        return_pool_connection(self._connection)
-                    except Exception:
-                        pass
-            else:
-                return_pool_connection(self._connection)
-            object.__setattr__(self, '_closed', True)
-    
-    @property
-    def closed(self):
-        """Indique si la connexion est fermée (retournée au pool)"""
-        return self._closed
-
-
 @contextmanager
 def get_db_connection():
     """
     Context manager pour obtenir une connexion Supabase/PostgreSQL
     OPTIMISÉ: Utilise le connection pool au lieu de créer une nouvelle connexion
     Supports psycopg3, psycopg2, and pg8000 drivers
-    
-    Usage: 
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(...)
     """
     start_time = time.time()
-    # Branch behavior depending on driver
+
     if DRIVER == "psycopg3":
         if CONNECTION_POOL is None:
             init_connection_pool()
@@ -368,7 +299,6 @@ def get_db_connection():
         try:
             yield conn
         finally:
-            # release connection back to pool
             try:
                 ctx.__exit__(None, None, None)
             except Exception:
@@ -376,16 +306,17 @@ def get_db_connection():
                     conn.close()
                 except Exception:
                     pass
+
     elif DRIVER == "psycopg2":
         conn = get_pool_connection()
         conn_time = (time.time() - start_time) * 1000
-        # Logger si la connexion prend trop de temps
         if conn_time > 10:
             perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
         try:
             yield conn
         finally:
             return_pool_connection(conn)
+
     elif DRIVER == "pg8000":
         conn = get_pool_connection()
         conn_time = (time.time() - start_time) * 1000
@@ -402,29 +333,17 @@ def get_db(user_id=None):
     Retourne une connexion Supabase/PostgreSQL depuis le pool.
     OPTIMISÉ: Réutilise les connexions au lieu d'en créer de nouvelles
     Supports psycopg3, psycopg2, and pg8000 drivers
-    
-    Args:
-        user_id: ID de l'utilisateur/site (pour compatibilité multi-tenant future)
-                 Actuellement ignoré car on utilise une seule base Supabase
-    
-    Returns:
-        ConnectionWrapper: Wrapper de connexion PostgreSQL avec dict-like cursor
-        
-    IMPORTANT: L'appelant doit fermer la connexion avec conn.close()
-               qui la retournera au pool
-    
-    Note: Utilise maintenant ConnectionWrapper pour éviter l'erreur AttributeError
-          lors de la réassignation de conn.close qui est read-only dans psycopg2.
     """
     start_time = time.time()
+
     if DRIVER == "psycopg3":
         if CONNECTION_POOL is None:
             init_connection_pool()
         ctx = CONNECTION_POOL.connection()
         conn = ctx.__enter__()
-        # use dict_row as row factory to emulate RealDictCursor
         try:
-            conn.row_factory = dict_row
+            if dict_row:
+                conn.row_factory = dict_row
         except Exception:
             pass
 
@@ -432,10 +351,9 @@ def get_db(user_id=None):
         if conn_time > 10:
             perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
 
-        # Return a wrapper that knows how to release the pooled connection
         return ConnectionWrapper((conn, ctx.__exit__))
+
     elif DRIVER == "psycopg2":
-        # psycopg2 path
         conn = get_pool_connection()
         conn.cursor_factory = psycopg2.extras.RealDictCursor
 
@@ -443,46 +361,39 @@ def get_db(user_id=None):
         if conn_time > 10:
             perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
 
-        # Utiliser le wrapper pour gérer le close() proprement
         return ConnectionWrapper(conn)
+
     elif DRIVER == "pg8000":
-        # pg8000 path - needs special handling for dict-like results
         conn = get_pool_connection()
-        
-        # Store original cursor method
+
         original_cursor = conn.cursor
-        
-        # Create a wrapper that returns cursors with dict-like access
+
         def cursor_with_dict_access():
             cur = original_cursor()
-            # Monkey-patch fetchone and fetchall to return dict-like results
             original_fetchone = cur.fetchone
             original_fetchall = cur.fetchall
-            
+
             def fetchone_dict():
                 row = original_fetchone()
                 if row is None:
                     return None
-                # pg8000 provides description with column info
                 if cur.description:
-                    # Extract column names once per cursor (cached on cursor object)
                     if not hasattr(cur, '_column_names'):
                         cur._column_names = [desc[0] for desc in cur.description]
                     return dict(zip(cur._column_names, row))
                 return row
-            
+
             def fetchall_dict():
                 rows = original_fetchall()
                 if not rows or not cur.description:
                     return rows
-                # Extract column names once
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in rows]
-            
+
             cur.fetchone = fetchone_dict
             cur.fetchall = fetchall_dict
             return cur
-        
+
         conn.cursor = cursor_with_dict_access
 
         conn_time = (time.time() - start_time) * 1000
@@ -498,13 +409,9 @@ def adapt_query(query):
     - Remplace les placeholders SQLite (?) par PostgreSQL (%s)
     - Gère les types de données spécifiques
     """
-    # Remplacer les ? par %s pour les paramètres PostgreSQL
     query = query.replace('?', '%s')
-    
-    # Remplacer INTEGER PRIMARY KEY AUTOINCREMENT par SERIAL PRIMARY KEY
     query = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
     query = query.replace('AUTOINCREMENT', '')
-    
     return query
 
 
@@ -512,219 +419,52 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=T
     """
     Exécute une requête PostgreSQL/Supabase avec gestion automatique de la connexion
     OPTIMISÉ: Utilise le connection pool et log les requêtes lentes
-    
-    Args:
-        query: La requête SQL
-        params: Tuple ou liste des paramètres
-        fetch_one: Si True, retourne un seul résultat
-        fetch_all: Si True, retourne tous les résultats
-        commit: Si True, commit les changements
-        
-    Returns:
-        Le résultat de la requête selon fetch_one/fetch_all
     """
     start_time = time.time()
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         adapted_query = adapt_query(query)
-        
+
         query_start = time.time()
         if params:
             cursor.execute(adapted_query, params)
         else:
             cursor.execute(adapted_query)
         query_time = (time.time() - query_start) * 1000
-        
+
         result = None
         if fetch_one:
             result = cursor.fetchone()
         elif fetch_all:
             result = cursor.fetchall()
-        
+
         if commit:
             conn.commit()
-        
+
         total_time = (time.time() - start_time) * 1000
-        
-        # Logger les requêtes lentes (>100ms)
+
         if total_time > 100:
-            # Tronquer la requête pour le log
-            query_preview = adapted_query[:100].replace('\n', ' ')
+            truncated = adapted_query.replace("\n", " ")[:200]
             perf_logger.warning(
-                f"Requête lente: {total_time:.2f}ms (query: {query_time:.2f}ms) - {query_preview}..."
+                f"⏱️ Requête lente ({total_time:.2f}ms) : {truncated}..."
             )
-        
+
         return result
+    def close(self):
+        if not self._closed:
+            if getattr(self, '_release_func', None):
+                try:
+                    self._release_func(None, None, None)
+                except Exception:
+                    try:
+                        return_pool_connection(self._connection)
+                    except Exception:
+                        pass
+            else:
+                return_pool_connection(self._connection)
+            object.__setattr__(self, '_closed', True)
 
-
-def create_table_if_not_exists(table_name, columns):
-    """
-    Crée une table Supabase/PostgreSQL si elle n'existe pas
-    Args:
-        table_name: Nom de la table
-        columns: dict {"column_name": "TYPE CONSTRAINTS"}
-    """
-    col_defs = ", ".join([f"{name} {ctype}" for name, ctype in columns.items()])
-    query = f"CREATE TABLE IF NOT EXISTS {table_name} ({col_defs})"
-    execute_query(query)
-    print(f"✅ Table '{table_name}' créée ou vérifiée dans Supabase")
-
-
-def add_column_if_not_exists(table_name, column_name, column_type):
-    """
-    Ajoute une colonne PostgreSQL/Supabase si elle n'existe pas
-    """
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        
-        # PostgreSQL: vérifier dans information_schema
-        cursor.execute("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name=%s AND column_name=%s
-        """, (table_name, column_name))
-        
-        if not cursor.fetchone():
-            sql = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
-            cursor.execute(sql)
-            conn.commit()
-            print(f"✅ Colonne '{column_name}' ajoutée à '{table_name}' dans Supabase")
-
-
-def get_last_insert_id(cursor):
-    """
-    Récupère le dernier ID inséré (PostgreSQL/Supabase)
-    PostgreSQL utilise RETURNING id dans l'INSERT ou currval
-    """
-    return cursor.fetchone()[0] if cursor.description else None
-
-
-# Constantes pour compatibilité
-PARAM_PLACEHOLDER = '%s'  # PostgreSQL/Supabase uniquement
-AUTOINCREMENT = 'SERIAL'  # PostgreSQL/Supabase uniquement
-
-
-def init_database(user_id=None):
-    """
-    Initialise les tables de la base de données Supabase/PostgreSQL
-    OPTIMISÉ: Crée aussi les indexes pour améliorer les performances
-    
-    Args:
-        user_id: ID utilisateur pour compatibilité multi-tenant (non utilisé actuellement)
-    """
-    # Import circulaire évité en important ici
-    from app import TABLES
-    
-    print(f"🔧 Initialisation de la base de données Supabase/Postgres...")
-    
-    # Initialiser le pool de connexions
-    init_connection_pool()
-    
-    for table_name, columns in TABLES.items():
-        try:
-            create_table_if_not_exists(table_name, columns)
-        except Exception as e:
-            print(f"⚠️  Erreur création table '{table_name}': {e}")
-    
-    # Créer les indexes pour optimiser les performances
-    print(f"🔧 Création des indexes de performance...")
-    create_performance_indexes()
-    
-    print(f"✅ Base de données Supabase/Postgres initialisée avec succès")
-
-
-def create_performance_indexes():
-    """
-    Crée les indexes de base de données pour optimiser les performances des requêtes fréquentes
-    
-    Indexes créés:
-    - users(email): Lookups lors du login
-    - paintings(status, display_order): Filtrage et tri de la galerie
-    - orders(status, order_date): Filtrage des commandes admin
-    - order_items(order_id): JOIN avec orders
-    - order_items(painting_id): JOIN avec paintings
-    - cart_items(cart_id): JOIN avec carts
-    - carts(session_id): Lookup du panier par session
-    - carts(user_id): Lookup du panier par utilisateur
-    - notifications(user_id, is_read): Filtrage des notifications
-    - exhibitions(date): Tri chronologique
-    - custom_requests(status): Filtrage par statut
-    - settings(key): Lookup rapide des settings
-    """
-    indexes = [
-        # Users - login rapide
-        ("idx_users_email", "users", "email"),
-        
-        # Paintings - galerie et filtres
-        ("idx_paintings_status", "paintings", "status"),
-        ("idx_paintings_display_order", "paintings", "display_order"),
-        ("idx_paintings_category", "paintings", "category"),
-        
-        # Orders - gestion des commandes
-        ("idx_orders_status", "orders", "status"),
-        ("idx_orders_date", "orders", "order_date"),
-        ("idx_orders_user_id", "orders", "user_id"),
-        
-        # Order items - JOINs
-        ("idx_order_items_order_id", "order_items", "order_id"),
-        ("idx_order_items_painting_id", "order_items", "painting_id"),
-        
-        # Carts - panier utilisateur
-        ("idx_carts_session_id", "carts", "session_id"),
-        ("idx_carts_user_id", "carts", "user_id"),
-        
-        # Cart items - JOINs
-        ("idx_cart_items_cart_id", "cart_items", "cart_id"),
-        ("idx_cart_items_painting_id", "cart_items", "painting_id"),
-        
-        # Notifications - filtrage admin
-        ("idx_notifications_user_id", "notifications", "user_id"),
-        ("idx_notifications_is_read", "notifications", "is_read"),
-        
-        # Exhibitions - tri par date
-        ("idx_exhibitions_date", "exhibitions", "date"),
-        
-        # Custom requests - filtrage par statut
-        ("idx_custom_requests_status", "custom_requests", "status"),
-        
-        # Settings - lookup rapide
-        ("idx_settings_key", "settings", "key"),
-        
-        # SAAS sites - lookup par user
-        ("idx_saas_sites_user_id", "saas_sites", "user_id"),
-        ("idx_saas_sites_status", "saas_sites", "status"),
-    ]
-    
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        
-        for index_name, table_name, column_name in indexes:
-            try:
-                # Vérifier si l'index existe déjà
-                cursor.execute("""
-                    SELECT 1 FROM pg_indexes 
-                    WHERE indexname = %s
-                """, (index_name,))
-                
-                if not cursor.fetchone():
-                    # Créer l'index - Valider les noms pour éviter SQL injection
-                    # Les noms proviennent d'une liste codée en dur, donc sûrs
-                    if not all(c.isalnum() or c == '_' for c in index_name):
-                        raise ValueError(f"Nom d'index invalide: {index_name}")
-                    if not all(c.isalnum() or c == '_' for c in table_name):
-                        raise ValueError(f"Nom de table invalide: {table_name}")
-                    if not all(c.isalnum() or c == '_' for c in column_name):
-                        raise ValueError(f"Nom de colonne invalide: {column_name}")
-                    
-                    cursor.execute(f"CREATE INDEX {index_name} ON {table_name}({column_name})")
-                    print(f"  ✅ Index créé: {index_name} sur {table_name}({column_name})")
-                else:
-                    print(f"  ℹ️  Index existe déjà: {index_name}")
-            except Exception as e:
-                print(f"  ⚠️  Erreur création index {index_name}: {e}")
-        
-        conn.commit()
-    
-    print(f"✅ Indexes de performance créés")
-
+    @property
+    def closed(self):
+        return self._closed
