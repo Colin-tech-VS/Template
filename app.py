@@ -669,17 +669,27 @@ def _fallback_upsert_setting(cur, conn, key, value, tenant_id):
     Helper function to update or insert a setting when ON CONFLICT doesn't work.
     Used as fallback when the expected constraint doesn't exist.
     """
-    # Try to update first
-    update_query = adapt_query("""
-        UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
-    """)
-    cur.execute(update_query, (value, key, tenant_id))
-    if cur.rowcount == 0:
-        # No row updated, try to insert
-        insert_query = adapt_query("""
-            INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+    try:
+        update_query = adapt_query("""
+            UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
         """)
-        cur.execute(insert_query, (key, value, tenant_id))
+        cur.execute(update_query, (value, key, tenant_id))
+        if cur.rowcount == 0:
+            try:
+                insert_query = adapt_query("""
+                    INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                """)
+                cur.execute(insert_query, (key, value, tenant_id))
+            except Exception:
+                update_simple = adapt_query("""
+                    UPDATE settings SET value = ? WHERE key = ?
+                """)
+                cur.execute(update_simple, (value, key))
+    except Exception:
+        update_simple = adapt_query("""
+            UPDATE settings SET value = ? WHERE key = ?
+        """)
+        cur.execute(update_simple, (value, key))
 
 
 def set_setting(key, value, user_id=None):
