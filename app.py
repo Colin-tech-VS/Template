@@ -1616,15 +1616,20 @@ def logout():
 @app.route("/expositions")
 def expositions_page():
     """Page expositions - OPTIMISÉ: colonnes spécifiques"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Sélection explicite des colonnes
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute("""
         SELECT id, title, location, date, start_time, end_time, description, image, venue_details
         FROM exhibitions 
+        WHERE tenant_id=%s
         ORDER BY date ASC
         LIMIT 100
-    """)
+    """, (tenant_id,))
     expositions = c.fetchall()
     conn.close()
 
@@ -1661,6 +1666,9 @@ def custom_orders_page():
 
 @app.route("/creations-sur-mesure/submit", methods=["POST"])
 def submit_custom_request():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     client_name = request.form.get("client_name")
     client_email = request.form.get("client_email")
     client_phone = request.form.get("client_phone")
@@ -1697,25 +1705,29 @@ def submit_custom_request():
     conn = get_db()
     c = conn.cursor()
     if IS_POSTGRES:
-        c.execute(adapt_query("INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente') RETURNING id"),
-                  (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
+        # MULTI-TENANT: Inclure tenant_id dans INSERT
+        c.execute(adapt_query("INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images, status, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente', ?) RETURNING id"),
+                  (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json, tenant_id))
         row = c.fetchone()
         request_id = safe_row_get(row, 'id', 0)
     else:
+        # MULTI-TENANT: Inclure tenant_id dans INSERT
         c.execute(adapt_query("""
         INSERT INTO custom_requests (client_name, client_email, client_phone, project_type, 
-                                      description, budget, dimensions, deadline, reference_images, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente')
-        """), (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json))
+                                      description, budget, dimensions, deadline, reference_images, status, tenant_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'En attente', ?)
+        """), (client_name, client_email, client_phone, project_type, description, budget, dimensions, deadline, reference_images_json, tenant_id))
         request_id = c.lastrowid
 
     # Créer une notification pour l'admin
-    c.execute(adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url) VALUES (?, ?, ?, ?, ?)") ,
+    # MULTI-TENANT: Inclure tenant_id dans INSERT
+    c.execute(adapt_query("INSERT INTO notifications (user_id, message, type, is_read, url, tenant_id) VALUES (?, ?, ?, ?, ?, ?)") ,
               (None,  # user_id=None pour notifications admin
                f"Nouvelle demande de création sur mesure de {client_name}",
                "custom_request",
                0,
-               f"/admin/custom-requests"))
+               f"/admin/custom-requests",
+               tenant_id))
 
     conn.commit()
     conn.close()
@@ -1845,50 +1857,56 @@ def expo_detail_page(expo_id):
 @require_admin
 def admin_custom_requests():
     """Page admin demandes sur mesure - OPTIMISÉ: colonnes spécifiques"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     status_filter = request.args.get('status')
     
     conn = get_db()
     c = conn.cursor()
     
     # OPTIMISÉ: Sélection explicite des colonnes + filtrage avec index
+    # MULTI-TENANT: Filtrer par tenant_id
     if status_filter:
         c.execute(adapt_query("""
             SELECT id, client_name, client_email, project_type, description, 
                    budget, dimensions, deadline, status, created_at
             FROM custom_requests 
-            WHERE status=%s 
+            WHERE status=%s AND tenant_id=%s
             ORDER BY created_at DESC
             LIMIT 200
-        """), (status_filter,))
+        """), (status_filter, tenant_id))
     else:
         c.execute("""
             SELECT id, client_name, client_email, project_type, description, 
                    budget, dimensions, deadline, status, created_at
             FROM custom_requests 
+            WHERE tenant_id=%s
             ORDER BY created_at DESC
             LIMIT 200
-        """)
+        """, (tenant_id,))
     
     requests_list = c.fetchall()
     
     # OPTIMISÉ: Comptages avec requêtes rapides sur index
-    c.execute("SELECT COUNT(*) as count FROM custom_requests")
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE tenant_id=%s", (tenant_id,))
     result = c.fetchone()
     total_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En attente'")
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En attente' AND tenant_id=%s", (tenant_id,))
     result = c.fetchone()
     pending_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En cours'")
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='En cours' AND tenant_id=%s", (tenant_id,))
     result = c.fetchone()
     in_progress_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Acceptée'")
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Acceptée' AND tenant_id=%s", (tenant_id,))
     result = c.fetchone()
     accepted_count = safe_row_get(result, 'count', index=0, default=0)
     
-    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Refusée'")
+    c.execute("SELECT COUNT(*) as count FROM custom_requests WHERE status='Refusée' AND tenant_id=%s", (tenant_id,))
     result = c.fetchone()
     refused_count = safe_row_get(result, 'count', index=0, default=0)
     
@@ -1907,11 +1925,15 @@ def admin_custom_requests():
 @app.route("/admin/custom-requests/<int:request_id>/status", methods=["POST"])
 @require_admin
 def update_custom_request_status(request_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     new_status = request.form.get("status")
     
     conn = get_db()
     c = conn.cursor()
-    c.execute(adapt_query("UPDATE custom_requests SET status=? WHERE id=?"), (new_status, request_id))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("UPDATE custom_requests SET status=? WHERE id=? AND tenant_id=?"), (new_status, request_id, tenant_id))
     conn.commit()
     conn.close()
     
@@ -1921,11 +1943,15 @@ def update_custom_request_status(request_id):
 @app.route("/admin/custom-requests/<int:request_id>/delete", methods=["POST"])
 @require_admin
 def delete_custom_request(request_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
     # Récupérer les images avant suppression
-    c.execute(adapt_query("SELECT reference_images FROM custom_requests WHERE id=?"), (request_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT reference_images FROM custom_requests WHERE id=? AND tenant_id=?"), (request_id, tenant_id))
     row = c.fetchone()
     if row:
         ref_images = safe_row_get(row, 'reference_images', index=0)
@@ -1937,7 +1963,8 @@ def delete_custom_request(request_id):
                 if os.path.exists(full_path):
                     os.remove(full_path)
     
-    c.execute(adapt_query("DELETE FROM custom_requests WHERE id=?"), (request_id,))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("DELETE FROM custom_requests WHERE id=? AND tenant_id=?"), (request_id, tenant_id))
     conn.commit()
     conn.close()
     
@@ -1950,15 +1977,20 @@ def delete_custom_request(request_id):
 @app.route("/admin/exhibitions")
 def admin_exhibitions():
     """Page admin exhibitions - OPTIMISÉ: colonnes spécifiques"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Sélection explicite + LIMIT
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute("""
         SELECT id, title, location, date, start_time, end_time, description, image, create_date
         FROM exhibitions 
+        WHERE tenant_id=%s
         ORDER BY create_date DESC
         LIMIT 200
-    """)
+    """, (tenant_id,))
     exhibitions = c.fetchall()
     conn.close()
     return render_template("admin/admin_exhibitions.html", 
@@ -1970,6 +2002,9 @@ def admin_exhibitions():
 # Ajouter une exhibition
 @app.route("/admin/exhibitions/add", methods=["GET", "POST"])
 def add_exhibition():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     # Récupérer la clé Google Places depuis les settings
     google_places_key = get_setting("google_places_key") or "CLE_PAR_DEFAUT"
     print("Google Places Key utilisée pour l'exhibition :", google_places_key)  # pour vérification
@@ -1995,10 +2030,11 @@ def add_exhibition():
 
         conn = get_db()
         c = conn.cursor()
+        # MULTI-TENANT: Inclure tenant_id dans INSERT
         c.execute("""
-            INSERT INTO exhibitions (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename))
+            INSERT INTO exhibitions (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image, tenant_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename, tenant_id))
         conn.commit()
         conn.close()
         return redirect(url_for("admin_exhibitions"))
@@ -2014,9 +2050,13 @@ def add_exhibition():
 
 @app.route("/admin/exhibitions/edit/<int:exhibition_id>", methods=["GET", "POST"])
 def edit_exhibition(exhibition_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
-    c.execute(adapt_query("SELECT * FROM exhibitions WHERE id=?"), (exhibition_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT * FROM exhibitions WHERE id=? AND tenant_id=?"), (exhibition_id, tenant_id))
     exhibition = c.fetchone()
 
     google_places_key = get_setting("google_places_key") or ""
@@ -2039,11 +2079,12 @@ def edit_exhibition(exhibition_id):
             webp_fname = save_image_and_convert_to_webp(file, app.config['EXPO_UPLOAD_FOLDER'], db_prefix=None)
             image_filename = webp_fname
 
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
         c.execute("""
             UPDATE exhibitions
             SET title=?, location=?, date=?, start_time=?, end_time=?, description=?, venue_details=?, organizer=?, entry_price=?, contact_info=?, image=?
-            WHERE id=?
-        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename, exhibition_id))
+            WHERE id=? AND tenant_id=?
+        """, (title, location, date, start_time, end_time, description, venue_details, organizer, entry_price, contact_info, image_filename, exhibition_id, tenant_id))
         conn.commit()
         conn.close()
         return redirect(url_for("admin_exhibitions"))
@@ -2060,10 +2101,14 @@ def edit_exhibition(exhibition_id):
 # Supprimer une exhibition
 @app.route("/admin/exhibitions/remove/<int:exhibition_id>", methods=["POST"])
 def remove_exhibition(exhibition_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # Supprimer l'image du dossier si elle existe
-    c.execute(adapt_query("SELECT image FROM exhibitions WHERE id=?"), (exhibition_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT image FROM exhibitions WHERE id=? AND tenant_id=?"), (exhibition_id, tenant_id))
     image = c.fetchone()
     if image:
         image_filename = safe_row_get(image, 'image', index=0)
@@ -2072,7 +2117,8 @@ def remove_exhibition(exhibition_id):
             if os.path.exists(image_path):
                 os.remove(image_path)
 
-    c.execute(adapt_query("DELETE FROM exhibitions WHERE id=?"), (exhibition_id,))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("DELETE FROM exhibitions WHERE id=? AND tenant_id=?"), (exhibition_id, tenant_id))
     conn.commit()
     conn.close()
     return redirect(url_for("admin_exhibitions"))
@@ -2931,6 +2977,9 @@ def reorder_paintings():
     if not is_admin():
         return jsonify({'error': 'Unauthorized'}), 403
     
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     data = request.get_json()
     painting_ids = data.get('order', [])
     
@@ -2941,10 +2990,11 @@ def reorder_paintings():
     c = conn.cursor()
     
     # Mettre à jour l'ordre d'affichage
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
     for index, painting_id in enumerate(painting_ids):
         c.execute(adapt_query(
-            "UPDATE paintings SET display_order = ? WHERE id = ?"
-        ), (index, painting_id))
+            "UPDATE paintings SET display_order = ? WHERE id = ? AND tenant_id = ?"
+        ), (index, painting_id, tenant_id))
     
     conn.commit()
     conn.close()
@@ -3559,9 +3609,13 @@ def remove_painting(painting_id):
     if not is_admin():
         return redirect(url_for('home'))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     with get_db() as conn:
         c = conn.cursor()
-        c.execute(adapt_query("DELETE FROM paintings WHERE id=?"), (painting_id,))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        c.execute(adapt_query("DELETE FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
         conn.commit()
 
     return redirect(url_for('admin_dashboard'))
@@ -3570,16 +3624,20 @@ def remove_painting(painting_id):
 @require_admin
 def edit_painting(painting_id):
     """Éditer une peinture"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
     # Récupérer la peinture avec tous les champs
+    # MULTI-TENANT: Filtrer par tenant_id
     c.execute(adapt_query("""
         SELECT id, name, image, price, quantity, description, create_date,
                description_long, dimensions, technique, year, category, status,
                image_2, image_3, image_4, weight, framed, certificate, unique_piece
-        FROM paintings WHERE id=?
-    """), (painting_id,))
+        FROM paintings WHERE id=? AND tenant_id=?
+    """), (painting_id, tenant_id))
     painting = c.fetchone()
     
     if not painting:
@@ -3648,19 +3706,20 @@ def edit_painting(painting_id):
                     image_fields[field_name] = f"Images/{filename}"
 
             # Update BDD avec tous les champs
+            # MULTI-TENANT: Ajouter tenant_id au WHERE
             c.execute(adapt_query("""
                 UPDATE paintings SET 
                     name=?, price=?, quantity=?, image=?, description=?,
                     description_long=?, dimensions=?, technique=?, year=?, 
                     category=?, status=?, image_2=?, image_3=?, image_4=?,
                     weight=?, framed=?, certificate=?, unique_piece=?
-                WHERE id=?
+                WHERE id=? AND tenant_id=?
             """), (
                 name, price, quantity, image_fields['image'], description,
                 description_long, dimensions, technique, year,
                 category, status, image_fields['image_2'], image_fields['image_3'], image_fields['image_4'],
                 weight, framed, certificate, unique_piece,
-                painting_id
+                painting_id, tenant_id
             ))
             conn.commit()
             flash("Peinture mise à jour avec succès !")
@@ -3681,10 +3740,14 @@ def edit_painting(painting_id):
 @require_admin
 def delete_painting(painting_id):
     """Supprimer une peinture"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
-    c.execute(adapt_query("SELECT image FROM paintings WHERE id=?"), (painting_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT image FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
     painting = c.fetchone()
     
     if painting:
@@ -3699,7 +3762,8 @@ def delete_painting(painting_id):
                     pass
         
         # Supprimer de la BD
-        c.execute(adapt_query("DELETE FROM paintings WHERE id=?"), (painting_id,))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        c.execute(adapt_query("DELETE FROM paintings WHERE id=? AND tenant_id=?"), (painting_id, tenant_id))
         conn.commit()
         flash("Peinture supprimée avec succès !")
     else:
@@ -4526,10 +4590,14 @@ def api_paintings():
 @require_api_key
 def api_exhibitions():
     """Récupère toutes les expositions au format dashboard"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions ORDER BY date DESC"))
+        # MULTI-TENANT: Filtrer par tenant_id
+        cur.execute(adapt_query("SELECT id, title, location, date, start_time, end_time, description FROM exhibitions WHERE tenant_id=? ORDER BY date DESC"), (tenant_id,))
         rows = cur.fetchall()
         exhibitions = convert_rows_to_dicts(rows, cur.description)
         site_name = get_setting("site_name") or "Site Artiste"
@@ -4545,10 +4613,14 @@ def api_exhibitions():
 @require_api_key
 def api_custom_requests():
     """Récupère toutes les demandes personnalisées au format dashboard"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT id, client_name, description, status, created_at FROM custom_requests ORDER BY created_at DESC"))
+        # MULTI-TENANT: Filtrer par tenant_id
+        cur.execute(adapt_query("SELECT id, client_name, description, status, created_at FROM custom_requests WHERE tenant_id=? ORDER BY created_at DESC"), (tenant_id,))
         rows = cur.fetchall()
         columns = [description[0] for description in cur.description]
         requests_data = [dict(zip(columns, row)) for row in rows]
