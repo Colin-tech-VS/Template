@@ -60,6 +60,7 @@ import tempfile
 import stripe
 import json
 import requests
+import re
 import urllib.parse
 import hmac
 from email.mime.multipart import MIMEMultipart
@@ -663,6 +664,23 @@ google_places_key = os.getenv("GOOGLE_PLACES_KEY") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
 
+def _fallback_upsert_setting(cur, conn, key, value, tenant_id):
+    """
+    Helper function to update or insert a setting when ON CONFLICT doesn't work.
+    Used as fallback when the expected constraint doesn't exist.
+    """
+    # Try to update first
+    update_query = adapt_query("""
+        UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
+    """)
+    cur.execute(update_query, (value, key, tenant_id))
+    if cur.rowcount == 0:
+        # No row updated, try to insert
+        insert_query = adapt_query("""
+            INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+        """)
+        cur.execute(insert_query, (key, value, tenant_id))
+
 
 def set_setting(key, value, user_id=None):
     """
@@ -690,11 +708,23 @@ def set_setting(key, value, user_id=None):
     cur = conn.cursor()
     try:
         if user_id is not None and has_tenant_id:
+            # Try with (key, tenant_id) constraint first
             query = adapt_query("""
                 INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                 ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
             """)
-            cur.execute(query, (key, value, user_id))
+            try:
+                cur.execute(query, (key, value, user_id))
+            except Exception as e:
+                # Catch generic Exception because we support multiple DB drivers (psycopg3, psycopg2, pg8000)
+                # Each has different exception hierarchies. We check error message to identify constraint issues.
+                # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
+                error_msg = str(e).lower()
+                if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
+                    conn.rollback()
+                    _fallback_upsert_setting(cur, conn, key, value, user_id)
+                else:
+                    raise
         else:
             # Fallback: use default tenant_id if tenant_id column exists
             # This ensures compatibility with the UNIQUE constraint on (key, tenant_id)
@@ -703,7 +733,18 @@ def set_setting(key, value, user_id=None):
                     INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
                     ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
                 """)
-                cur.execute(query, (key, value, DEFAULT_TENANT_ID))
+                try:
+                    cur.execute(query, (key, value, DEFAULT_TENANT_ID))
+                except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers (psycopg3, psycopg2, pg8000)
+                    # Each has different exception hierarchies. We check error message to identify constraint issues.
+                    # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
+                    error_msg = str(e).lower()
+                    if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
+                        conn.rollback()
+                        _fallback_upsert_setting(cur, conn, key, value, DEFAULT_TENANT_ID)
+                    else:
+                        raise
             else:
                 # Legacy mode for databases without tenant_id column
                 query = adapt_query("""
@@ -1046,7 +1087,7 @@ def migrate_db():
         conn = get_db()
         cur = conn.cursor()
         
-        # Check if constraint already exists
+        # Check if the new constraint already exists
         cur.execute("""
             SELECT constraint_name 
             FROM information_schema.table_constraints 
@@ -1058,6 +1099,35 @@ def migrate_db():
         constraint_exists = cur.fetchone() is not None
         
         if not constraint_exists:
+            # Check for old constraint on just 'key' column (e.g., settings_key_key)
+            cur.execute("""
+                SELECT constraint_name 
+                FROM information_schema.table_constraints 
+                WHERE table_name = 'settings' 
+                AND constraint_type = 'UNIQUE'
+                AND constraint_name LIKE 'settings_key%'
+                AND constraint_name != %s
+            """, (SETTINGS_CONSTRAINT_NAME,))
+            
+            old_constraint = cur.fetchone()
+            if old_constraint:
+                old_constraint_name = old_constraint[0] if isinstance(old_constraint, (tuple, list)) else old_constraint['constraint_name']
+                try:
+                    # Validate constraint name to prevent SQL injection (it's from DB metadata, not user input)
+                    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', old_constraint_name):
+                        raise ValueError(f"Invalid constraint name: {old_constraint_name}")
+                    
+                    print(f"ℹ️  Dropping old constraint '{old_constraint_name}'...")
+                    # Using f-string is safe here because constraint name is validated with regex above
+                    # PostgreSQL doesn't support parameterized constraint names in DDL statements
+                    cur.execute(f"ALTER TABLE settings DROP CONSTRAINT {old_constraint_name}")
+                    conn.commit()
+                    print(f"✅ Old constraint '{old_constraint_name}' dropped")
+                except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers
+                    print(f"⚠️  Error dropping old constraint: {e}")
+                    conn.rollback()
+            
             # First, remove duplicates keeping the most recent (highest id)
             duplicate_removal_success = True
             try:
@@ -1079,13 +1149,13 @@ def migrate_db():
             # Add the UNIQUE constraint only if duplicate removal succeeded
             if duplicate_removal_success:
                 try:
-                    # Use parameterized query to avoid SQL injection
-                    # Note: Constraint names must be SQL identifiers, not string values
-                    # so we validate and use string formatting safely here
-                    import re
+                    # Validate constraint name from constant to prevent SQL injection
+                    # SETTINGS_CONSTRAINT_NAME is a module-level constant, not user input
                     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', SETTINGS_CONSTRAINT_NAME):
                         raise ValueError(f"Invalid constraint name: {SETTINGS_CONSTRAINT_NAME}")
                     
+                    # Using f-string is safe here because constraint name is validated with regex above
+                    # PostgreSQL doesn't support parameterized constraint names in DDL statements
                     cur.execute(f"""
                         ALTER TABLE settings 
                         ADD CONSTRAINT {SETTINGS_CONSTRAINT_NAME} 
@@ -1094,6 +1164,7 @@ def migrate_db():
                     conn.commit()
                     print("✅ UNIQUE constraint added on settings(key, tenant_id)")
                 except Exception as e:
+                    # Catch generic Exception because we support multiple DB drivers
                     print(f"⚠️  Error adding UNIQUE constraint: {e}")
                     conn.rollback()
             else:
