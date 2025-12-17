@@ -694,6 +694,29 @@ def is_preview_request():
     )
 
 
+def get_current_tenant_id():
+    """
+    Récupère le tenant_id du tenant courant basé sur le host de la requête.
+    Retourne 1 par défaut si aucun tenant n'est trouvé (tenant par défaut).
+    MULTI-TENANT: Isolation stricte des données par tenant.
+    """
+    try:
+        host = request.host.split(':')[0].lower()
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(adapt_query("SELECT id FROM tenants WHERE host = ?"), (host,))
+        result = cur.fetchone()
+        conn.close()
+        if result:
+            return safe_row_get(result, 'id', index=0, default=1)
+        # Si aucun tenant trouvé, retourner le tenant par défaut (id=1)
+        return 1
+    except Exception as e:
+        print(f"[TENANT] Erreur récupération tenant_id: {e}")
+        # En cas d'erreur, retourner le tenant par défaut
+        return 1
+
+
 def fetch_dashboard_site_price():
     base_url = get_dashboard_base_url()
     site_id = get_setting("dashboard_id")
@@ -1305,6 +1328,11 @@ def register():
             print(f"[REGISTER] Inscription réussie pour {email}")
             flash("Inscription réussie !")
             return redirect(url_for('login'))
+        except Exception as e:
+            conn.close()
+            print(f"[REGISTER] Erreur inscription: {e}")
+            flash("Erreur lors de l'inscription.")
+            return redirect(url_for('register'))
     return render_template("register.html")
 
 
@@ -2252,6 +2280,9 @@ def checkout():
 
 @app.route("/checkout_success")
 def checkout_success():
+    # MULTI-TENANT: Récupérer le tenant_id courant pour filtrer toutes les requêtes
+    tenant_id = get_current_tenant_id()
+    
     order = session.pop("pending_order", None)
     order_id = None
     if order:
@@ -2261,9 +2292,10 @@ def checkout_success():
         total_price = order["total_price"]
         items = order["items"]
         # On tente de retrouver l'order_id correspondant à cette commande
+        # MULTI-TENANT: Filtrer par tenant_id pour éviter les fuites inter-tenant
         with get_db() as conn:
             c = conn.cursor()
-            c.execute(adapt_query("SELECT id FROM orders WHERE email=? AND total_price=? ORDER BY order_date DESC LIMIT 1"), (email, total_price))
+            c.execute(adapt_query("SELECT id FROM orders WHERE email=? AND total_price=? AND tenant_id=? ORDER BY order_date DESC LIMIT 1"), (email, total_price, tenant_id))
             row = c.fetchone()
             if row:
                 order_id = safe_row_get(row, 'id', 0) if isinstance(row, dict) else row[0]
@@ -2273,12 +2305,13 @@ def checkout_success():
         if not user_id and not email:
             flash("Impossible de retrouver votre commande. Veuillez contacter le support si besoin.", "error")
             return redirect(url_for('panier'))
+        # MULTI-TENANT: Filtrer par tenant_id pour toutes les recherches de commandes
         with get_db() as conn:
             c = conn.cursor()
             if user_id:
-                c.execute(adapt_query("SELECT * FROM orders WHERE user_id=? ORDER BY order_date DESC LIMIT 1"), (user_id,))
+                c.execute(adapt_query("SELECT * FROM orders WHERE user_id=? AND tenant_id=? ORDER BY order_date DESC LIMIT 1"), (user_id, tenant_id))
             else:
-                c.execute(adapt_query("SELECT * FROM orders WHERE email=? ORDER BY order_date DESC LIMIT 1"), (email,))
+                c.execute(adapt_query("SELECT * FROM orders WHERE email=? AND tenant_id=? ORDER BY order_date DESC LIMIT 1"), (email, tenant_id))
             order_row = c.fetchone()
             if not order_row:
                 flash("Aucune commande récente trouvée.", "error")
@@ -2288,7 +2321,8 @@ def checkout_success():
             address = order_row[3] if len(order_row) > 3 else ""
             total_price = order_row[4] if len(order_row) > 4 else 0
             order_id = order_row[0]
-            c.execute(adapt_query("SELECT * FROM order_items WHERE order_id=?"), (order_id,))
+            # MULTI-TENANT: Filtrer order_items par tenant_id via la jointure avec orders
+            c.execute(adapt_query("SELECT * FROM order_items WHERE order_id=? AND tenant_id=?"), (order_id, tenant_id))
             items = c.fetchall()
     return render_template(
         "checkout_success.html",
