@@ -25,7 +25,7 @@ DRIVER = None
 try:
     import psycopg as psycopg3  # type: ignore
     DRIVER = "psycopg3"
-except (ImportError, ModuleNotFoundError):
+except Exception:
     psycopg3 = None
 
 # --- Try psycopg2 ---
@@ -35,7 +35,7 @@ if DRIVER is None:
         import psycopg2.extras
         import psycopg2.pool
         DRIVER = "psycopg2"
-    except (ImportError, ModuleNotFoundError):
+    except Exception:
         psycopg2 = None
 
 # --- Final fallback: pg8000 ---
@@ -43,7 +43,7 @@ if DRIVER is None:
     try:
         import pg8000.dbapi
         DRIVER = "pg8000"
-    except (ImportError, ModuleNotFoundError):
+    except Exception:
         raise ImportError(
             "No PostgreSQL driver found. Please install one of:\n"
             "  - psycopg[binary]>=3.0.0 (recommended for PC/server)\n"
