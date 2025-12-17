@@ -485,3 +485,98 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=T
             )
 
         return result
+
+
+def create_table_if_not_exists(table_name, columns):
+    """
+    Crée une table PostgreSQL/Supabase si elle n'existe pas déjà.
+    
+    Args:
+        table_name: Nom de la table à créer
+        columns: Dictionnaire {colonne: type} définissant les colonnes
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Construire la requête CREATE TABLE
+        cols_def = ", ".join([f"{col} {col_type}" for col, col_type in columns.items()])
+        query = f"CREATE TABLE IF NOT EXISTS {table_name} ({cols_def})"
+        
+        try:
+            cursor.execute(query)
+            conn.commit()
+            print(f"✅ Table '{table_name}' créée ou vérifiée")
+        except Exception as e:
+            conn.rollback()
+            print(f"⚠️ Erreur création table '{table_name}': {e}")
+            raise
+
+
+def add_column_if_not_exists(table_name, column_name, column_type):
+    """
+    Ajoute une colonne à une table PostgreSQL/Supabase si elle n'existe pas déjà.
+    
+    Args:
+        table_name: Nom de la table
+        column_name: Nom de la colonne à ajouter
+        column_type: Type de la colonne (ex: "TEXT", "INTEGER", etc.)
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        try:
+            # Vérifier si la colonne existe déjà
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = %s AND column_name = %s
+            """, (table_name, column_name))
+            
+            if cursor.fetchone():
+                # Colonne existe déjà
+                return
+            
+            # Ajouter la colonne
+            query = f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+            cursor.execute(query)
+            conn.commit()
+            print(f"✅ Colonne '{column_name}' ajoutée à la table '{table_name}'")
+        except Exception as e:
+            conn.rollback()
+            print(f"⚠️ Erreur ajout colonne '{column_name}' à '{table_name}': {e}")
+            # Ne pas propager l'erreur si la colonne existe déjà
+            if "already exists" not in str(e).lower():
+                raise
+
+
+def init_database(user_id=None, tables=None):
+    """
+    Initialise la base de données PostgreSQL/Supabase en créant toutes les tables nécessaires.
+    Cette fonction doit être appelée au démarrage de l'application.
+    
+    Args:
+        user_id: ID de l'utilisateur/tenant (optionnel, pour compatibilité)
+        tables: Dictionnaire de tables à créer {nom_table: {colonne: type}} (optionnel)
+    
+    Note: Si tables n'est pas fourni, seul le connection pool sera initialisé.
+    L'application doit passer son dictionnaire TABLES pour créer les tables.
+    """
+    print("🚀 Initialisation de la base de données PostgreSQL/Supabase...")
+    
+    # Initialiser le connection pool si ce n'est pas déjà fait
+    if CONNECTION_POOL is None:
+        init_connection_pool()
+    
+    print("✅ Connection pool initialisé")
+    
+    # Si des tables sont fournies, les créer
+    if tables:
+        print(f"📋 Création de {len(tables)} tables...")
+        for table_name, columns in tables.items():
+            try:
+                create_table_if_not_exists(table_name, columns)
+            except Exception as e:
+                print(f"⚠️ Erreur création table '{table_name}': {e}")
+        print("✅ Tables créées ou vérifiées")
+    else:
+        print("ℹ️  Aucune table spécifiée - seul le pool est initialisé")

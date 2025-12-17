@@ -1210,7 +1210,7 @@ def merge_carts(user_id, session_id):
     conn.close()
 
 try:
-    init_database()
+    init_database(tables=TABLES)
 except Exception as e:
     print(f"[STARTUP] ⚠️  Erreur initialisation DB: {e}")
     print(f"[STARTUP] Pool size réduit pour Supabase Session mode - L'app continuera")
