@@ -44,7 +44,6 @@ if DRIVER is None:
         import pg8000.dbapi
         DRIVER = "pg8000"
     except (ImportError, ModuleNotFoundError):
-        pg8000 = None
         raise ImportError(
             "No PostgreSQL driver found. Please install one of:\n"
             "  - psycopg[binary]>=3.0.0 (recommended for PC/server)\n"
