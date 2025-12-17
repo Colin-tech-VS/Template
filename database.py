@@ -46,7 +46,7 @@ if DRIVER is None:
     except (ImportError, ModuleNotFoundError):
         pg8000 = None
         raise ImportError(
-            "No PostgreSQL driver available. Please install one of:\n"
+            "No PostgreSQL driver found. Please install one of:\n"
             "  - psycopg[binary]>=3.0.0 (recommended for PC/server)\n"
             "  - psycopg2-binary (alternative for PC/server)\n"
             "  - pg8000 (for Termux/Android or pure Python environments)"
@@ -63,6 +63,12 @@ if DRIVER == "psycopg3":
 
 # Legacy flag for backward compatibility
 USING_PSYCOPG3 = (DRIVER == "psycopg3")
+
+# Placeholder for PostgreSQL queries (all drivers use %s)
+PARAM_PLACEHOLDER = '%s'
+
+# PostgreSQL auto-increment type (SERIAL replaces SQLite's AUTOINCREMENT)
+AUTOINCREMENT = 'SERIAL'
 
 # Configuration du logging pour la performance
 logging.basicConfig(level=logging.INFO)
