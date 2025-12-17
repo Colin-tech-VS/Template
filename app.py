@@ -1134,14 +1134,18 @@ def init_favorites_table():
 
 def set_admin_user(email):
     """Définit un utilisateur comme administrateur"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     try:
         from database import add_column_if_not_exists
         add_column_if_not_exists('users', 'role', 'TEXT DEFAULT "user"')
         
-        query = adapt_query("UPDATE users SET role='admin' WHERE email=?")
-        c.execute(query, (email,))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        query = adapt_query("UPDATE users SET role='admin' WHERE email=? AND tenant_id=?")
+        c.execute(query, (email, tenant_id))
         conn.commit()
         print(f"L'utilisateur {email} est maintenant administrateur")
     except Exception as e:
@@ -2899,15 +2903,19 @@ def admin_notifications():
     if not is_admin():
         return redirect(url_for('home'))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     with get_db() as conn:
         c = conn.cursor()
         # Récupérer toutes les notifications admin (user_id=NULL)
+        # MULTI-TENANT: Filtrer par tenant_id
         c.execute("""
             SELECT id, message, url, is_read, created_at 
             FROM notifications 
-            WHERE user_id IS NULL
+            WHERE user_id IS NULL AND tenant_id=%s
             ORDER BY created_at DESC
-        """)
+        """, (tenant_id,))
         notifications = c.fetchall()
 
         # Normalize notifications to tuples (id, message, url, is_read, created_at)
@@ -2943,12 +2951,17 @@ def mark_notification_read(notif_id):
     if not is_admin():
         return redirect(url_for("home"))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     with get_db() as conn:
         c = conn.cursor()
         # Mettre la notification comme lue
-        c.execute(adapt_query("UPDATE notifications SET is_read=1 WHERE id=?"), (notif_id,))
+        # MULTI-TENANT: Ajouter tenant_id au WHERE
+        c.execute(adapt_query("UPDATE notifications SET is_read=1 WHERE id=? AND tenant_id=?"), (notif_id, tenant_id))
         # Récupérer l'URL pour redirection
-        c.execute(adapt_query("SELECT url FROM notifications WHERE id=?"), (notif_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT url FROM notifications WHERE id=? AND tenant_id=?"), (notif_id, tenant_id))
         row = c.fetchone()
         redirect_url = safe_row_get(row, 'url', index=0) or url_for("admin_notifications")
 
@@ -2960,9 +2973,13 @@ def mark_notification_read(notif_id):
 # --------------------------------
 @app.route('/galerie')
 def galerie():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, name, image, price, quantity FROM paintings ORDER BY display_order ASC, id DESC")
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute("SELECT id, name, image, price, quantity FROM paintings WHERE tenant_id=%s ORDER BY display_order ASC, id DESC", (tenant_id,))
     paintings = c.fetchall()
     conn.close()
     
@@ -4002,6 +4019,9 @@ def admin_order_detail(order_id):
 @require_admin
 def admin_users():
     """Gestion des utilisateurs avec recherche et filtre par rôle - OPTIMISÉ"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     q = request.args.get('q', '').strip().lower()
     role = request.args.get('role', '').strip().lower()
     
@@ -4009,12 +4029,14 @@ def admin_users():
     c = conn.cursor()
 
     # OPTIMISÉ: Sélection explicite des colonnes + LIMIT
+    # MULTI-TENANT: Filtrer par tenant_id
     query = """
         SELECT id, name, email, role, create_date 
         FROM users
+        WHERE tenant_id=%s
     """
     conditions = []
-    params = []
+    params = [tenant_id]
 
     # Recherche texte
     if q:
@@ -4034,7 +4056,7 @@ def admin_users():
 
     # Construire la requête finale
     if conditions:
-        query += " WHERE " + " AND ".join(conditions)
+        query += " AND " + " AND ".join(conditions)
 
     query += " ORDER BY id DESC LIMIT 500"
 
@@ -4107,6 +4129,9 @@ def export_users():
 @require_admin
 def update_user_role(user_id):
     """Changer le rôle d'un utilisateur depuis le dropdown POST"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     valid_roles = ['user', 'admin', 'partenaire']
     
     role = request.form.get('role')
@@ -4118,7 +4143,8 @@ def update_user_role(user_id):
     c = conn.cursor()
     
     # Ne pas laisser supprimer l'admin principal
-    c.execute(adapt_query("SELECT email FROM users WHERE id=?"), (user_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT email FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
     user = c.fetchone()
     
     if user:
@@ -4128,7 +4154,8 @@ def update_user_role(user_id):
             conn.close()
             return redirect(url_for('admin_users'))
     
-    c.execute(adapt_query("UPDATE users SET role=? WHERE id=?"), (role, user_id))
+    # MULTI-TENANT: Ajouter tenant_id au WHERE
+    c.execute(adapt_query("UPDATE users SET role=? WHERE id=? AND tenant_id=?"), (role, user_id, tenant_id))
     conn.commit()
     conn.close()
     
@@ -4637,10 +4664,14 @@ def api_custom_requests():
 @require_api_key
 def api_export_settings():
     """Exporte les paramètres (sauf clés sensibles)"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(adapt_query("SELECT * FROM settings"))
+        # MULTI-TENANT: Filtrer par tenant_id
+        cur.execute(adapt_query("SELECT * FROM settings WHERE tenant_id=?"), (tenant_id,))
         rows = cur.fetchall()
         
         # Masquer les clés sensibles
