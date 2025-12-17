@@ -1183,6 +1183,7 @@ def merge_carts(user_id, session_id):
                           (user_cart_id, painting_id, tenant_id))
                 row = c.fetchone()
                 if row:
+                    row_qty = safe_row_get(row, 'quantity', index=0)
                     # MULTI-TENANT: Ajouter tenant_id au WHERE
                     c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=? AND tenant_id=?"),
                               (row_qty+qty, user_cart_id, painting_id, tenant_id))
@@ -1492,6 +1493,9 @@ def api_login_preview():
     if not email or not password:
         return jsonify({"success": False, "error": "Email et mot de passe requis"}), 400
 
+    # MULTI-TENANT: Récupérer le tenant_id courant
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
 
@@ -1512,15 +1516,17 @@ def api_login_preview():
     session["user_id"] = user_id
 
     guest_session_id = request.cookies.get("cart_session")
-    c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=?"), (user_id,))
+    # MULTI-TENANT: Filtrer par tenant_id
+    c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
     user_cart = c.fetchone()
 
     if user_cart:
         user_cart_session = safe_row_get(user_cart, 'session_id', index=1)
     else:
         user_cart_session = str(uuid.uuid4())
-        c.execute(adapt_query("INSERT INTO carts (session_id, user_id) VALUES (?, ?)"),
-                  (user_cart_session, user_id))
+        # MULTI-TENANT: Ajouter tenant_id
+        c.execute(adapt_query("INSERT INTO carts (session_id, user_id, tenant_id) VALUES (?, ?, ?)"),
+                  (user_cart_session, user_id, tenant_id))
         conn.commit()
 
     if guest_session_id and guest_session_id != user_cart_session:
@@ -1566,7 +1572,8 @@ def login():
         guest_session_id = request.cookies.get("cart_session")
 
         # Vérifier si l'utilisateur a déjà un panier
-        c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=?"), (user_id,))
+        # MULTI-TENANT: Filtrer par tenant_id
+        c.execute(adapt_query("SELECT id, session_id FROM carts WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
         user_cart = c.fetchone()
 
         if user_cart:
@@ -1575,8 +1582,9 @@ def login():
         else:
             # Pas encore de panier user → en créer un
             user_cart_session = str(uuid.uuid4())
-            c.execute(adapt_query("INSERT INTO carts (session_id, user_id) VALUES (?, ?)"),
-                      (user_cart_session, user_id))
+            # MULTI-TENANT: Ajouter tenant_id
+            c.execute(adapt_query("INSERT INTO carts (session_id, user_id, tenant_id) VALUES (?, ?, ?)"),
+                      (user_cart_session, user_id, tenant_id))
             conn.commit()
 
         # 🔥 Fusionner panier invité → panier utilisateur

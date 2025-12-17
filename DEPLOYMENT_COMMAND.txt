@@ -1,0 +1,27 @@
+===============================================================================
+🚀 QUICK DEPLOYMENT COMMAND FOR PRODUCTION
+===============================================================================
+
+Run this command to fix the production errors:
+
+scalingo --region osc-fr1 --app preview-colin-cayre run python migrate_add_tenant_id.py
+
+===============================================================================
+⏱️ Expected Duration: 10-60 seconds
+✅ Safe: Idempotent (can be run multiple times)
+📖 Full Guide: See TENANT_MIGRATION_DEPLOYMENT.md
+===============================================================================
+
+After running the migration:
+1. Restart the app (optional): 
+   scalingo --region osc-fr1 --app preview-colin-cayre restart
+
+2. Test the fixed endpoints:
+   - Visit /saas/launch/success
+   - Visit / (home page)
+   - Try logging in
+
+3. Monitor logs:
+   scalingo --region osc-fr1 --app preview-colin-cayre logs --lines 100
+
+The errors should be gone! ✅
