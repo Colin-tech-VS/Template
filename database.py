@@ -40,8 +40,17 @@ if DRIVER is None:
 
 # --- Final fallback: pg8000 ---
 if DRIVER is None:
-    import pg8000.dbapi
-    DRIVER = "pg8000"
+    try:
+        import pg8000.dbapi
+        DRIVER = "pg8000"
+    except (ImportError, ModuleNotFoundError):
+        pg8000 = None
+        raise ImportError(
+            "No PostgreSQL driver available. Please install one of:\n"
+            "  - psycopg[binary]>=3.0.0 (recommended for PC/server)\n"
+            "  - psycopg2-binary (alternative for PC/server)\n"
+            "  - pg8000 (for Termux/Android or pure Python environments)"
+        )
 
 # --- Optional psycopg3 extras (pool, dict_row) ---
 if DRIVER == "psycopg3":
@@ -279,6 +288,26 @@ class ConnectionWrapper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
+
+    def close(self):
+        if not self._closed:
+            if getattr(self, '_release_func', None):
+                try:
+                    self._release_func(None, None, None)
+                except Exception:
+                    try:
+                        return_pool_connection(self._connection)
+                    except Exception:
+                        pass
+            else:
+                return_pool_connection(self._connection)
+            object.__setattr__(self, '_closed', True)
+
+    @property
+    def closed(self):
+        return self._closed
+
+
 @contextmanager
 def get_db_connection():
     """
@@ -451,20 +480,3 @@ def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=T
             )
 
         return result
-    def close(self):
-        if not self._closed:
-            if getattr(self, '_release_func', None):
-                try:
-                    self._release_func(None, None, None)
-                except Exception:
-                    try:
-                        return_pool_connection(self._connection)
-                    except Exception:
-                        pass
-            else:
-                return_pool_connection(self._connection)
-            object.__setattr__(self, '_closed', True)
-
-    @property
-    def closed(self):
-        return self._closed
