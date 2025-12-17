@@ -4320,8 +4320,11 @@ def api_export_full():
 @app.route('/api/export/orders', methods=['GET'])
 @require_api_key
 def api_orders():
-    """Récupère toutes les commandes au format dashboard - OPTIMISÉ"""
+    """Récupère toutes les commandes au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
@@ -4329,25 +4332,29 @@ def api_orders():
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
         
+        # MULTI-TENANT: Filtrer par tenant_id
         cur.execute(adapt_query("""
             SELECT id, customer_name, email, total_price, order_date, status 
             FROM orders 
+            WHERE tenant_id = ?
             ORDER BY order_date DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         orders_rows = cur.fetchall()
         orders = convert_rows_to_dicts(orders_rows, cur.description)
         
         # OPTIMISÉ: Récupérer tous les items en une seule requête JOIN
+        # MULTI-TENANT: Filtrer order_items et paintings par tenant_id
         order_ids = [o['id'] for o in orders]
         if order_ids:
             placeholders = ','.join(['%s'] * len(order_ids))
+            # MULTI-TENANT: Double vérification - order_items et paintings doivent appartenir au tenant
             cur.execute(f"""
                 SELECT oi.order_id, oi.painting_id, p.name, p.image, oi.price, oi.quantity
                 FROM order_items oi
-                LEFT JOIN paintings p ON oi.painting_id = p.id
-                WHERE oi.order_id IN ({placeholders})
-            """, order_ids)
+                LEFT JOIN paintings p ON oi.painting_id = p.id AND p.tenant_id = %s
+                WHERE oi.order_id IN ({placeholders}) AND oi.tenant_id = %s
+            """, [tenant_id] + order_ids + [tenant_id])
             all_items = cur.fetchall()
             
             # Grouper les items par order_id
@@ -4378,21 +4385,26 @@ def api_orders():
 @app.route('/api/export/users', methods=['GET'])
 @require_api_key
 def api_users():
-    """Récupère tous les utilisateurs au format dashboard - OPTIMISÉ"""
+    """Récupère tous les utilisateurs au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
         # OPTIMISÉ: Colonnes spécifiques + pagination
+        # MULTI-TENANT: Filtrer par tenant_id
         limit = request.args.get('limit', 500, type=int)
         offset = request.args.get('offset', 0, type=int)
         
         cur.execute(adapt_query("""
             SELECT id, name, email, create_date, role
             FROM users
+            WHERE tenant_id = ?
             ORDER BY id DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         rows = cur.fetchall()
         users = convert_rows_to_dicts(rows, cur.description)
         
@@ -4409,21 +4421,26 @@ def api_users():
 @app.route('/api/export/paintings', methods=['GET'])
 @require_api_key
 def api_paintings():
-    """Récupère toutes les peintures au format dashboard - OPTIMISÉ"""
+    """Récupère toutes les peintures au format dashboard - OPTIMISÉ - MULTI-TENANT: filtré par tenant_id"""
     try:
+        # MULTI-TENANT: Récupérer le tenant_id basé sur le host
+        tenant_id = get_current_tenant_id()
+        
         conn = get_db()
         cur = conn.cursor()
         
         # OPTIMISÉ: Colonnes spécifiques + pagination
+        # MULTI-TENANT: Filtrer par tenant_id
         limit = request.args.get('limit', 200, type=int)
         offset = request.args.get('offset', 0, type=int)
         
         cur.execute(adapt_query("""
             SELECT id, name, price, category, technique, year, quantity, status, image, display_order
             FROM paintings 
+            WHERE tenant_id = ?
             ORDER BY display_order DESC, id DESC
             LIMIT %s OFFSET %s
-        """), (limit, offset))
+        """), (tenant_id, limit, offset))
         rows = cur.fetchall()
         paintings = convert_rows_to_dicts(rows, cur.description)
         
