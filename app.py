@@ -60,6 +60,7 @@ import tempfile
 import stripe
 import json
 import requests
+import re
 import urllib.parse
 import hmac
 from email.mime.multipart import MIMEMultipart
@@ -663,6 +664,23 @@ google_places_key = os.getenv("GOOGLE_PLACES_KEY") or "CLE_PAR_DEFAUT"
 print("Google Places Key utilisée :", google_places_key)
 
 
+def _fallback_upsert_setting(cur, conn, key, value, tenant_id):
+    """
+    Helper function to update or insert a setting when ON CONFLICT doesn't work.
+    Used as fallback when the expected constraint doesn't exist.
+    """
+    # Try to update first
+    update_query = adapt_query("""
+        UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
+    """)
+    cur.execute(update_query, (value, key, tenant_id))
+    if cur.rowcount == 0:
+        # No row updated, try to insert
+        insert_query = adapt_query("""
+            INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+        """)
+        cur.execute(insert_query, (key, value, tenant_id))
+
 
 def set_setting(key, value, user_id=None):
     """
@@ -698,21 +716,11 @@ def set_setting(key, value, user_id=None):
             try:
                 cur.execute(query, (key, value, user_id))
             except Exception as e:
-                # If constraint doesn't exist on (key, tenant_id), try updating or inserting manually
+                # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
                 error_msg = str(e).lower()
                 if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
                     conn.rollback()
-                    # Try to update first
-                    update_query = adapt_query("""
-                        UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
-                    """)
-                    cur.execute(update_query, (value, key, user_id))
-                    if cur.rowcount == 0:
-                        # No row updated, try to insert
-                        insert_query = adapt_query("""
-                            INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
-                        """)
-                        cur.execute(insert_query, (key, value, user_id))
+                    _fallback_upsert_setting(cur, conn, key, value, user_id)
                 else:
                     raise
         else:
@@ -726,21 +734,11 @@ def set_setting(key, value, user_id=None):
                 try:
                     cur.execute(query, (key, value, DEFAULT_TENANT_ID))
                 except Exception as e:
-                    # If constraint doesn't exist on (key, tenant_id), try updating or inserting manually
+                    # If constraint doesn't exist on (key, tenant_id), fall back to UPDATE/INSERT
                     error_msg = str(e).lower()
                     if 'constraint' in error_msg or 'conflict' in error_msg or 'unique' in error_msg:
                         conn.rollback()
-                        # Try to update first
-                        update_query = adapt_query("""
-                            UPDATE settings SET value = ? WHERE key = ? AND tenant_id = ?
-                        """)
-                        cur.execute(update_query, (value, key, DEFAULT_TENANT_ID))
-                        if cur.rowcount == 0:
-                            # No row updated, try to insert
-                            insert_query = adapt_query("""
-                                INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
-                            """)
-                            cur.execute(insert_query, (key, value, DEFAULT_TENANT_ID))
+                        _fallback_upsert_setting(cur, conn, key, value, DEFAULT_TENANT_ID)
                     else:
                         raise
             else:
@@ -1111,7 +1109,6 @@ def migrate_db():
             if old_constraint:
                 old_constraint_name = old_constraint[0] if isinstance(old_constraint, (tuple, list)) else old_constraint['constraint_name']
                 try:
-                    import re
                     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', old_constraint_name):
                         raise ValueError(f"Invalid constraint name: {old_constraint_name}")
                     
@@ -1147,7 +1144,6 @@ def migrate_db():
                     # Use parameterized query to avoid SQL injection
                     # Note: Constraint names must be SQL identifiers, not string values
                     # so we validate and use string formatting safely here
-                    import re
                     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', SETTINGS_CONSTRAINT_NAME):
                         raise ValueError(f"Invalid constraint name: {SETTINGS_CONSTRAINT_NAME}")
                     
