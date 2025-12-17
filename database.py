@@ -11,6 +11,7 @@ import time
 import atexit
 import logging
 import threading
+import re
 
 # ============================================================
 # ✅ Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
@@ -499,7 +500,6 @@ def create_table_if_not_exists(table_name, columns):
     et de colonnes de confiance (comme TABLES dans app.py), pas avec des entrées utilisateur.
     """
     # Validation basique: vérifier que le nom de table ne contient que des caractères alphanumériques et underscores
-    import re
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
         raise ValueError(f"Nom de table invalide: {table_name}")
     
@@ -534,7 +534,6 @@ def add_column_if_not_exists(table_name, column_name, column_type):
     et de colonnes de confiance (comme TABLES dans app.py), pas avec des entrées utilisateur.
     """
     # Validation basique: vérifier que les noms ne contiennent que des caractères alphanumériques et underscores
-    import re
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
         raise ValueError(f"Nom de table invalide: {table_name}")
     if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', column_name):
@@ -564,7 +563,7 @@ def add_column_if_not_exists(table_name, column_name, column_type):
         except Exception as e:
             conn.rollback()
             # Utiliser le code d'erreur PostgreSQL pour une détection plus fiable
-            error_code = getattr(e, 'pgcode', None) if hasattr(e, 'pgcode') else None
+            error_code = getattr(e, 'pgcode', None)
             # 42701 = duplicate_column (colonne existe déjà)
             if error_code == '42701' or "already exists" in str(e).lower():
                 # Colonne existe déjà, ne pas propager l'erreur
