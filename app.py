@@ -375,13 +375,21 @@ def generate_email_html(title, content, button_text=None, button_url=None):
     """
 
 TABLES = {
+    # Table tenants pour l'isolation multi-tenant
+    "tenants": {
+        "id": "SERIAL PRIMARY KEY",
+        "host": "TEXT UNIQUE NOT NULL",
+        "name": "TEXT",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    },
     "users": {
         "id": "SERIAL PRIMARY KEY",
         "name": "TEXT NOT NULL",
-        "email": "TEXT UNIQUE NOT NULL",
+        "email": "TEXT NOT NULL",
         "password": "TEXT NOT NULL",
         "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "role": "TEXT DEFAULT 'user'"
+        "role": "TEXT DEFAULT 'user'",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "paintings": {
         "id": "SERIAL PRIMARY KEY",
@@ -404,7 +412,8 @@ TABLES = {
         "framed": "INTEGER DEFAULT 0",
         "certificate": "INTEGER DEFAULT 1",
         "unique_piece": "INTEGER DEFAULT 1",
-        "display_order": "INTEGER DEFAULT 0"
+        "display_order": "INTEGER DEFAULT 0",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "orders": {
         "id": "SERIAL PRIMARY KEY",
@@ -414,25 +423,36 @@ TABLES = {
         "total_price": "REAL NOT NULL DEFAULT 0",
         "order_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
         "status": "TEXT NOT NULL DEFAULT 'En cours'",
-        "user_id": "INTEGER"
+        "user_id": "INTEGER",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "order_items": {
         "id": "SERIAL PRIMARY KEY",
         "order_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
         "quantity": "INTEGER NOT NULL",
-        "price": "REAL NOT NULL"
+        "price": "REAL NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "cart_items": {
         "id": "SERIAL PRIMARY KEY",
         "cart_id": "INTEGER NOT NULL",
         "painting_id": "INTEGER NOT NULL",
-        "quantity": "INTEGER NOT NULL"
+        "quantity": "INTEGER NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "carts": {
         "id": "SERIAL PRIMARY KEY",
         "session_id": "TEXT NOT NULL UNIQUE",
-        "user_id": "INTEGER"
+        "user_id": "INTEGER",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
+    },
+    "favorites": {
+        "id": "SERIAL PRIMARY KEY",
+        "user_id": "INTEGER NOT NULL",
+        "painting_id": "INTEGER NOT NULL",
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "notifications": {
         "id": "SERIAL PRIMARY KEY",
@@ -441,7 +461,8 @@ TABLES = {
         "type": "TEXT NOT NULL",
         "url": "TEXT",
         "is_read": "INTEGER NOT NULL DEFAULT 0",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "exhibitions": {
         "id": "SERIAL PRIMARY KEY",
@@ -456,7 +477,8 @@ TABLES = {
         "entry_price": "TEXT",
         "contact_info": "TEXT",
         "image": "TEXT",
-        "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "create_date": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "custom_requests": {
         "id": "SERIAL PRIMARY KEY",
@@ -471,17 +493,20 @@ TABLES = {
         "reference_images": "TEXT",
         "status": "TEXT NOT NULL DEFAULT 'En attente'",
         "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
-        "admin_notes": "TEXT"
+        "admin_notes": "TEXT",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     # Nouvelle table settings pour stocker toutes les clés API et configs
     "settings": {
         "id": "SERIAL PRIMARY KEY",
-        "key": "TEXT UNIQUE NOT NULL",
-        "value": "TEXT NOT NULL"
+        "key": "TEXT NOT NULL",
+        "value": "TEXT NOT NULL",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     "stripe_events": {
         "id": "TEXT PRIMARY KEY",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     },
     # Table SAAS: suivi du cycle de vie des sites artistes
     "saas_sites": {
@@ -490,7 +515,8 @@ TABLES = {
         "status": "TEXT NOT NULL DEFAULT 'pending_approval'",
         "sandbox_url": "TEXT",
         "final_domain": "TEXT",
-        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        "tenant_id": "INTEGER NOT NULL DEFAULT 1"
     }
 }
 
