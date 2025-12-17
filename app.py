@@ -1023,6 +1023,55 @@ def migrate_db():
         for col_name, col_type in cols.items():
             add_column_if_not_exists(table_name, col_name, col_type)
     
+    # --- Ajouter le constraint UNIQUE sur settings(key, tenant_id) ---
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Vérifier si le constraint existe déjà
+        cur.execute("""
+            SELECT constraint_name 
+            FROM information_schema.table_constraints 
+            WHERE table_name = 'settings' 
+            AND constraint_type = 'UNIQUE'
+            AND constraint_name = 'settings_key_tenant_id_unique'
+        """)
+        
+        if not cur.fetchone():
+            # D'abord, supprimer les doublons en gardant le plus récent (id le plus élevé)
+            try:
+                cur.execute("""
+                    DELETE FROM settings a USING settings b
+                    WHERE a.id < b.id 
+                    AND a.key = b.key 
+                    AND a.tenant_id = b.tenant_id
+                """)
+                conn.commit()
+                print("✅ Doublons supprimés dans settings")
+            except Exception as e:
+                print(f"⚠️  Erreur suppression doublons: {e}")
+                conn.rollback()
+            
+            # Ajouter le constraint UNIQUE
+            cur.execute("""
+                ALTER TABLE settings 
+                ADD CONSTRAINT settings_key_tenant_id_unique 
+                UNIQUE (key, tenant_id)
+            """)
+            conn.commit()
+            print("✅ Constraint UNIQUE ajouté sur settings(key, tenant_id)")
+        else:
+            print("ℹ️  Constraint UNIQUE sur settings(key, tenant_id) existe déjà")
+        
+        conn.close()
+    except Exception as e:
+        print(f"⚠️  Erreur ajout constraint UNIQUE sur settings: {e}")
+        # Ne pas bloquer la migration si le constraint existe déjà
+        try:
+            conn.close()
+        except:
+            pass
+    
     try:
         print("Migration terminée: OK")
     except UnicodeEncodeError:
@@ -1035,6 +1084,7 @@ def migrate_db():
             print("Auto-registration activé par défaut")
         except UnicodeEncodeError:
             print("Auto-registration activé par défaut (unicode fallback)")
+
 
 
 def generate_invoice_pdf(order, items, total_price):
