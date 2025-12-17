@@ -1183,6 +1183,7 @@ def merge_carts(user_id, session_id):
                           (user_cart_id, painting_id, tenant_id))
                 row = c.fetchone()
                 if row:
+                    row_qty = safe_row_get(row, 'quantity', index=0)
                     # MULTI-TENANT: Ajouter tenant_id au WHERE
                     c.execute(adapt_query("UPDATE cart_items SET quantity=? WHERE cart_id=? AND painting_id=? AND tenant_id=?"),
                               (row_qty+qty, user_cart_id, painting_id, tenant_id))
