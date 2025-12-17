@@ -99,6 +99,9 @@ from database import (
 # Default tenant ID for non-tenant-specific settings
 DEFAULT_TENANT_ID = 1
 
+# Settings table constraint name
+SETTINGS_CONSTRAINT_NAME = 'settings_key_tenant_id_unique'
+
 # Clé API maître pour le dashboard (depuis variable d'environnement Scalingo)
 TEMPLATE_MASTER_API_KEY = os.getenv('TEMPLATE_MASTER_API_KEY')
 if TEMPLATE_MASTER_API_KEY:
@@ -1027,9 +1030,6 @@ def get_new_notifications_count():
 
 def migrate_db():
     """Migration complète : crée tables puis ajoute colonnes manquantes"""
-    # Constant for constraint name to ensure consistency
-    SETTINGS_CONSTRAINT_NAME = 'settings_key_tenant_id_unique'
-    
     # --- Créer toutes les tables si elles n'existent pas ---
     for table_name, cols in TABLES.items():
         create_table_if_not_exists(table_name, cols)
@@ -1079,6 +1079,13 @@ def migrate_db():
             # Add the UNIQUE constraint only if duplicate removal succeeded
             if duplicate_removal_success:
                 try:
+                    # Use parameterized query to avoid SQL injection
+                    # Note: Constraint names must be SQL identifiers, not string values
+                    # so we validate and use string formatting safely here
+                    import re
+                    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', SETTINGS_CONSTRAINT_NAME):
+                        raise ValueError(f"Invalid constraint name: {SETTINGS_CONSTRAINT_NAME}")
+                    
                     cur.execute(f"""
                         ALTER TABLE settings 
                         ADD CONSTRAINT {SETTINGS_CONSTRAINT_NAME} 
@@ -1100,8 +1107,8 @@ def migrate_db():
         if conn is not None:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as close_error:
+                print(f"⚠️  Error closing connection: {close_error}")
     
     try:
         print("Migration terminée: OK")
