@@ -690,11 +690,21 @@ def set_setting(key, value, user_id=None):
             """)
             cur.execute(query, (key, value, user_id))
         else:
-            query = adapt_query("""
-                INSERT INTO settings (key, value) VALUES (?, ?)
-                ON CONFLICT(key) DO UPDATE SET value=excluded.value
-            """)
-            cur.execute(query, (key, value))
+            # Fallback: use default tenant_id = 1 if tenant_id column exists
+            # This ensures compatibility with the UNIQUE constraint on (key, tenant_id)
+            if has_tenant_id:
+                query = adapt_query("""
+                    INSERT INTO settings (key, value, tenant_id) VALUES (?, ?, ?)
+                    ON CONFLICT(key, tenant_id) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value, 1))
+            else:
+                # Legacy mode for databases without tenant_id column
+                query = adapt_query("""
+                    INSERT INTO settings (key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+                """)
+                cur.execute(query, (key, value))
         conn.commit()
     finally:
         conn.close()
