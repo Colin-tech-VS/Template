@@ -45,7 +45,7 @@ def invalidate_all_settings_cache():
 # --------------------------------
 # IMPORTS
 # --------------------------------
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, send_file, abort, jsonify, has_request_context
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date
@@ -725,7 +725,15 @@ def get_current_tenant_id():
     Récupère le tenant_id du tenant courant basé sur le host de la requête.
     Retourne 1 par défaut si aucun tenant n'est trouvé (tenant par défaut).
     MULTI-TENANT: Isolation stricte des données par tenant.
+    
+    NOTE: Cette fonction doit être appelée uniquement dans un contexte de requête HTTP.
+    Si appelée hors contexte (ex: au démarrage), retourne le tenant par défaut (1).
     """
+    # Vérifier qu'on est dans un contexte de requête HTTP
+    if not has_request_context():
+        print(f"[TENANT] get_current_tenant_id() appelé hors contexte HTTP - utilisation du tenant par défaut (1)")
+        return 1
+    
     try:
         host = request.host.split(':')[0].lower()
         conn = get_db()
@@ -1207,10 +1215,8 @@ except Exception as e:
     print(f"[STARTUP] ⚠️  Erreur initialisation DB: {e}")
     print(f"[STARTUP] Pool size réduit pour Supabase Session mode - L'app continuera")
 
-try:
-    set_admin_user('coco.cayre@gmail.com')
-except Exception as e:
-    print(f"[STARTUP] ⚠️  Erreur définition admin au démarrage: {e}")
+# NOTE: set_admin_user() moved to a route handler to avoid "Working outside of request context"
+# Use the /api/admin/setup endpoint or call set_admin_user within a request context
 
 # --------------------------------
 # UTILITAIRES
