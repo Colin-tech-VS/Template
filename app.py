@@ -1211,6 +1211,8 @@ def merge_carts(user_id, session_id):
 
 try:
     init_database(tables=TABLES)
+    # Run migration to add any missing columns (e.g., tenant_id)
+    migrate_db()
 except Exception as e:
     print(f"[STARTUP] ⚠️  Erreur initialisation DB: {e}")
     print(f"[STARTUP] Pool size réduit pour Supabase Session mode - L'app continuera")
