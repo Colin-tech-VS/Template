@@ -43,15 +43,26 @@ def detect_driver():
 
 DRIVER = detect_driver()
 
-
-# --- Optional psycopg3 extras (pool, dict_row) ---
+# Import the detected driver at module level
 if DRIVER == "psycopg3":
+    import psycopg as psycopg3  # type: ignore
+    # --- Optional psycopg3 extras (pool, dict_row) ---
     try:
         from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
         from psycopg.rows import dict_row  # type: ignore
     except Exception:
         PsycopgPool = None
         dict_row = None
+elif DRIVER == "psycopg2":
+    import psycopg2  # type: ignore
+    import psycopg2.pool  # type: ignore
+    import psycopg2.extras  # type: ignore
+    PsycopgPool = None
+    dict_row = None
+elif DRIVER == "pg8000":
+    import pg8000.dbapi  # type: ignore
+    PsycopgPool = None
+    dict_row = None
 
 # Legacy flag for backward compatibility
 USING_PSYCOPG3 = (DRIVER == "psycopg3")
