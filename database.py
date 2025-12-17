@@ -11,18 +11,39 @@ import time
 import atexit
 import logging
 
-# Prefer psycopg (psycopg3) when available (provides psycopg_pool and wheels
-# compatible with newer Python versions). Fall back to psycopg2 if needed.
-USING_PSYCOPG3 = False
+# Multi-driver compatibility: psycopg3 → psycopg2 → pg8000
+# 1. Keep psycopg3 as the primary driver on PC/server
+# 2. Fallback to psycopg2 if psycopg3 is not installed
+# 3. On Termux (Android), use pg8000 as pure-Python fallback
+DRIVER = None
+
+# Try psycopg3 first
 try:
     import psycopg as psycopg3  # type: ignore
     from psycopg_pool import ConnectionPool as PsycopgPool  # type: ignore
     from psycopg.rows import dict_row  # type: ignore
-    USING_PSYCOPG3 = True
+    DRIVER = "psycopg3"
 except Exception:
-    import psycopg2
-    import psycopg2.extras
-    import psycopg2.pool
+    # Fallback to psycopg2
+    try:
+        import psycopg2
+        import psycopg2.extras
+        import psycopg2.pool
+        DRIVER = "psycopg2"
+    except Exception:
+        # Final fallback to pg8000 (pure Python, works on Termux)
+        try:
+            import pg8000.native
+            import pg8000.dbapi
+            DRIVER = "pg8000"
+        except Exception:
+            raise ImportError(
+                "No PostgreSQL driver found. Please install one of: "
+                "psycopg[binary], psycopg2-binary, or pg8000"
+            )
+
+# Legacy flag for backward compatibility
+USING_PSYCOPG3 = (DRIVER == "psycopg3")
 
 # Configuration du logging pour la performance
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +74,7 @@ try:
         'sslmode': 'require'  # Supabase nécessite SSL
     }
     print(f"✅ Configuration Supabase/Postgres: {DB_CONFIG['host']}/{DB_CONFIG['database']}")
+    print(f"✅ Using database driver: {DRIVER}")
 except Exception as e:
     print(f"❌ Erreur parsing DATABASE_URL: {e}")
     raise
@@ -70,6 +92,7 @@ CONNECTION_POOL = None
 def init_connection_pool(minconn=1, maxconn=5):
     """
     Initialise le pool de connexions PostgreSQL/Supabase
+    Supports psycopg3, psycopg2, and pg8000 drivers
     
     Args:
         minconn: Nombre minimum de connexions maintenues (réduit pour Supabase)
@@ -79,7 +102,7 @@ def init_connection_pool(minconn=1, maxconn=5):
     minconn=1, maxconn=5 est optimal pour éviter "MaxClientsInSessionMode" errors
     
     Returns:
-        psycopg2.pool.ThreadedConnectionPool
+        Connection pool object (type depends on driver)
     """
     global CONNECTION_POOL
     
@@ -87,17 +110,27 @@ def init_connection_pool(minconn=1, maxconn=5):
         return CONNECTION_POOL
     
     try:
-        if USING_PSYCOPG3:
+        if DRIVER == "psycopg3":
             # psycopg_pool expects a connection string (DATABASE_URL)
             CONNECTION_POOL = PsycopgPool(conninfo=DATABASE_URL, min_size=minconn, max_size=maxconn)
             print(f"✅ psycopg ConnectionPool initialisé: {minconn}-{maxconn} connexions")
-        else:
+        elif DRIVER == "psycopg2":
             CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
                 minconn=minconn,
                 maxconn=maxconn,
                 **DB_CONFIG
             )
             print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions (Supabase Session mode)")
+        elif DRIVER == "pg8000":
+            # pg8000 doesn't have built-in pooling, we'll use a simple list-based pool
+            # For pg8000, we store a list of connections
+            CONNECTION_POOL = {
+                'connections': [],
+                'min_size': minconn,
+                'max_size': maxconn,
+                'in_use': set()
+            }
+            print(f"✅ pg8000 simple pool initialisé: {minconn}-{maxconn} connexions")
         return CONNECTION_POOL
     except Exception as e:
         print(f"❌ Erreur initialisation connection pool: {e}")
@@ -106,29 +139,53 @@ def init_connection_pool(minconn=1, maxconn=5):
 def get_pool_connection():
     """
     Obtient une connexion depuis le pool
+    Supports psycopg3, psycopg2, and pg8000 drivers
     
     Returns:
-        psycopg2.connection
+        Database connection object
     """
     global CONNECTION_POOL
     
     if CONNECTION_POOL is None:
         init_connection_pool()
 
-    if USING_PSYCOPG3:
+    if DRIVER == "psycopg3":
         # For psycopg3 we prefer using the context-manager API via get_db_connection();
         # this function is kept for compatibility but shouldn't be used for psycopg3.
         raise RuntimeError("get_pool_connection() is not supported when using psycopg (psycopg3); use get_db_connection() or get_db() instead")
-
-    try:
-        return CONNECTION_POOL.getconn()
-    except Exception as e:
-        perf_logger.error(f"Erreur obtention connexion du pool: {e}")
-        raise
+    elif DRIVER == "psycopg2":
+        try:
+            return CONNECTION_POOL.getconn()
+        except Exception as e:
+            perf_logger.error(f"Erreur obtention connexion du pool: {e}")
+            raise
+    elif DRIVER == "pg8000":
+        # Simple pool for pg8000
+        try:
+            # Try to reuse an existing connection
+            if CONNECTION_POOL['connections']:
+                conn = CONNECTION_POOL['connections'].pop(0)
+                CONNECTION_POOL['in_use'].add(id(conn))
+                return conn
+            
+            # Create new connection if under max_size
+            if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
+                conn = pg8000.dbapi.connect(**DB_CONFIG)
+                CONNECTION_POOL['in_use'].add(id(conn))
+                return conn
+            
+            # Wait and create new connection as fallback
+            conn = pg8000.dbapi.connect(**DB_CONFIG)
+            CONNECTION_POOL['in_use'].add(id(conn))
+            return conn
+        except Exception as e:
+            perf_logger.error(f"Erreur obtention connexion pg8000: {e}")
+            raise
 
 def return_pool_connection(conn):
     """
     Retourne une connexion au pool
+    Supports psycopg3, psycopg2, and pg8000 drivers
     
     Args:
         conn: Connexion à retourner
@@ -138,7 +195,7 @@ def return_pool_connection(conn):
     if CONNECTION_POOL is None or conn is None:
         return
 
-    if USING_PSYCOPG3:
+    if DRIVER == "psycopg3":
         # psycopg3 pool connections are returned by exiting the context manager.
         # If someone obtained a raw connection, close it normally.
         try:
@@ -146,16 +203,32 @@ def return_pool_connection(conn):
         except Exception:
             pass
         return
-
-    CONNECTION_POOL.putconn(conn)
+    elif DRIVER == "psycopg2":
+        CONNECTION_POOL.putconn(conn)
+    elif DRIVER == "pg8000":
+        # Return connection to pg8000 simple pool
+        try:
+            conn_id = id(conn)
+            if conn_id in CONNECTION_POOL['in_use']:
+                CONNECTION_POOL['in_use'].remove(conn_id)
+                # Keep connection alive if pool not full
+                if len(CONNECTION_POOL['connections']) < CONNECTION_POOL['min_size']:
+                    CONNECTION_POOL['connections'].append(conn)
+                else:
+                    conn.close()
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 def close_connection_pool():
-    """Ferme toutes les connexions du pool"""
+    """Ferme toutes les connexions du pool - supports all drivers"""
     global CONNECTION_POOL
     
     if CONNECTION_POOL is not None:
         try:
-            if USING_PSYCOPG3:
+            if DRIVER == "psycopg3":
                 # psycopg3 ConnectionPool: close background workers cleanly
                 try:
                     CONNECTION_POOL.close()
@@ -168,10 +241,20 @@ def close_connection_pool():
                         wait(5.0)
                 except Exception:
                     pass
-            else:
+            elif DRIVER == "psycopg2":
                 # psycopg2 ThreadedConnectionPool
                 try:
                     CONNECTION_POOL.closeall()
+                except Exception:
+                    pass
+            elif DRIVER == "pg8000":
+                # Close all pg8000 connections
+                try:
+                    for conn in CONNECTION_POOL['connections']:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
                 except Exception:
                     pass
         finally:
@@ -260,6 +343,7 @@ def get_db_connection():
     """
     Context manager pour obtenir une connexion Supabase/PostgreSQL
     OPTIMISÉ: Utilise le connection pool au lieu de créer une nouvelle connexion
+    Supports psycopg3, psycopg2, and pg8000 drivers
     
     Usage: 
         with get_db_connection() as conn:
@@ -268,7 +352,7 @@ def get_db_connection():
     """
     start_time = time.time()
     # Branch behavior depending on driver
-    if USING_PSYCOPG3:
+    if DRIVER == "psycopg3":
         if CONNECTION_POOL is None:
             init_connection_pool()
         ctx = CONNECTION_POOL.connection()
@@ -287,10 +371,19 @@ def get_db_connection():
                     conn.close()
                 except Exception:
                     pass
-    else:
+    elif DRIVER == "psycopg2":
         conn = get_pool_connection()
         conn_time = (time.time() - start_time) * 1000
         # Logger si la connexion prend trop de temps
+        if conn_time > 10:
+            perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
+        try:
+            yield conn
+        finally:
+            return_pool_connection(conn)
+    elif DRIVER == "pg8000":
+        conn = get_pool_connection()
+        conn_time = (time.time() - start_time) * 1000
         if conn_time > 10:
             perf_logger.warning(f"Connexion lente depuis le pool: {conn_time:.2f}ms")
         try:
@@ -303,13 +396,14 @@ def get_db(user_id=None):
     """
     Retourne une connexion Supabase/PostgreSQL depuis le pool.
     OPTIMISÉ: Réutilise les connexions au lieu d'en créer de nouvelles
+    Supports psycopg3, psycopg2, and pg8000 drivers
     
     Args:
         user_id: ID de l'utilisateur/site (pour compatibilité multi-tenant future)
                  Actuellement ignoré car on utilise une seule base Supabase
     
     Returns:
-        ConnectionWrapper: Wrapper de connexion PostgreSQL avec RealDictCursor
+        ConnectionWrapper: Wrapper de connexion PostgreSQL avec dict-like cursor
         
     IMPORTANT: L'appelant doit fermer la connexion avec conn.close()
                qui la retournera au pool
@@ -318,7 +412,7 @@ def get_db(user_id=None):
           lors de la réassignation de conn.close qui est read-only dans psycopg2.
     """
     start_time = time.time()
-    if USING_PSYCOPG3:
+    if DRIVER == "psycopg3":
         if CONNECTION_POOL is None:
             init_connection_pool()
         ctx = CONNECTION_POOL.connection()
@@ -335,17 +429,58 @@ def get_db(user_id=None):
 
         # Return a wrapper that knows how to release the pooled connection
         return ConnectionWrapper((conn, ctx.__exit__))
+    elif DRIVER == "psycopg2":
+        # psycopg2 path
+        conn = get_pool_connection()
+        conn.cursor_factory = psycopg2.extras.RealDictCursor
 
-    # psycopg2 path
-    conn = get_pool_connection()
-    conn.cursor_factory = psycopg2.extras.RealDictCursor
+        conn_time = (time.time() - start_time) * 1000
+        if conn_time > 10:
+            perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
 
-    conn_time = (time.time() - start_time) * 1000
-    if conn_time > 10:
-        perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
+        # Utiliser le wrapper pour gérer le close() proprement
+        return ConnectionWrapper(conn)
+    elif DRIVER == "pg8000":
+        # pg8000 path - needs special handling for dict-like results
+        conn = get_pool_connection()
+        
+        # Store original cursor method
+        original_cursor = conn.cursor
+        
+        # Create a wrapper that returns cursors with dict-like access
+        def cursor_with_dict_access():
+            cur = original_cursor()
+            # Monkey-patch fetchone and fetchall to return dict-like results
+            original_fetchone = cur.fetchone
+            original_fetchall = cur.fetchall
+            
+            def fetchone_dict():
+                row = original_fetchone()
+                if row is None:
+                    return None
+                # pg8000 provides description with column info
+                if cur.description:
+                    return dict(zip([desc[0] for desc in cur.description], row))
+                return row
+            
+            def fetchall_dict():
+                rows = original_fetchall()
+                if not rows or not cur.description:
+                    return rows
+                columns = [desc[0] for desc in cur.description]
+                return [dict(zip(columns, row)) for row in rows]
+            
+            cur.fetchone = fetchone_dict
+            cur.fetchall = fetchall_dict
+            return cur
+        
+        conn.cursor = cursor_with_dict_access
 
-    # Utiliser le wrapper pour gérer le close() proprement
-    return ConnectionWrapper(conn)
+        conn_time = (time.time() - start_time) * 1000
+        if conn_time > 10:
+            perf_logger.warning(f"get_db() lent: {conn_time:.2f}ms")
+
+        return ConnectionWrapper(conn)
 
 
 def adapt_query(query):
