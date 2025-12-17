@@ -33,7 +33,6 @@ except Exception:
     except Exception:
         # Final fallback to pg8000 (pure Python, works on Termux)
         try:
-            import pg8000.native
             import pg8000.dbapi
             DRIVER = "pg8000"
         except Exception:
@@ -168,13 +167,13 @@ def get_pool_connection():
                 CONNECTION_POOL['in_use'].add(id(conn))
                 return conn
             
-            # Create new connection if under max_size
+            # Create new connection if space available in pool
             if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
                 conn = pg8000.dbapi.connect(**DB_CONFIG)
                 CONNECTION_POOL['in_use'].add(id(conn))
                 return conn
             
-            # Wait and create new connection as fallback
+            # Pool is full, create connection anyway (will be closed after use)
             conn = pg8000.dbapi.connect(**DB_CONFIG)
             CONNECTION_POOL['in_use'].add(id(conn))
             return conn
@@ -460,13 +459,17 @@ def get_db(user_id=None):
                     return None
                 # pg8000 provides description with column info
                 if cur.description:
-                    return dict(zip([desc[0] for desc in cur.description], row))
+                    # Extract column names once per cursor (cached on cursor object)
+                    if not hasattr(cur, '_column_names'):
+                        cur._column_names = [desc[0] for desc in cur.description]
+                    return dict(zip(cur._column_names, row))
                 return row
             
             def fetchall_dict():
                 rows = original_fetchall()
                 if not rows or not cur.description:
                     return rows
+                # Extract column names once
                 columns = [desc[0] for desc in cur.description]
                 return [dict(zip(columns, row)) for row in rows]
             

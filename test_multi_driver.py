@@ -248,7 +248,7 @@ if __name__ == '__main__':
     try:
         # Check if DATABASE_URL is set
         if not os.environ.get('DATABASE_URL') and not os.environ.get('SUPABASE_DB_URL'):
-            print(f"{YELLOW}WARNING: DATABASE_URL not set, some tests may be limited{RESET}")
+            print(f"{YELLOW}WARNING: DATABASE_URL or SUPABASE_DB_URL not set, some tests may be limited{RESET}")
             print(f"{YELLOW}These are structural tests that don't require DB connection{RESET}\n")
         
         exit_code = run_all_tests()

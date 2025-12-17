@@ -179,11 +179,12 @@ def test_pg8000_fallback():
         return False
     finally:
         # Clean up blocker from meta_path if it's still there
-        try:
-            if blocker in sys.meta_path:
-                sys.meta_path.remove(blocker)
-        except:
-            pass
+        if 'blocker' in locals():
+            try:
+                if blocker in sys.meta_path:
+                    sys.meta_path.remove(blocker)
+            except Exception:
+                pass
 
 
 def test_no_driver_error():
@@ -235,11 +236,12 @@ def test_no_driver_error():
         return False
     finally:
         # Clean up blocker from meta_path if it's still there
-        try:
-            if blocker in sys.meta_path:
-                sys.meta_path.remove(blocker)
-        except:
-            pass
+        if 'blocker' in locals():
+            try:
+                if blocker in sys.meta_path:
+                    sys.meta_path.remove(blocker)
+            except Exception:
+                pass
 
 
 def run_all_tests():
