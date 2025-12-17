@@ -1034,6 +1034,7 @@ def migrate_db():
             add_column_if_not_exists(table_name, col_name, col_type)
     
     # --- Add UNIQUE constraint on settings(key, tenant_id) ---
+    conn = None
     try:
         conn = get_db()
         cur = conn.cursor()
@@ -1047,8 +1048,11 @@ def migrate_db():
             AND constraint_name = 'settings_key_tenant_id_unique'
         """)
         
-        if not cur.fetchone():
+        constraint_exists = cur.fetchone() is not None
+        
+        if not constraint_exists:
             # First, remove duplicates keeping the most recent (highest id)
+            duplicate_removal_success = True
             try:
                 cur.execute("""
                     DELETE FROM settings a USING settings b
@@ -1063,36 +1067,34 @@ def migrate_db():
             except Exception as e:
                 print(f"⚠️  Error removing duplicates: {e}")
                 conn.rollback()
-                # If we can't remove duplicates, we can't add the unique constraint
-                # Don't proceed with constraint creation as it will fail
-                conn.close()
-                return
+                duplicate_removal_success = False
             
-            # Add the UNIQUE constraint
-            try:
-                cur.execute("""
-                    ALTER TABLE settings 
-                    ADD CONSTRAINT settings_key_tenant_id_unique 
-                    UNIQUE (key, tenant_id)
-                """)
-                conn.commit()
-                print("✅ UNIQUE constraint added on settings(key, tenant_id)")
-            except Exception as e:
-                print(f"⚠️  Error adding UNIQUE constraint: {e}")
-                conn.rollback()
-                conn.close()
-                return
+            # Add the UNIQUE constraint only if duplicate removal succeeded
+            if duplicate_removal_success:
+                try:
+                    cur.execute("""
+                        ALTER TABLE settings 
+                        ADD CONSTRAINT settings_key_tenant_id_unique 
+                        UNIQUE (key, tenant_id)
+                    """)
+                    conn.commit()
+                    print("✅ UNIQUE constraint added on settings(key, tenant_id)")
+                except Exception as e:
+                    print(f"⚠️  Error adding UNIQUE constraint: {e}")
+                    conn.rollback()
+            else:
+                print("⚠️  Skipping UNIQUE constraint creation due to duplicate removal failure")
         else:
             print("ℹ️  UNIQUE constraint on settings(key, tenant_id) already exists")
-        
-        conn.close()
     except Exception as e:
         print(f"⚠️  Error in settings constraint migration: {e}")
-        # Don't block migration if constraint management fails
-        try:
-            conn.close()
-        except:
-            pass
+    finally:
+        # Ensure connection is always closed
+        if conn is not None:
+            try:
+                conn.close()
+            except:
+                pass
     
     try:
         print("Migration terminée: OK")
