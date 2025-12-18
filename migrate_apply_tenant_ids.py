@@ -565,7 +565,6 @@ class TenantMigrationAuditor:
                     
                 except Exception as e:
                     self.log_error(f"Erreur lors du traitement du site {site_data['id']}: {e}")
-                    import traceback
                     traceback.print_exc()
         
         return True
@@ -689,7 +688,6 @@ def main():
         
     except Exception as e:
         print(f"\n❌ ERREUR FATALE: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
 
