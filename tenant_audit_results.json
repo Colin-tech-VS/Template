@@ -1,7 +1,7 @@
 {
   "total_queries": 131,
-  "queries_with_tenant": 97,
-  "queries_without_tenant": 34,
+  "queries_with_tenant": 128,
+  "queries_without_tenant": 3,
   "issues": [
     {
       "line": 86,
@@ -13,308 +13,7 @@
       "severity": "MEDIUM"
     },
     {
-      "line": 1071,
-      "route": "/webhook/stripe",
-      "function": "get_new_notifications_count",
-      "operation": "SELECT",
-      "tables": [
-        "notifications"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1610,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id FROM users WHERE email=?\"), (email,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1616,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT COUNT(*) as count FROM users\"))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1622,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users"
-      ],
-      "query_preview": "c.execute(adapt_query(\"INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)\")",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1626,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users",
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)\")",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1630,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users",
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id FROM users WHERE email=?\"), (email,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1635,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "SELECT",
-      "tables": [
-        "users",
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id FROM saas_sites WHERE sandbox_url LIKE ?\"),",
-      "severity": "HIGH"
-    },
-    {
-      "line": 1641,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "INSERT",
-      "tables": [
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"UPDATE saas_sites SET user_id=?, status=? WHERE id=?\"),",
-      "severity": "MEDIUM"
-    },
-    {
-      "line": 1644,
-      "route": "/api/register-preview",
-      "function": "api_register_preview",
-      "operation": "INSERT",
-      "tables": [
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"INSERT INTO saas_sites (user_id, sandbox_url, status) VALUES (?, ?, ?)\"),",
-      "severity": "MEDIUM"
-    },
-    {
-      "line": 2023,
-      "route": "/expo_detail/<int:expo_id>",
-      "function": "expo_detail_page",
-      "operation": "SELECT",
-      "tables": [
-        "exhibitions"
-      ],
-      "query_preview": "c.execute(adapt_query(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 2801,
-      "route": "/orders",
-      "function": "orders",
-      "operation": "SELECT",
-      "tables": [
-        "orders"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 2813,
-      "route": "/orders",
-      "function": "orders",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "orders",
-        "order_items"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3226,
-      "route": "/painting/<int:painting_id>",
-      "function": "painting_detail",
-      "operation": "SELECT",
-      "tables": [
-        "paintings"
-      ],
-      "query_preview": "c.execute(query, (painting_id,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3267,
-      "route": "/painting/<int:painting_id>",
-      "function": "painting_detail",
-      "operation": "SELECT",
-      "tables": [
-        "paintings"
-      ],
-      "query_preview": "c.execute(query_similar, (painting_dict['category'], painting_id))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3276,
-      "route": "/painting/<int:painting_id>",
-      "function": "painting_detail",
-      "operation": null,
-      "tables": [
-        "paintings"
-      ],
-      "query_preview": "c.execute(query_similar, (painting_id,))",
-      "severity": "MEDIUM"
-    },
-    {
-      "line": 3358,
-      "route": "/profile",
-      "function": "profile",
-      "operation": "SELECT",
-      "tables": [
-        "users"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id, name, email, create_date FROM users WHERE id=?\"), (user_id,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3366,
-      "route": "/profile",
-      "function": "profile",
-      "operation": "SELECT",
-      "tables": [
-        "orders"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3379,
-      "route": "/profile",
-      "function": "profile",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "orders",
-        "order_items"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3395,
-      "route": "/profile",
-      "function": "profile",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "favorites"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3695,
-      "route": "/admin",
-      "function": "admin_dashboard",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "orders"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3717,
-      "route": "/admin",
-      "function": "admin_dashboard",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "order_items"
-      ],
-      "query_preview": "c.execute(adapt_query(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3742,
-      "route": "/admin",
-      "function": "admin_dashboard",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "favorites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3767,
-      "route": "/admin",
-      "function": "admin_dashboard",
-      "operation": "SELECT",
-      "tables": [
-        "notifications"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 3991,
-      "route": "/admin/orders",
-      "function": "admin_orders",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "orders",
-        "order_items"
-      ],
-      "query_preview": "c.execute(adapt_query(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 4005,
-      "route": "/admin/orders",
-      "function": "admin_orders",
-      "operation": "SELECT",
-      "tables": [
-        "orders"
-      ],
-      "query_preview": "c.execute(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 4017,
-      "route": "/admin/orders",
-      "function": "admin_orders",
-      "operation": "SELECT",
-      "tables": [
-        "paintings",
-        "orders",
-        "order_items"
-      ],
-      "query_preview": "c.execute(adapt_query(\"\"\"",
-      "severity": "HIGH"
-    },
-    {
-      "line": 4252,
+      "line": 4277,
       "route": "/admin/users",
       "function": "admin_users",
       "operation": null,
@@ -326,7 +25,7 @@
       "severity": "MEDIUM"
     },
     {
-      "line": 4290,
+      "line": 4319,
       "route": "/admin/users/export",
       "function": "export_users",
       "operation": null,
@@ -334,62 +33,6 @@
         "users"
       ],
       "query_preview": "c.execute(query, params)",
-      "severity": "MEDIUM"
-    },
-    {
-      "line": 4373,
-      "route": "/admin/send_email_role",
-      "function": "send_email_role",
-      "operation": "SELECT",
-      "tables": [
-        "users"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT email FROM users WHERE role=?\"), (role,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 5332,
-      "route": "/api/export/regenerate-key",
-      "function": "_get_user_info",
-      "operation": "SELECT",
-      "tables": [
-        "users",
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id, name, email FROM users WHERE id=?\"), (user_id,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 5341,
-      "route": "/api/export/regenerate-key",
-      "function": "_saas_upsert",
-      "operation": "SELECT",
-      "tables": [
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(\"SELECT id FROM saas_sites WHERE user_id=?\"), (user_id,))",
-      "severity": "HIGH"
-    },
-    {
-      "line": 5348,
-      "route": "/api/export/regenerate-key",
-      "function": "_saas_upsert",
-      "operation": "INSERT",
-      "tables": [
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(f\"UPDATE saas_sites SET {set_clause} WHERE user_id=?\"), values)",
-      "severity": "MEDIUM"
-    },
-    {
-      "line": 5353,
-      "route": "/api/export/regenerate-key",
-      "function": "_saas_upsert",
-      "operation": "INSERT",
-      "tables": [
-        "saas_sites"
-      ],
-      "query_preview": "c.execute(adapt_query(f\"INSERT INTO saas_sites ({','.join(cols)}) VALUES ({placeholders})\"), values)",
       "severity": "MEDIUM"
     }
   ],
@@ -431,20 +74,8 @@
     },
     "/webhook/stripe": {
       "queries": 18,
-      "with_tenant": 17,
-      "issues": [
-        {
-          "line": 1071,
-          "route": "/webhook/stripe",
-          "function": "get_new_notifications_count",
-          "operation": "SELECT",
-          "tables": [
-            "notifications"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 18,
+      "issues": []
     },
     "/": {
       "queries": 2,
@@ -468,100 +99,8 @@
     },
     "/api/register-preview": {
       "queries": 8,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 1610,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id FROM users WHERE email=?\"), (email,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1616,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT COUNT(*) as count FROM users\"))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1622,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users"
-          ],
-          "query_preview": "c.execute(adapt_query(\"INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)\")",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1626,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users",
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)\")",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1630,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users",
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id FROM users WHERE email=?\"), (email,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1635,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "SELECT",
-          "tables": [
-            "users",
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id FROM saas_sites WHERE sandbox_url LIKE ?\"),",
-          "severity": "HIGH"
-        },
-        {
-          "line": 1641,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "INSERT",
-          "tables": [
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"UPDATE saas_sites SET user_id=?, status=? WHERE id=?\"),",
-          "severity": "MEDIUM"
-        },
-        {
-          "line": 1644,
-          "route": "/api/register-preview",
-          "function": "api_register_preview",
-          "operation": "INSERT",
-          "tables": [
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"INSERT INTO saas_sites (user_id, sandbox_url, status) VALUES (?, ?, ?)\"),",
-          "severity": "MEDIUM"
-        }
-      ]
+      "with_tenant": 8,
+      "issues": []
     },
     "/api/login-preview": {
       "queries": 3,
@@ -600,20 +139,8 @@
     },
     "/expo_detail/<int:expo_id>": {
       "queries": 1,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 2023,
-          "route": "/expo_detail/<int:expo_id>",
-          "function": "expo_detail_page",
-          "operation": "SELECT",
-          "tables": [
-            "exhibitions"
-          ],
-          "query_preview": "c.execute(adapt_query(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 1,
+      "issues": []
     },
     "/admin/custom-requests": {
       "queries": 7,
@@ -687,33 +214,8 @@
     },
     "/orders": {
       "queries": 2,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 2801,
-          "route": "/orders",
-          "function": "orders",
-          "operation": "SELECT",
-          "tables": [
-            "orders"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 2813,
-          "route": "/orders",
-          "function": "orders",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "orders",
-            "order_items"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 2,
+      "issues": []
     },
     "/admin/add": {
       "queries": 6,
@@ -742,42 +244,8 @@
     },
     "/painting/<int:painting_id>": {
       "queries": 3,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 3226,
-          "route": "/painting/<int:painting_id>",
-          "function": "painting_detail",
-          "operation": "SELECT",
-          "tables": [
-            "paintings"
-          ],
-          "query_preview": "c.execute(query, (painting_id,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3267,
-          "route": "/painting/<int:painting_id>",
-          "function": "painting_detail",
-          "operation": "SELECT",
-          "tables": [
-            "paintings"
-          ],
-          "query_preview": "c.execute(query_similar, (painting_dict['category'], painting_id))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3276,
-          "route": "/painting/<int:painting_id>",
-          "function": "painting_detail",
-          "operation": null,
-          "tables": [
-            "paintings"
-          ],
-          "query_preview": "c.execute(query_similar, (painting_id,))",
-          "severity": "MEDIUM"
-        }
-      ]
+      "with_tenant": 3,
+      "issues": []
     },
     "/contact": {
       "queries": 0,
@@ -786,56 +254,8 @@
     },
     "/profile": {
       "queries": 4,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 3358,
-          "route": "/profile",
-          "function": "profile",
-          "operation": "SELECT",
-          "tables": [
-            "users"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id, name, email, create_date FROM users WHERE id=?\"), (user_id,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3366,
-          "route": "/profile",
-          "function": "profile",
-          "operation": "SELECT",
-          "tables": [
-            "orders"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3379,
-          "route": "/profile",
-          "function": "profile",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "orders",
-            "order_items"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3395,
-          "route": "/profile",
-          "function": "profile",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "favorites"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 4,
+      "issues": []
     },
     "/download_invoice/<int:order_id>": {
       "queries": 0,
@@ -859,56 +279,8 @@
     },
     "/admin": {
       "queries": 9,
-      "with_tenant": 5,
-      "issues": [
-        {
-          "line": 3695,
-          "route": "/admin",
-          "function": "admin_dashboard",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "orders"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3717,
-          "route": "/admin",
-          "function": "admin_dashboard",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "order_items"
-          ],
-          "query_preview": "c.execute(adapt_query(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3742,
-          "route": "/admin",
-          "function": "admin_dashboard",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "favorites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 3767,
-          "route": "/admin",
-          "function": "admin_dashboard",
-          "operation": "SELECT",
-          "tables": [
-            "notifications"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 9,
+      "issues": []
     },
     "/admin/api-export": {
       "queries": 0,
@@ -937,46 +309,8 @@
     },
     "/admin/orders": {
       "queries": 3,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 3991,
-          "route": "/admin/orders",
-          "function": "admin_orders",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "orders",
-            "order_items"
-          ],
-          "query_preview": "c.execute(adapt_query(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 4005,
-          "route": "/admin/orders",
-          "function": "admin_orders",
-          "operation": "SELECT",
-          "tables": [
-            "orders"
-          ],
-          "query_preview": "c.execute(\"\"\"",
-          "severity": "HIGH"
-        },
-        {
-          "line": 4017,
-          "route": "/admin/orders",
-          "function": "admin_orders",
-          "operation": "SELECT",
-          "tables": [
-            "paintings",
-            "orders",
-            "order_items"
-          ],
-          "query_preview": "c.execute(adapt_query(\"\"\"",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 3,
+      "issues": []
     },
     "/order/<int:order_id>": {
       "queries": 2,
@@ -998,7 +332,7 @@
       "with_tenant": 0,
       "issues": [
         {
-          "line": 4252,
+          "line": 4277,
           "route": "/admin/users",
           "function": "admin_users",
           "operation": null,
@@ -1016,7 +350,7 @@
       "with_tenant": 0,
       "issues": [
         {
-          "line": 4290,
+          "line": 4319,
           "route": "/admin/users/export",
           "function": "export_users",
           "operation": null,
@@ -1035,20 +369,8 @@
     },
     "/admin/send_email_role": {
       "queries": 1,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 4373,
-          "route": "/admin/send_email_role",
-          "function": "send_email_role",
-          "operation": "SELECT",
-          "tables": [
-            "users"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT email FROM users WHERE role=?\"), (role,))",
-          "severity": "HIGH"
-        }
-      ]
+      "with_tenant": 1,
+      "issues": []
     },
     "/dynamic-colors.css": {
       "queries": 0,
@@ -1122,54 +444,8 @@
     },
     "/api/export/regenerate-key": {
       "queries": 4,
-      "with_tenant": 0,
-      "issues": [
-        {
-          "line": 5332,
-          "route": "/api/export/regenerate-key",
-          "function": "_get_user_info",
-          "operation": "SELECT",
-          "tables": [
-            "users",
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id, name, email FROM users WHERE id=?\"), (user_id,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 5341,
-          "route": "/api/export/regenerate-key",
-          "function": "_saas_upsert",
-          "operation": "SELECT",
-          "tables": [
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(\"SELECT id FROM saas_sites WHERE user_id=?\"), (user_id,))",
-          "severity": "HIGH"
-        },
-        {
-          "line": 5348,
-          "route": "/api/export/regenerate-key",
-          "function": "_saas_upsert",
-          "operation": "INSERT",
-          "tables": [
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(f\"UPDATE saas_sites SET {set_clause} WHERE user_id=?\"), values)",
-          "severity": "MEDIUM"
-        },
-        {
-          "line": 5353,
-          "route": "/api/export/regenerate-key",
-          "function": "_saas_upsert",
-          "operation": "INSERT",
-          "tables": [
-            "saas_sites"
-          ],
-          "query_preview": "c.execute(adapt_query(f\"INSERT INTO saas_sites ({','.join(cols)}) VALUES ({placeholders})\"), values)",
-          "severity": "MEDIUM"
-        }
-      ]
+      "with_tenant": 4,
+      "issues": []
     },
     "/saas/apply": {
       "queries": 0,
@@ -1220,8 +496,8 @@
   "by_table": {
     "notifications": {
       "total": 10,
-      "with_tenant": 7,
-      "without_tenant": 3
+      "with_tenant": 9,
+      "without_tenant": 1
     },
     "carts": {
       "total": 19,
@@ -1230,8 +506,8 @@
     },
     "users": {
       "total": 28,
-      "with_tenant": 17,
-      "without_tenant": 11
+      "with_tenant": 26,
+      "without_tenant": 2
     },
     "cart_items": {
       "total": 18,
@@ -1240,18 +516,18 @@
     },
     "paintings": {
       "total": 33,
-      "with_tenant": 22,
-      "without_tenant": 11
+      "with_tenant": 33,
+      "without_tenant": 0
     },
     "saas_sites": {
-      "total": 9,
-      "with_tenant": 0,
-      "without_tenant": 9
+      "total": 8,
+      "with_tenant": 8,
+      "without_tenant": 0
     },
     "exhibitions": {
       "total": 8,
-      "with_tenant": 7,
-      "without_tenant": 1
+      "with_tenant": 8,
+      "without_tenant": 0
     },
     "custom_requests": {
       "total": 12,
@@ -1260,18 +536,18 @@
     },
     "orders": {
       "total": 21,
-      "with_tenant": 13,
-      "without_tenant": 8
+      "with_tenant": 21,
+      "without_tenant": 0
     },
     "order_items": {
       "total": 8,
-      "with_tenant": 3,
-      "without_tenant": 5
+      "with_tenant": 8,
+      "without_tenant": 0
     },
     "favorites": {
       "total": 7,
-      "with_tenant": 5,
-      "without_tenant": 2
+      "with_tenant": 7,
+      "without_tenant": 0
     }
   }
 }
