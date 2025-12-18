@@ -103,6 +103,20 @@ except Exception as e:
     print(f"❌ Erreur parsing DATABASE_URL: {e}")
     raise
 
+def get_driver_config():
+    """
+    Returns driver-specific connection configuration.
+    pg8000 doesn't support 'sslmode' parameter, so we filter it out.
+    psycopg2 and psycopg3 support 'sslmode'.
+    """
+    if DRIVER == "pg8000":
+        # pg8000 doesn't support sslmode - remove it from config
+        config = {k: v for k, v in DB_CONFIG.items() if k != 'sslmode'}
+        return config
+    else:
+        # psycopg2 and psycopg3 support sslmode
+        return DB_CONFIG
+
 IS_POSTGRES = True
 
 # =========================================
@@ -129,7 +143,7 @@ def init_connection_pool(minconn=1, maxconn=5):
             CONNECTION_POOL = psycopg2.pool.ThreadedConnectionPool(
                 minconn=minconn,
                 maxconn=maxconn,
-                **DB_CONFIG
+                **get_driver_config()
             )
             print(f"✅ psycopg2 ThreadedConnectionPool initialisé: {minconn}-{maxconn} connexions")
 
@@ -175,11 +189,11 @@ def get_pool_connection():
                     return conn
 
                 if len(CONNECTION_POOL['in_use']) < CONNECTION_POOL['max_size']:
-                    conn = pg8000.dbapi.connect(**DB_CONFIG)
+                    conn = pg8000.dbapi.connect(**get_driver_config())
                     CONNECTION_POOL['in_use'].add(id(conn))
                     return conn
 
-            conn = pg8000.dbapi.connect(**DB_CONFIG)
+            conn = pg8000.dbapi.connect(**get_driver_config())
             return conn
 
         except Exception as e:
