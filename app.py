@@ -63,6 +63,7 @@ import requests
 import re
 import urllib.parse
 import hmac
+import traceback
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -5765,6 +5766,104 @@ def api_register_site_saas():
 # AUTO-REGISTRATION AU CHARGEMENT DU MODULE
 # (Compatible avec Gunicorn)
 # ================================
+
+def register_site_to_dashboard():
+    """
+    Enregistre automatiquement ce site au dashboard central.
+    Appelée au démarrage si enable_auto_registration est activé.
+    """
+    try:
+        # Vérifier si l'auto-registration est activée
+        if get_setting("enable_auto_registration") != "true":
+            print("[AUTO-REG] Auto-registration désactivée")
+            return
+        
+        # Vérifier si déjà enregistré
+        dashboard_id = get_setting("dashboard_id")
+        if dashboard_id:
+            print(f"[AUTO-REG] Site déjà enregistré avec ID {dashboard_id}")
+            return
+        
+        # Récupérer ou générer la clé API d'export
+        api_key = get_setting("export_api_key")
+        if not api_key:
+            api_key = secrets.token_urlsafe(32)
+            set_setting("export_api_key", api_key)
+            print("[AUTO-REG] Nouvelle clé API générée")
+        
+        # Déterminer l'URL du site
+        site_url = None
+        
+        # 1. Essayer depuis les variables d'environnement
+        site_url = os.getenv('SITE_URL') or os.getenv('APP_URL') or os.getenv('PUBLIC_URL')
+        
+        # 2. Essayer depuis la table tenants (utiliser le premier tenant non-default)
+        if not site_url:
+            try:
+                conn = get_db()
+                cur = conn.cursor()
+                # Récupérer le premier tenant qui n'est pas localhost
+                cur.execute(adapt_query("SELECT host FROM tenants WHERE host NOT LIKE '%localhost%' AND host NOT LIKE '%127.0.0.1%' LIMIT 1"))
+                result = cur.fetchone()
+                conn.close()
+                if result:
+                    host = safe_row_get(result, 'host', index=0)
+                    if host:
+                        site_url = f"https://{host}"
+            except Exception as e:
+                print(f"[AUTO-REG] Erreur lecture tenants: {e}")
+        
+        # 3. Essayer depuis les settings
+        if not site_url:
+            stored_url = get_setting("site_url")
+            if stored_url:
+                site_url = stored_url
+        
+        if not site_url:
+            print("[AUTO-REG] ⚠️ Impossible de déterminer l'URL du site")
+            return
+        
+        # Récupérer le nom du site
+        site_name = get_setting("site_name") or "Site Template"
+        
+        # Préparer les données pour le dashboard
+        dashboard_data = {
+            "site_name": site_name,
+            "site_url": site_url,
+            "api_key": api_key,
+            "auto_registered": True
+        }
+        
+        # Envoyer au dashboard
+        dashboard_url = f"{get_dashboard_base_url()}/api/sites/register"
+        print(f"[AUTO-REG] Enregistrement du site: {site_url}")
+        
+        try:
+            response = requests.post(dashboard_url, json=dashboard_data, timeout=15)
+            
+            if response.status_code == 200:
+                result = response.json()
+                site_id = result.get("site_id")
+                
+                if site_id:
+                    # Stocker l'ID du dashboard
+                    set_setting("dashboard_id", str(site_id))
+                    print(f"[AUTO-REG] ✅ Site enregistré avec succès (ID: {site_id})")
+                else:
+                    print("[AUTO-REG] ⚠️ Réponse du dashboard sans site_id")
+            else:
+                print(f"[AUTO-REG] ⚠️ Erreur dashboard: {response.status_code} - {response.text[:200]}")
+        except requests.exceptions.Timeout:
+            print(f"[AUTO-REG] ⚠️ Timeout lors de la connexion au dashboard: {dashboard_url}")
+        except requests.exceptions.ConnectionError:
+            print(f"[AUTO-REG] ⚠️ Impossible de se connecter au dashboard: {dashboard_url}")
+        except requests.exceptions.RequestException as e:
+            print(f"[AUTO-REG] ⚠️ Erreur réseau lors de l'enregistrement: {e}")
+    
+    except Exception as e:
+        print(f"[AUTO-REG] ⚠️ Erreur lors de l'enregistrement: {e}")
+        traceback.print_exc()
+
 
 def init_auto_registration():
     """
