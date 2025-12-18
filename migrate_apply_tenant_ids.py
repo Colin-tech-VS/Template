@@ -16,7 +16,9 @@ RÈGLES STRICTES:
 import os
 import sys
 import json
+import traceback
 from datetime import datetime
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
@@ -144,7 +146,6 @@ class TenantMigrationAuditor:
         if sandbox_url and not candidates:
             try:
                 # Extraire le domaine de l'URL sandbox
-                from urllib.parse import urlparse
                 parsed = urlparse(sandbox_url)
                 sandbox_host = parsed.netloc or parsed.path
                 if sandbox_host:
@@ -220,53 +221,6 @@ class TenantMigrationAuditor:
             self.log_error(f"Erreur lors de la récupération des sites: {e}")
             raise
     
-    def update_table_tenant_id(self, conn, table_name, old_tenant_id, new_tenant_id, site_id=None):
-        """
-        Met à jour les tenant_id dans une table spécifique.
-        RÈGLE 5: Ne modifier QUE le tenant_id, rien d'autre.
-        """
-        cursor = conn.cursor()
-        
-        try:
-            # Compter les lignes à mettre à jour
-            if site_id and table_name == 'saas_sites':
-                # Pour saas_sites, filtrer par id du site
-                count_query = f"SELECT COUNT(*) FROM {table_name} WHERE id = %s AND tenant_id = %s"
-                cursor.execute(count_query, (site_id, old_tenant_id))
-            elif old_tenant_id is not None:
-                count_query = f"SELECT COUNT(*) FROM {table_name} WHERE tenant_id = %s"
-                cursor.execute(count_query, (old_tenant_id,))
-            else:
-                # Pour les données sans tenant_id défini
-                count_query = f"SELECT COUNT(*) FROM {table_name} WHERE tenant_id IS NULL OR tenant_id = 1"
-                cursor.execute(count_query)
-            
-            result = cursor.fetchone()
-            count = result[0] if isinstance(result, (list, tuple)) else result.get('count', 0)
-            
-            if count == 0:
-                return 0
-            
-            # Mettre à jour les tenant_id
-            if not self.dry_run:
-                if site_id and table_name == 'saas_sites':
-                    update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE id = %s AND tenant_id = %s"
-                    cursor.execute(update_query, (new_tenant_id, site_id, old_tenant_id))
-                elif old_tenant_id is not None:
-                    update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE tenant_id = %s"
-                    cursor.execute(update_query, (new_tenant_id, old_tenant_id))
-                else:
-                    update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE tenant_id IS NULL OR tenant_id = 1"
-                    cursor.execute(update_query, (new_tenant_id,))
-                
-                conn.commit()
-            
-            return count
-            
-        except Exception as e:
-            conn.rollback()
-            self.log_error(f"Erreur mise à jour table {table_name}: {e}")
-            raise
     
     def apply_tenant_to_site_data(self, conn, site_data, tenant_match):
         """
@@ -329,7 +283,7 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'saas_sites', 
-                f"id = {site_id}",
+                "id = %s", [site_id],
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -349,7 +303,7 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'users',
-                f"id = {user_id}",
+                "id = %s", [user_id],
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -373,7 +327,7 @@ class TenantMigrationAuditor:
         for table_name, user_column in user_linked_tables:
             try:
                 # Vérifier si la colonne existe
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT column_name 
                     FROM information_schema.columns 
                     WHERE table_name = %s AND column_name = %s
@@ -384,14 +338,14 @@ class TenantMigrationAuditor:
                     # (cas des paintings qui appartiennent au site, pas forcément à un user spécifique)
                     rows_updated = self.update_site_specific_data(
                         cursor, conn, table_name,
-                        None,  # Pas de condition spécifique, juste par tenant_id
+                        None, None,  # Pas de condition spécifique, juste par tenant_id
                         current_tenant_id, new_tenant_id
                     )
                 else:
-                    # Mettre à jour par user_id
+                    # Mettre à jour par user_id avec paramètres
                     rows_updated = self.update_site_specific_data(
                         cursor, conn, table_name,
-                        f"{user_column} = {user_id}",
+                        f"{user_column} = %s", [user_id],
                         current_tenant_id, new_tenant_id
                     )
                 
@@ -406,7 +360,8 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'cart_items',
-                f"cart_id IN (SELECT id FROM carts WHERE user_id = {user_id} AND tenant_id = {current_tenant_id})",
+                "cart_id IN (SELECT id FROM carts WHERE user_id = %s AND tenant_id = %s)",
+                [user_id, current_tenant_id],
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -420,7 +375,8 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'order_items',
-                f"order_id IN (SELECT id FROM orders WHERE user_id = {user_id} AND tenant_id = {current_tenant_id})",
+                "order_id IN (SELECT id FROM orders WHERE user_id = %s AND tenant_id = %s)",
+                [user_id, current_tenant_id],
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -434,7 +390,7 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'exhibitions',
-                None,
+                None, None,
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -448,7 +404,7 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'settings',
-                None,
+                None, None,
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -462,7 +418,7 @@ class TenantMigrationAuditor:
         try:
             rows_updated = self.update_site_specific_data(
                 cursor, conn, 'stripe_events',
-                None,
+                None, None,
                 current_tenant_id, new_tenant_id
             )
             if rows_updated > 0:
@@ -482,10 +438,23 @@ class TenantMigrationAuditor:
         self.audit_report['sites_processed'].append(site_report)
         return site_report
     
-    def update_site_specific_data(self, cursor, conn, table_name, where_clause, old_tenant_id, new_tenant_id):
+    def update_site_specific_data(self, cursor, conn, table_name, where_conditions, where_params, old_tenant_id, new_tenant_id):
         """
         Met à jour les tenant_id dans une table avec une clause WHERE spécifique.
+        
+        Args:
+            cursor: Database cursor
+            conn: Database connection
+            table_name: Name of the table (must be in whitelist)
+            where_conditions: WHERE clause conditions (without tenant_id) or None
+            where_params: Parameters for the WHERE clause (tuple/list) or None
+            old_tenant_id: Old tenant_id value
+            new_tenant_id: New tenant_id value
         """
+        # Whitelist of allowed table names
+        if table_name not in TABLES_WITH_TENANT_ID:
+            raise ValueError(f"Table {table_name} is not allowed for tenant migration")
+        
         try:
             # Vérifier si la table existe
             cursor.execute("""
@@ -497,10 +466,11 @@ class TenantMigrationAuditor:
             if not cursor.fetchone():
                 return 0
             
-            # Construire la requête de comptage
-            if where_clause:
-                count_query = f"SELECT COUNT(*) FROM {table_name} WHERE ({where_clause}) AND tenant_id = %s"
-                cursor.execute(count_query, (old_tenant_id,))
+            # Construire la requête de comptage avec paramètres
+            if where_conditions:
+                count_query = f"SELECT COUNT(*) FROM {table_name} WHERE ({where_conditions}) AND tenant_id = %s"
+                count_params = list(where_params) + [old_tenant_id]
+                cursor.execute(count_query, tuple(count_params))
             else:
                 count_query = f"SELECT COUNT(*) FROM {table_name} WHERE tenant_id = %s"
                 cursor.execute(count_query, (old_tenant_id,))
@@ -513,9 +483,10 @@ class TenantMigrationAuditor:
             
             # Mettre à jour si pas en dry-run
             if not self.dry_run:
-                if where_clause:
-                    update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE ({where_clause}) AND tenant_id = %s"
-                    cursor.execute(update_query, (new_tenant_id, old_tenant_id))
+                if where_conditions:
+                    update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE ({where_conditions}) AND tenant_id = %s"
+                    update_params = [new_tenant_id] + list(where_params) + [old_tenant_id]
+                    cursor.execute(update_query, tuple(update_params))
                 else:
                     update_query = f"UPDATE {table_name} SET tenant_id = %s WHERE tenant_id = %s"
                     cursor.execute(update_query, (new_tenant_id, old_tenant_id))

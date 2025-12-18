@@ -5,6 +5,7 @@ Script simple pour inspecter l'état actuel des tenants et des données.
 
 import os
 import sys
+import traceback
 from dotenv import load_dotenv
 
 # Charger les variables d'environnement
@@ -19,6 +20,13 @@ if not os.environ.get('SUPABASE_DB_URL') and not os.environ.get('DATABASE_URL'):
     sys.exit(1)
 
 from database import get_db_connection
+
+# Whitelist of tables to inspect
+TABLES_WITH_TENANT = [
+    'users', 'paintings', 'carts', 'cart_items', 'orders', 'order_items',
+    'exhibitions', 'custom_requests', 'notifications', 'favorites',
+    'settings', 'saas_sites', 'stripe_events'
+]
 
 def inspect_database():
     """Inspecte l'état actuel de la base de données"""
@@ -97,13 +105,7 @@ def inspect_database():
             print("\n📊 STATISTIQUES PAR TABLE")
             print("-"*80)
             
-            tables_with_tenant = [
-                'users', 'paintings', 'carts', 'cart_items', 'orders', 'order_items',
-                'exhibitions', 'custom_requests', 'notifications', 'favorites',
-                'settings', 'saas_sites', 'stripe_events'
-            ]
-            
-            for table in tables_with_tenant:
+            for table in TABLES_WITH_TENANT:
                 try:
                     # Vérifier si la table existe
                     cursor.execute("""
@@ -117,12 +119,14 @@ def inspect_database():
                         continue
                     
                     # Compter les lignes par tenant_id
-                    cursor.execute(f"""
+                    # Table name is from whitelist, safe to use in query
+                    query = f"""
                         SELECT tenant_id, COUNT(*) as count 
                         FROM {table} 
                         GROUP BY tenant_id 
                         ORDER BY tenant_id
-                    """)
+                    """
+                    cursor.execute(query)
                     results = cursor.fetchall()
                     
                     if not results:
@@ -149,7 +153,6 @@ def inspect_database():
             
     except Exception as e:
         print(f"\n❌ ERREUR: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
 
