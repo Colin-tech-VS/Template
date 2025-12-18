@@ -928,9 +928,28 @@ def require_api_key(f):
         expected_master = TEMPLATE_MASTER_API_KEY
 
         # allow either master key or stored export_api_key (if set)
+        # For API calls from dashboard, try current tenant first, then default tenant
         stored = None
         try:
+            # First, try to get from current tenant context
             stored = get_setting('export_api_key')
+            # If not found and we have tenant_id support, also check default tenant
+            if not stored:
+                # Check if get_setting has detected tenant_id column
+                if hasattr(get_setting, '_has_tenant_id') and get_setting._has_tenant_id:
+                    # Explicitly query default tenant for export_api_key
+                    conn = get_db()
+                    cur = conn.cursor()
+                    try:
+                        query = adapt_query("SELECT value FROM settings WHERE key = ? AND tenant_id = ?")
+                        cur.execute(query, ('export_api_key', DEFAULT_TENANT_ID))
+                        row = cur.fetchone()
+                        if row:
+                            stored = row['value'] if IS_POSTGRES else row["value"]
+                    except Exception:
+                        pass
+                    finally:
+                        conn.close()
         except Exception:
             stored = None
 
