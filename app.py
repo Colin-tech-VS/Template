@@ -1066,13 +1066,16 @@ def stripe_webhook():
 # Fonction helper pour récupérer le nombre de notifications non lues
 def get_new_notifications_count():
     """Retourne le nombre de notifications admin non lues"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     c.execute("""
         SELECT COUNT(*) as count
         FROM notifications 
-        WHERE user_id IS NULL AND is_read = 0
-    """)
+        WHERE user_id IS NULL AND is_read = 0 AND tenant_id = ?
+    """, (tenant_id,))
     result = c.fetchone()
     count = safe_row_get(result, 'count', index=0, default=0)
     conn.close()
@@ -1601,48 +1604,51 @@ def api_register_preview():
     
     hashed_password = generate_password_hash(password)
     
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     try:
-        print(f"[REGISTER-PREVIEW] Début inscription: {email}")
+        print(f"[REGISTER-PREVIEW] Début inscription: {email} [tenant_id={tenant_id}]")
         
         # check existing email first
-        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+        c.execute(adapt_query("SELECT id FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
         if c.fetchone():
             conn.close()
             print(f"[REGISTER-PREVIEW ERROR] Email déjà utilisé: {email}")
             return jsonify({"success": False, "error": "Email déjà utilisé"}), 409
 
-        c.execute(adapt_query("SELECT COUNT(*) as count FROM users"))
+        c.execute(adapt_query("SELECT COUNT(*) as count FROM users WHERE tenant_id=?"), (tenant_id,))
         count_result = c.fetchone()
         user_count = safe_row_get(count_result, 'count', index=0, default=0)
         is_first_user = (user_count == 0)
         
         if is_first_user:
-            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)")
-                      , (name, email, hashed_password, 'admin'))
-            print(f"[REGISTER-PREVIEW] Premier utilisateur {email} créé avec rôle 'admin'")
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)")
+                      , (name, email, hashed_password, 'admin', tenant_id))
+            print(f"[REGISTER-PREVIEW] Premier utilisateur {email} créé avec rôle 'admin' [tenant_id={tenant_id}]")
         else:
-            c.execute(adapt_query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)")
-                      , (name, email, hashed_password, 'user'))
-            print(f"[REGISTER-PREVIEW] Utilisateur {email} créé avec rôle 'user'")
+            c.execute(adapt_query("INSERT INTO users (name, email, password, role, tenant_id) VALUES (?, ?, ?, ?, ?)")
+                      , (name, email, hashed_password, 'user', tenant_id))
+            print(f"[REGISTER-PREVIEW] Utilisateur {email} créé avec rôle 'user' [tenant_id={tenant_id}]")
 
-        c.execute(adapt_query("SELECT id FROM users WHERE email=?"), (email,))
+        c.execute(adapt_query("SELECT id FROM users WHERE email=? AND tenant_id=?"), (email, tenant_id))
         user_result = c.fetchone()
         user_id = safe_row_get(user_result, 'id', index=0)
         
         current_domain = request.host
-        c.execute(adapt_query("SELECT id FROM saas_sites WHERE sandbox_url LIKE ?"), 
-                 (f"%{current_domain}%",))
+        c.execute(adapt_query("SELECT id FROM saas_sites WHERE sandbox_url LIKE ? AND tenant_id=?"), 
+                 (f"%{current_domain}%", tenant_id))
         existing_site = c.fetchone()
         
         if existing_site:
             site_id = safe_row_get(existing_site, 'id', index=0)
-            c.execute(adapt_query("UPDATE saas_sites SET user_id=?, status=? WHERE id=?"),
-                     (user_id, 'active', site_id))
+            c.execute(adapt_query("UPDATE saas_sites SET user_id=?, status=? WHERE id=? AND tenant_id=?"),
+                     (user_id, 'active', site_id, tenant_id))
         else:
-            c.execute(adapt_query("INSERT INTO saas_sites (user_id, sandbox_url, status) VALUES (?, ?, ?)"),
-                     (user_id, current_domain, 'active'))
+            c.execute(adapt_query("INSERT INTO saas_sites (user_id, sandbox_url, status, tenant_id) VALUES (?, ?, ?, ?)"),
+                     (user_id, current_domain, 'active', tenant_id))
         
         conn.commit()
         conn.close()
@@ -2017,6 +2023,9 @@ def submit_custom_request():
 @app.route("/expo_detail/<int:expo_id>")
 def expo_detail_page(expo_id):
     """Page détail exposition - OPTIMISÉ: colonnes spécifiques"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # OPTIMISÉ: Sélection explicite des colonnes + WHERE sur primary key
@@ -2024,8 +2033,8 @@ def expo_detail_page(expo_id):
         SELECT id, title, location, date, start_time, end_time, description, image, 
                venue_details, organizer, entry_price, contact_info
         FROM exhibitions 
-        WHERE id=%s
-    """), (expo_id,))
+        WHERE id=%s AND tenant_id=%s
+    """), (expo_id, tenant_id))
     expo = c.fetchone()
     conn.close()
     if expo is None:
@@ -2794,6 +2803,9 @@ def orders():
         flash("Vous devez être connecté pour voir vos commandes.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     conn = get_db()
     c = conn.cursor()
 
@@ -2801,9 +2813,9 @@ def orders():
     c.execute("""
         SELECT id, customer_name, email, address, total_price, order_date, status
         FROM orders
-        WHERE user_id=?
+        WHERE user_id=? AND tenant_id=?
         ORDER BY order_date DESC
-    """, (user_id,))
+    """, (user_id, tenant_id))
     orders_list = c.fetchall()
 
     # Récupérer les articles pour chaque commande
@@ -2813,9 +2825,9 @@ def orders():
         c.execute("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
-            JOIN paintings p ON oi.painting_id = p.id
-            WHERE oi.order_id=?
-        """, (order_id,))
+            JOIN paintings p ON oi.painting_id = p.id AND oi.tenant_id = p.tenant_id
+            WHERE oi.order_id=? AND oi.tenant_id=?
+        """, (order_id, tenant_id))
         all_items[order_id] = c.fetchall()
 
     # Normaliser les articles en objets avec attributs pour les templates
@@ -3213,6 +3225,9 @@ def reorder_paintings():
 
 @app.route('/painting/<int:painting_id>')
 def painting_detail(painting_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     
@@ -3221,9 +3236,9 @@ def painting_detail(painting_id):
         SELECT id, name, image, price, quantity, description, description_long,
                dimensions, technique, year, category, status, image_2, image_3, image_4,
                weight, framed, certificate, unique_piece
-        FROM paintings WHERE id = ?
+        FROM paintings WHERE id = ? AND tenant_id = ?
     """)
-    c.execute(query, (painting_id,))
+    c.execute(query, (painting_id, tenant_id))
     painting = c.fetchone()
     
     if not painting:
@@ -3261,19 +3276,19 @@ def painting_detail(painting_id):
         query_similar = adapt_query("""
             SELECT id, name, image, price 
             FROM paintings 
-            WHERE category = ? AND id != ? AND quantity > 0
+            WHERE category = ? AND id != ? AND quantity > 0 AND tenant_id = ?
             LIMIT 4
         """)
-        c.execute(query_similar, (painting_dict['category'], painting_id))
+        c.execute(query_similar, (painting_dict['category'], painting_id, tenant_id))
     else:
         query_similar = adapt_query("""
             SELECT id, name, image, price 
             FROM paintings 
-            WHERE id != ? AND quantity > 0
+            WHERE id != ? AND quantity > 0 AND tenant_id = ?
             ORDER BY RANDOM()
             LIMIT 4
         """)
-        c.execute(query_similar, (painting_id,))
+        c.execute(query_similar, (painting_id, tenant_id))
     
     similar_paintings = c.fetchall()
     conn.close()
@@ -3351,11 +3366,14 @@ def profile():
         flash("Vous devez être connecté pour accéder à votre profil.")
         return redirect(url_for("login"))
 
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+
     conn = get_db()
     c = conn.cursor()
 
     # Récupérer les infos de l'utilisateur connecté
-    c.execute(adapt_query("SELECT id, name, email, create_date FROM users WHERE id=?"), (user_id,))
+    c.execute(adapt_query("SELECT id, name, email, create_date FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
     user = c.fetchone()
     if not user:
         conn.close()
@@ -3366,9 +3384,9 @@ def profile():
     c.execute("""
         SELECT id, customer_name, email, address, total_price, order_date, status
         FROM orders
-        WHERE user_id=?
+        WHERE user_id=? AND tenant_id=?
         ORDER BY order_date DESC
-    """, (user_id,))
+    """, (user_id, tenant_id))
     user_orders = c.fetchall()
 
     # Récupérer les articles pour chaque commande
@@ -3379,9 +3397,9 @@ def profile():
         c.execute("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
-            JOIN paintings p ON oi.painting_id = p.id
-            WHERE oi.order_id=?
-        """, (order_id,))
+            JOIN paintings p ON oi.painting_id = p.id AND oi.tenant_id = p.tenant_id
+            WHERE oi.order_id=? AND oi.tenant_id=?
+        """, (order_id, tenant_id))
         items = c.fetchall()
         all_items[order_id] = items
         order_totals[order_id] = sum(
@@ -3395,11 +3413,11 @@ def profile():
     c.execute("""
         SELECT p.id, p.name, p.image, p.price, p.quantity, p.description
         FROM paintings p
-        JOIN favorites f ON p.id = f.painting_id
-        WHERE f.user_id=?
+        JOIN favorites f ON p.id = f.painting_id AND p.tenant_id = f.tenant_id
+        WHERE f.user_id=? AND f.tenant_id=?
         ORDER BY f.created_date DESC
         LIMIT 6
-    """, (user_id,))
+    """, (user_id, tenant_id))
     favorite_paintings = c.fetchall()
 
     # Formater les commandes pour le template
@@ -3695,9 +3713,9 @@ def admin_dashboard():
     c.execute("""
         SELECT id, name, price, quantity 
         FROM paintings 
-        WHERE quantity <= 0 
+        WHERE quantity <= 0 AND tenant_id = ?
         ORDER BY id DESC
-    """)
+    """, (tenant_id,))
     out_of_stock = c.fetchall()
     # Normalize out_of_stock to tuples (id, name, price, quantity)
     normalized_oos = []
@@ -3717,11 +3735,12 @@ def admin_dashboard():
     c.execute(adapt_query("""
         SELECT p.id, p.name, p.image, p.price, SUM(oi.quantity) as total_sold
         FROM paintings p
-        JOIN order_items oi ON p.id = oi.painting_id
+        JOIN order_items oi ON p.id = oi.painting_id AND p.tenant_id = oi.tenant_id
+        WHERE p.tenant_id = ?
         GROUP BY p.id, p.name, p.image, p.price
         ORDER BY total_sold DESC
         LIMIT 5
-    """))
+    """), (tenant_id,))
     top_selling = c.fetchall()
     # Normalize top_selling to tuples (id, name, image, price, total_sold)
     normalized_top = []
@@ -3742,11 +3761,12 @@ def admin_dashboard():
     c.execute(adapt_query("""
         SELECT p.id, p.name, p.image, p.price, COUNT(f.id) as favorite_count
         FROM paintings p
-        JOIN favorites f ON p.id = f.painting_id
+        JOIN favorites f ON p.id = f.painting_id AND p.tenant_id = f.tenant_id
+        WHERE p.tenant_id = ?
         GROUP BY p.id, p.name, p.image, p.price
         ORDER BY favorite_count DESC
         LIMIT 5
-    """))
+    """), (tenant_id,))
     most_loved = c.fetchall()
     # Normalize most_loved to tuples (id, name, image, price, favorite_count)
     normalized_loved = []
@@ -3767,8 +3787,8 @@ def admin_dashboard():
     c.execute("""
         SELECT COUNT(*) as count
         FROM notifications 
-        WHERE user_id IS NULL AND is_read = 0
-    """)
+        WHERE user_id IS NULL AND is_read = 0 AND tenant_id = ?
+    """, (tenant_id,))
     result = c.fetchone()
     new_notifications_count = safe_row_get(result, 'count', index=0, default=0)
     
@@ -3982,6 +4002,9 @@ def delete_painting(painting_id):
 @require_admin
 def admin_orders():
     """Gestion des commandes avec recherche et filtre par rôle"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     q = request.args.get('q', '').strip().lower()  # récupération du terme de recherche
     conn = get_db()
     c = conn.cursor()
@@ -3991,22 +4014,24 @@ def admin_orders():
         c.execute(adapt_query("""
             SELECT o.id, o.customer_name, o.email, o.address, o.total_price, o.order_date, o.status
             FROM orders o
-            LEFT JOIN order_items oi ON o.id = oi.order_id
-            LEFT JOIN paintings p ON oi.painting_id = p.id
-            WHERE o.id LIKE ? 
+            LEFT JOIN order_items oi ON o.id = oi.order_id AND o.tenant_id = oi.tenant_id
+            LEFT JOIN paintings p ON oi.painting_id = p.id AND oi.tenant_id = p.tenant_id
+            WHERE (o.id LIKE ? 
                OR LOWER(o.customer_name) LIKE ?
                OR LOWER(o.email) LIKE ?
-               OR LOWER(p.name) LIKE ?
+               OR LOWER(p.name) LIKE ?)
+               AND o.tenant_id = ?
             GROUP BY o.id
             ORDER BY o.order_date DESC
-        """), (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"))
+        """), (f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", tenant_id))
     else:
         # Si pas de recherche, tout afficher
         c.execute("""
             SELECT id, customer_name, email, address, total_price, order_date, status 
             FROM orders 
+            WHERE tenant_id = ?
             ORDER BY order_date DESC
-        """)
+        """, (tenant_id,))
 
     orders_list = c.fetchall()
 
@@ -4017,9 +4042,9 @@ def admin_orders():
         c.execute(adapt_query("""
             SELECT oi.painting_id, p.name, p.image, oi.price, oi.quantity
             FROM order_items oi
-            JOIN paintings p ON oi.painting_id = p.id
-            WHERE oi.order_id=?
-        """), (order_id,))
+            JOIN paintings p ON oi.painting_id = p.id AND oi.tenant_id = p.tenant_id
+            WHERE oi.order_id=? AND oi.tenant_id=?
+        """), (order_id, tenant_id))
         all_items[order_id] = c.fetchall()
 
     # Normaliser les commandes en objets avec attributs pour les templates (order.total_price, etc.)
@@ -4262,13 +4287,17 @@ def admin_users():
 @require_admin
 def export_users():
     """Export des utilisateurs filtrés/recherchés au format Excel"""
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     q = request.args.get('q', '').strip().lower()
     role_filter = request.args.get('role')
 
     conn = get_db()
     c = conn.cursor()
 
-    query = "SELECT id, name, email, role, create_date FROM users WHERE 1=1"
+    query = "SELECT id, name, email, role, create_date FROM users WHERE tenant_id=%s"
+    params = [tenant_id]
     params = []
 
     if q:
@@ -4355,6 +4384,9 @@ def update_user_role(user_id):
 @app.route('/admin/send_email_role', methods=['POST'])
 @require_admin
 def send_email_role():
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     role = request.form.get('role')
     subject = request.form.get('subject')
     message_body = request.form.get('message')
@@ -4370,7 +4402,7 @@ def send_email_role():
     # --- Récupérer tous les emails ---
     conn = get_db()
     c = conn.cursor()
-    c.execute(adapt_query("SELECT email FROM users WHERE role=?"), (role,))
+    c.execute(adapt_query("SELECT email FROM users WHERE role=? AND tenant_id=?"), (role, tenant_id))
     emails = [
         (row.get('email') if isinstance(row, dict) else row[0]) 
         for row in c.fetchall()
@@ -5327,29 +5359,35 @@ def regenerate_export_api_key():
 # ================================
 
 def _get_user_info(user_id):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
-    c.execute(adapt_query("SELECT id, name, email FROM users WHERE id=?"), (user_id,))
+    c.execute(adapt_query("SELECT id, name, email FROM users WHERE id=? AND tenant_id=?"), (user_id, tenant_id))
     row = c.fetchone()
     conn.close()
     return row if row else None
 
 def _saas_upsert(user_id, **fields):
+    # MULTI-TENANT: Récupérer tenant_id
+    tenant_id = get_current_tenant_id()
+    
     conn = get_db()
     c = conn.cursor()
     # Check existence
-    c.execute(adapt_query("SELECT id FROM saas_sites WHERE user_id=?"), (user_id,))
+    c.execute(adapt_query("SELECT id FROM saas_sites WHERE user_id=? AND tenant_id=?"), (user_id, tenant_id))
     existing = c.fetchone()
     if existing:
         # Build update dynamically
         keys = list(fields.keys())
         set_clause = ", ".join([f"{k}=?" for k in keys])
-        values = [fields[k] for k in keys] + [user_id]
-        c.execute(adapt_query(f"UPDATE saas_sites SET {set_clause} WHERE user_id=?"), values)
+        values = [fields[k] for k in keys] + [user_id, tenant_id]
+        c.execute(adapt_query(f"UPDATE saas_sites SET {set_clause} WHERE user_id=? AND tenant_id=?"), values)
     else:
-        cols = ["user_id"] + list(fields.keys())
+        cols = ["user_id", "tenant_id"] + list(fields.keys())
         placeholders = ",".join([PARAM_PLACEHOLDER] * len(cols))
-        values = [user_id] + [fields[k] for k in fields.keys()]
+        values = [user_id, tenant_id] + [fields[k] for k in fields.keys()]
         c.execute(adapt_query(f"INSERT INTO saas_sites ({','.join(cols)}) VALUES ({placeholders})"), values)
     conn.commit()
     conn.close()
