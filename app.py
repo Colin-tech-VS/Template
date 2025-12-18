@@ -588,8 +588,37 @@ def get_setting(key, user_id=None):
         key: Clé du paramètre
         user_id: ID de l'utilisateur/site. Si None, utilise la DB centrale
     """
+    # Détection dynamique de la colonne tenant_id (cache pour perf)
+    if not hasattr(get_setting, '_has_tenant_id'):
+        conn = get_db()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT * FROM settings LIMIT 1")
+            colnames = [desc[0] for desc in cur.description]
+            get_setting._has_tenant_id = 'tenant_id' in colnames
+        except Exception:
+            get_setting._has_tenant_id = False
+        finally:
+            conn.close()
+    has_tenant_id = getattr(get_setting, '_has_tenant_id', False)
+    
+    # Determine the tenant_id to use for filtering
+    tenant_id = None
+    if has_tenant_id:
+        if user_id is not None:
+            tenant_id = user_id
+        else:
+            # Use current tenant_id from request context if available
+            try:
+                if has_request_context():
+                    tenant_id = get_current_tenant_id()
+                else:
+                    tenant_id = DEFAULT_TENANT_ID
+            except Exception:
+                tenant_id = DEFAULT_TENANT_ID
+    
     # Simple in-process TTL cache to reduce DB reads for frequently requested settings
-    cache_key = (key, user_id)
+    cache_key = (key, user_id, tenant_id)
     now = time.time()
     cache_entry = SETTINGS_CACHE.get(cache_key)
     if cache_entry:
@@ -605,8 +634,15 @@ def get_setting(key, user_id=None):
 
     conn = get_db(user_id=user_id)
     cur = conn.cursor()
-    query = adapt_query("SELECT value FROM settings WHERE key = ?")
-    cur.execute(query, (key,))
+    
+    # Build query with tenant_id filter if column exists
+    if has_tenant_id and tenant_id is not None:
+        query = adapt_query("SELECT value FROM settings WHERE key = ? AND tenant_id = ?")
+        cur.execute(query, (key, tenant_id))
+    else:
+        query = adapt_query("SELECT value FROM settings WHERE key = ?")
+        cur.execute(query, (key,))
+    
     row = cur.fetchone()
     conn.close()
     if row:
@@ -767,9 +803,12 @@ def set_setting(key, value, user_id=None):
         conn.commit()
     finally:
         conn.close()
-    # Invalidate cache for this setting
+    # Invalidate cache for this setting - need to clear all variants with different tenant_ids
     try:
-        SETTINGS_CACHE.pop((key, user_id), None)
+        # Clear all cache entries for this key
+        keys_to_remove = [k for k in SETTINGS_CACHE.keys() if k[0] == key]
+        for k in keys_to_remove:
+            SETTINGS_CACHE.pop(k, None)
     except Exception:
         pass
 
