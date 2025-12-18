@@ -10,8 +10,8 @@ import tempfile
 import os
 from datetime import datetime
 
-# Import the DateTimeEncoder and TenantMigrationAuditor
-sys.path.insert(0, '/home/runner/work/Template/Template')
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from migrate_apply_tenant_ids import DateTimeEncoder, TenantMigrationAuditor
 
 

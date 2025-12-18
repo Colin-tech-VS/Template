@@ -5,10 +5,11 @@ Test for JSON serialization fix in migrate_apply_tenant_ids.py
 
 import json
 import sys
+import os
 from datetime import datetime
 
-# Import the DateTimeEncoder from the migration script
-sys.path.insert(0, '/home/runner/work/Template/Template')
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from migrate_apply_tenant_ids import DateTimeEncoder
 
 

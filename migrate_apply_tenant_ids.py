@@ -23,7 +23,13 @@ from dotenv import load_dotenv
 
 
 class DateTimeEncoder(json.JSONEncoder):
-    """Custom JSON encoder that handles datetime objects"""
+    """
+    Custom JSON encoder that handles datetime objects.
+    
+    Converts datetime objects to ISO 8601 format strings (e.g., '2023-01-15T10:30:45')
+    for JSON serialization. This allows datetime objects from the database to be
+    included in JSON output without raising TypeError.
+    """
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
