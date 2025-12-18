@@ -21,6 +21,14 @@ from datetime import datetime
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects"""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
 # Charger les variables d'environnement
 load_dotenv()
 
@@ -644,7 +652,7 @@ class TenantMigrationAuditor:
         # Sauvegarder le rapport en JSON
         report_filename = f"tenant_migration_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(report_filename, 'w', encoding='utf-8') as f:
-            json.dump(self.audit_report, f, indent=2, ensure_ascii=False)
+            json.dump(self.audit_report, f, indent=2, ensure_ascii=False, cls=DateTimeEncoder)
         
         print(f"\n💾 Rapport complet sauvegardé dans: {report_filename}")
         print()
