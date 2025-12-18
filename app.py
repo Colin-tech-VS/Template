@@ -63,6 +63,7 @@ import requests
 import re
 import urllib.parse
 import hmac
+import traceback
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -5837,24 +5838,30 @@ def register_site_to_dashboard():
         dashboard_url = f"{get_dashboard_base_url()}/api/sites/register"
         print(f"[AUTO-REG] Enregistrement du site: {site_url}")
         
-        response = requests.post(dashboard_url, json=dashboard_data, timeout=15)
-        
-        if response.status_code == 200:
-            result = response.json()
-            site_id = result.get("site_id")
+        try:
+            response = requests.post(dashboard_url, json=dashboard_data, timeout=15)
             
-            if site_id:
-                # Stocker l'ID du dashboard
-                set_setting("dashboard_id", str(site_id))
-                print(f"[AUTO-REG] ✅ Site enregistré avec succès (ID: {site_id})")
+            if response.status_code == 200:
+                result = response.json()
+                site_id = result.get("site_id")
+                
+                if site_id:
+                    # Stocker l'ID du dashboard
+                    set_setting("dashboard_id", str(site_id))
+                    print(f"[AUTO-REG] ✅ Site enregistré avec succès (ID: {site_id})")
+                else:
+                    print("[AUTO-REG] ⚠️ Réponse du dashboard sans site_id")
             else:
-                print("[AUTO-REG] ⚠️ Réponse du dashboard sans site_id")
-        else:
-            print(f"[AUTO-REG] ⚠️ Erreur dashboard: {response.status_code} - {response.text[:200]}")
+                print(f"[AUTO-REG] ⚠️ Erreur dashboard: {response.status_code} - {response.text[:200]}")
+        except requests.exceptions.Timeout:
+            print(f"[AUTO-REG] ⚠️ Timeout lors de la connexion au dashboard: {dashboard_url}")
+        except requests.exceptions.ConnectionError:
+            print(f"[AUTO-REG] ⚠️ Impossible de se connecter au dashboard: {dashboard_url}")
+        except requests.exceptions.RequestException as e:
+            print(f"[AUTO-REG] ⚠️ Erreur réseau lors de l'enregistrement: {e}")
     
     except Exception as e:
         print(f"[AUTO-REG] ⚠️ Erreur lors de l'enregistrement: {e}")
-        import traceback
         traceback.print_exc()
 
 
