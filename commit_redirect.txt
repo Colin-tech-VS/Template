@@ -1,6 +1,0 @@
-Remove API key display and redirect to production site after launch
-
-- Removed API key section from success page
-- User redirected directly to production site after domain configuration
-- Shows brief "Redirection" message before redirecting
-- Auto-redirect after 2 seconds to production URL

@@ -1,7 +1,0 @@
-Update domain logic: flexible domain configuration
-
-- If user enters "example" -> creates "example.artworksdigital.fr"
-- If user enters "example.com" or "example.fr" -> uses custom domain as-is
-- Real-time preview shows full domain name
-- Updated validation for both simple names and custom domains
-- Help text explains both options

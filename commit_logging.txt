@@ -1,5 +1,0 @@
-Add logging to verify Stripe keys are available after site launch
-
-- Log publishable and secret key availability after registration
-- Helps debug configuration issues in production
-- Keys are centralized and shared across all sites

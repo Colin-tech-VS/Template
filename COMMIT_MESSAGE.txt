@@ -1,5 +1,0 @@
-Fix: Add UnicodeEncodeError handling for emoji output on Windows
-
-- Wrap emoji print statements in try/except blocks
-- Provide ASCII fallback messages for Windows cmd
-- Prevents crash when TEMPLATE_MASTER_API_KEY is loaded

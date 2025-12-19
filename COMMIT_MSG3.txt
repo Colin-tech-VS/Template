@@ -1,5 +1,0 @@
-Add template_settings_stub.py as reference implementation
-
-This file demonstrates the Stripe settings endpoints implementation
-for template sites. It provides a minimal, self-contained example
-with file-based persistence that can be adapted to real databases.
