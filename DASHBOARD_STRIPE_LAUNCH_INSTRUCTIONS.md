@@ -107,5 +107,14 @@ Annexes — endpoints template impliqués
 - PUT `/api/export/settings/stripe_secret_key` — (Auth: `X-API-Key`) => met à jour la clé secrète (ATTENTION : usage restreint)
 - GET `/api/stripe-pk` — renvoie la clé publishable pour le client
 
+Dépannage
+---------
+Pour tout problème de propagation, consultez le guide complet de dépannage:
+- [TROUBLESHOOTING_STRIPE_PROPAGATION.md](./TROUBLESHOOTING_STRIPE_PROPAGATION.md)
+
+Scripts utiles:
+- `python validate_stripe_keys.py --publishable-key pk_...` - Valider le format de la clé
+- `python verify_stripe_propagation.py --sites-file sites.txt` - Vérifier la propagation
+
 ---
 Fichier créé automatiquement pour l'administrateur / intégrateur.
