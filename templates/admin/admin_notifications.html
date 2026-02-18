@@ -34,35 +34,39 @@
         <h2>🔔 Notifications</h2>
 
         {% if notifications %}
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Message</th>
-                    <th>Date</th>
-                    <th>Lu</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for notif in notifications %}
-                <tr class="{% if notif[3] == 0 %}unread{% endif %}">
-                    <td>{{ notif[0] }}</td>
-                    <td>{{ notif[1] }}</td>
-                    <td>{{ notif[4] }}</td>
-                    <td>{{ '✅' if notif[3] else '❌' }}</td>
-                    <td>
-                        {% if notif[3] == 0 %}
-                        <a href="{{ url_for('mark_notification_read', notif_id=notif[0]) }}" class="btn-link btn-success">Marquer lu</a>
-                        {% endif %}
-                        {% if notif[2] %}
-                        <a href="{{ notif[2] }}" class="btn-action btn-primary">Voir</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="admin-panel">
+            <div class="admin-table-wrapper">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Lu</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for notif in notifications %}
+                        <tr class="{% if notif[3] == 0 %}unread{% endif %}">
+                            <td>{{ notif[0] }}</td>
+                            <td>{{ notif[1] }}</td>
+                            <td>{{ notif[4] }}</td>
+                            <td>{{ '✅' if notif[3] else '❌' }}</td>
+                            <td>
+                                {% if notif[3] == 0 %}
+                                <a href="{{ url_for('mark_notification_read', notif_id=notif[0]) }}" class="btn-link btn-success">Marquer lu</a>
+                                {% endif %}
+                                {% if notif[2] %}
+                                <a href="{{ notif[2] }}" class="btn-action btn-primary">Voir</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
         {% else %}
         <p style="text-align:center; color:#999; padding:40px;">Aucune notification pour le moment.</p>
         {% endif %}
@@ -70,16 +74,6 @@
 </section>
 
 <style>
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-.admin-table th, .admin-table td {
-    padding: 10px;
-    border: 1px solid var(--color-primary, #e2e8f0);
-    text-align: left;
-}
 .admin-table tr.unread {
     background-color: rgba(30,58,138,0.05);
     font-weight: 700;
@@ -92,6 +86,7 @@
     text-decoration: none;
     font-size: 13px;
     transition: 0.2s;
+    display: inline-block;
 }
 .btn-success { background-color: #28a745; }
 .btn-success:hover { background-color: #218838; }

@@ -38,6 +38,7 @@ Thumbs.db
 *.tmp
 temp/
 tmp/
+test_*.html
 
 # Scripts de migration (optionnel, décommenter si besoin)
 # replace_sqlite.py

@@ -55,35 +55,34 @@
         </div>
 
         <h2>Articles commandés</h2>
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Produit</th>
-                    <th>Quantité</th>
-                    <th>Prix unitaire</th>
-                    <th>Sous-total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ item[1] }}</td>
-                    <td>{{ item[4] }}</td>
-                    <td>{{ "%.2f"|format(item[3]) }} €</td>
-                    <td>{{ "%.2f"|format(item[3]*item[4]) }} €</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="admin-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Produit</th>
+                        <th>Quantité</th>
+                        <th>Prix unitaire</th>
+                        <th>Sous-total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item[1] }}</td>
+                        <td>{{ item[4] }}</td>
+                        <td>{{ "%.2f"|format(item[3]) }} €</td>
+                        <td>{{ "%.2f"|format(item[3]*item[4]) }} €</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </section>
 
 {% endblock %}
 
 <style>
-.admin-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-.admin-table th, .admin-table td { padding: 10px; border: 1px solid #ddd; text-align: left; }
-
 .order-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-bottom: 20px; }
 
 /* Styles isolés pour les boutons factures et contact */
