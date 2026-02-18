@@ -1190,6 +1190,9 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     }
     
     /* Table responsive wrapper */
+    /* Note: Tables maintain min-width values that may exceed viewport width
+       to preserve all columns and data. Horizontal scrolling is intentional
+       for admin functionality where all data must remain accessible. */
     .admin-table-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
