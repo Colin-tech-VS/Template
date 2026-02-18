@@ -864,6 +864,7 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     transition: all 0.3s ease;
     font-weight: 500;
     cursor: pointer;
+    position: relative;
 }
 
 .nav-btn:hover {
@@ -1192,13 +1193,14 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     .admin-table-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        margin: 0 -20px;
-        padding: 0 20px;
+        margin: 0 -30px;
+        padding: 0 30px;
     }
     
     .admin-table {
         font-size: 13px;
-        min-width: 600px;
+        min-width: 700px;
+        width: 100%;
     }
     
     .admin-table th,
@@ -1212,6 +1214,16 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     
     .admin-panel h2 {
         font-size: 20px;
+    }
+    
+    /* Alert responsive */
+    .alert li {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .alert li form {
+        margin-top: 5px;
     }
 }
 
@@ -1242,16 +1254,141 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     
     .admin-table {
         font-size: 12px;
+        min-width: 650px;
     }
     
     .admin-table th,
     .admin-table td {
         padding: 10px 8px;
+        white-space: nowrap;
+    }
+    
+    .admin-table-wrapper {
+        margin: 0 -20px;
+        padding: 0 20px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .badge {
         padding: 3px 6px;
         font-size: 10px;
+    }
+}
+
+/* RESPONSIVE DESIGN - EXTRA SMALL MOBILE (320px and below) */
+@media (max-width: 400px) {
+    .admin-container {
+        padding: 0 10px;
+    }
+    
+    .admin-header {
+        padding: 15px 0;
+    }
+    
+    .admin-header h1 {
+        font-size: 18px;
+        margin-bottom: 12px;
+    }
+    
+    .nav-btn {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-icon {
+        font-size: 28px;
+    }
+    
+    .stat-number {
+        font-size: 20px;
+    }
+    
+    .stat-info h3 {
+        font-size: 12px;
+    }
+    
+    .admin-panel {
+        padding: 15px;
+    }
+    
+    .admin-panel h2 {
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+    
+    .admin-table-wrapper {
+        margin: 0 -15px;
+        padding: 0 15px;
+    }
+    
+    .admin-table {
+        font-size: 11px;
+        min-width: 600px;
+    }
+    
+    .admin-table th,
+    .admin-table td {
+        padding: 8px 6px;
+    }
+    
+    .btn-link {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    
+    .status {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+    
+    .top-product-item {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .product-rank {
+        min-width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+    
+    .product-image-small {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .product-details h4 {
+        font-size: 12px;
+    }
+    
+    .product-meta {
+        font-size: 11px;
+    }
+    
+    .btn-view {
+        padding: 5px 8px;
+        font-size: 14px;
+    }
+    
+    .alert {
+        padding: 15px;
+    }
+    
+    .alert h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .alert li {
+        font-size: 13px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
 }
 
