@@ -1276,7 +1276,7 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     }
 }
 
-/* RESPONSIVE DESIGN - EXTRA SMALL MOBILE (320px and below) */
+/* RESPONSIVE DESIGN - EXTRA SMALL MOBILE (400px and below) */
 @media (max-width: 400px) {
     .admin-container {
         padding: 0 10px;
