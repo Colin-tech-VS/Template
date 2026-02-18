@@ -1193,8 +1193,8 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     .admin-table-wrapper {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        margin: 0 -30px;
-        padding: 0 30px;
+        margin: 0 -20px;
+        padding: 0 20px;
     }
     
     .admin-table {
@@ -1261,13 +1261,6 @@ body, p, .content, .about-text, .description, .info p, .info small { color: var(
     .admin-table td {
         padding: 10px 8px;
         white-space: nowrap;
-    }
-    
-    .admin-table-wrapper {
-        margin: 0 -20px;
-        padding: 0 20px;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
     }
     
     .badge {
